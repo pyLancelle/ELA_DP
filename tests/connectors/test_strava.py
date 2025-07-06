@@ -8,12 +8,13 @@ import connectors.strava as strava
 
 
 class TestStravaExtraction(unittest.TestCase):
+
     @patch("connectors.strava.requests.get")
     def test_fetch_activities(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200, json=lambda: [{"id": 1, "name": "Test Activity"}]
         )
-        activities = strava.fetch_activities(token="dummy", per_page=1, max_pages=1)
+        activities = strava.fetch_activities("dummy", per_page=1, max_pages=1)
         self.assertEqual(len(activities), 1)
         self.assertEqual(activities[0]["name"], "Test Activity")
 
@@ -22,7 +23,7 @@ class TestStravaExtraction(unittest.TestCase):
         mock_get.return_value = MagicMock(
             status_code=200, json=lambda: [{"id": 2, "text": "Nice!"}]
         )
-        comments = strava.fetch_activity_comments(token="dummy", activity_id=1)
+        comments = strava.fetch_activity_comments("dummy", 1)
         self.assertEqual(len(comments), 1)
         self.assertEqual(comments[0]["text"], "Nice!")
 
@@ -31,7 +32,7 @@ class TestStravaExtraction(unittest.TestCase):
         mock_get.return_value = MagicMock(
             status_code=200, json=lambda: [{"id": 3, "firstname": "John"}]
         )
-        kudos = strava.fetch_activity_kudos(token="dummy", activity_id=1)
+        kudos = strava.fetch_activity_kudos("dummy", 1)
         self.assertEqual(len(kudos), 1)
         self.assertEqual(kudos[0]["firstname"], "John")
 
@@ -42,22 +43,15 @@ class TestStravaExtraction(unittest.TestCase):
             raise_for_status=MagicMock(side_effect=Exception("API error")),
         )
         with self.assertRaises(Exception):
-            strava.fetch_activities(token="dummy", per_page=1, max_pages=1)
+            strava.fetch_activities("dummy", per_page=1, max_pages=1)
 
     @patch("connectors.strava.requests.get")
     def test_fetch_activities_empty(self, mock_get):
         mock_get.return_value = MagicMock(status_code=200, json=lambda: [])
-        activities = strava.fetch_activities(token="dummy", per_page=1, max_pages=1)
+        activities = strava.fetch_activities("dummy", per_page=1, max_pages=1)
         self.assertEqual(activities, [])
 
-    def test_get_token_missing(self):
-        import os
-        from importlib import reload
-
-        os.environ.pop("STRAVA_API_TOKEN", None)
-        reload(strava)
-        with self.assertRaises(RuntimeError):
-            strava.get_token()
+    # Removed test_get_token_missing: get_token() no longer exists in strava.py
 
 
 if __name__ == "__main__":

@@ -8,22 +8,81 @@ import os
 import requests
 import pandas as pd
 from dotenv import load_dotenv
+import json
+from datetime import datetime
 
 STRAVA_API_URL = "https://www.strava.com/api/v3"
 
 
-def get_token():
-    """Load Strava API token from environment or .env file."""
+def refresh_access_token(client_id, client_secret, refresh_token):
+    """Refresh the Strava access token using the refresh token and update .env."""
+    url = "https://www.strava.com/oauth/token"
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    }
+    resp = requests.post(url, data=data, timeout=20)
+    try:
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError:
+        print("Failed to refresh token. Response from Strava:")
+        print(f"Status code: {resp.status_code}")
+        print(f"Response body: {resp.text}")
+        raise
+    response = resp.json()
+    access_token = response["access_token"]
+    new_refresh_token = response.get("refresh_token", refresh_token)
+    # Update .env file with both tokens
+    update_env_file(access_token, new_refresh_token)
+    print(
+        f"Tokens updated in .env: access_token={access_token[:8]}..., refresh_token={new_refresh_token[:8]}..."
+    )
+    return access_token, new_refresh_token
+
+
+"""
+Strava data extraction utility.
+Fetches all activities, comments, and kudos, and exports them as CSV files.
+PEP8 compliant.
+"""
+
+import os
+import requests
+import pandas as pd
+from dotenv import load_dotenv
+
+STRAVA_API_URL = "https://www.strava.com/api/v3"
+
+
+def get_strava_credentials():
+    """Load Strava API credentials from environment or .env file."""
     load_dotenv()
-    token = os.getenv("STRAVA_API_TOKEN")
-    if not token:
-        raise RuntimeError("STRAVA_API_TOKEN is not set in environment or .env file.")
-    return token
+    client_id = os.getenv("STRAVA_CLIENT_ID")
+    client_secret = os.getenv("STRAVA_CLIENT_SECRET")
+    access_token = os.getenv("STRAVA_ACCESS_TOKEN")
+    refresh_token = os.getenv("STRAVA_REFRESH_TOKEN")
+    missing = [
+        k
+        for k, v in {
+            "STRAVA_CLIENT_ID": client_id,
+            "STRAVA_CLIENT_SECRET": client_secret,
+            "STRAVA_ACCESS_TOKEN": access_token,
+            "STRAVA_REFRESH_TOKEN": refresh_token,
+        }.items()
+        if not v
+    ]
+    if missing:
+        raise RuntimeError(
+            f"Missing Strava credentials in environment or .env file: {', '.join(missing)}"
+        )
+    return client_id, client_secret, access_token, refresh_token
 
 
-def fetch_activities(token, per_page=200, max_pages=10):
+def fetch_activities(access_token, per_page=200, max_pages=10):
     url = f"{STRAVA_API_URL}/athlete/activities"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {access_token}"}
     all_activities = []
     for page in range(1, max_pages + 1):
         params = {"per_page": per_page, "page": page}
@@ -36,17 +95,17 @@ def fetch_activities(token, per_page=200, max_pages=10):
     return all_activities
 
 
-def fetch_activity_comments(token, activity_id):
+def fetch_activity_comments(access_token, activity_id):
     url = f"{STRAVA_API_URL}/activities/{activity_id}/comments"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {access_token}"}
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     return resp.json()
 
 
-def fetch_activity_kudos(token, activity_id):
+def fetch_activity_kudos(access_token, activity_id):
     url = f"{STRAVA_API_URL}/activities/{activity_id}/kudos"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {access_token}"}
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     return resp.json()
@@ -73,14 +132,49 @@ def dump_nested_csv(df, filename):
     df.to_csv(filename, index=False)
 
 
+def update_env_file(new_access_token, new_refresh_token):
+    """Update the .env file with new access and refresh tokens."""
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    lines = []
+    with open(env_path, "r") as f:
+        for line in f:
+            if line.startswith("STRAVA_ACCESS_TOKEN="):
+                lines.append(f"STRAVA_ACCESS_TOKEN={new_access_token}\n")
+            elif line.startswith("STRAVA_REFRESH_TOKEN="):
+                lines.append(f"STRAVA_REFRESH_TOKEN={new_refresh_token}\n")
+            else:
+                lines.append(line)
+    with open(env_path, "w") as f:
+        f.writelines(lines)
+
+
 def main():
-    token = get_token()
+    client_id, client_secret, access_token, refresh_token = get_strava_credentials()
     today = datetime.today().strftime("%Y_%m_%d_")
     data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
     os.makedirs(data_dir, exist_ok=True)
 
     print("Fetching activities...")
-    activities = fetch_activities(token)
+    try:
+        activities = fetch_activities(access_token)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            print("Access token expired or invalid, refreshing token...")
+            access_token, refresh_token = refresh_access_token(
+                client_id, client_secret, refresh_token
+            )
+            update_env_file(access_token, refresh_token)
+            print(
+                f"Token refreshed. Retrying fetch with access_token: {access_token[:8]}... (truncated)"
+            )
+            # Use the new access_token for all subsequent calls
+            try:
+                activities = fetch_activities(access_token)
+            except requests.exceptions.HTTPError as e2:
+                print("Token refresh failed or new token is also unauthorized.")
+                raise
+        else:
+            raise
     dump_nested_csv(
         pd.DataFrame(activities),
         os.path.join(data_dir, f"{today}strava_activities.csv"),
@@ -93,11 +187,11 @@ def main():
         activity_id = activity.get("id")
         if not activity_id:
             continue
-        comments = fetch_activity_comments(token, activity_id)
+        comments = fetch_activity_comments(access_token, activity_id)
         for comment in comments:
             comment["activity_id"] = activity_id
         all_comments.extend(comments)
-        kudos = fetch_activity_kudos(token, activity_id)
+        kudos = fetch_activity_kudos(access_token, activity_id)
         for kudo in kudos:
             kudo["activity_id"] = activity_id
         all_kudos.extend(kudos)
