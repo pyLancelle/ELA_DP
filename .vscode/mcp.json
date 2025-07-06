@@ -1,0 +1,18 @@
+{
+    "servers": {
+        "todoist": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "todoist-mcp-server"
+            ],
+            "env": {
+                "TODOIST_API_TOKEN": "your_api_token_here"
+            }
+        },
+        "context7": {
+            "type": "http",
+            "url": "https://mcp.context7.com/mcp"
+        }
+    }
+}

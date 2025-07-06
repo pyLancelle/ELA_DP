@@ -9,3 +9,9 @@ wheels/
 # Virtual environments
 .venv
 venv
+
+# env files
+.env
+
+# data files
+data/
