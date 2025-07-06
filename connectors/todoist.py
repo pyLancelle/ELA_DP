@@ -2,7 +2,6 @@ import requests
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
-
 from utils import get_token, get_settings, dump_nested_csv, setup_logger
 import logging
 
