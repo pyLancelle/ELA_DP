@@ -56,6 +56,10 @@ import json
 from datetime import datetime
 
 
+import json
+from datetime import datetime
+
+
 def dump_nested_csv(df, filename):
     for col in df.columns:
         if df[col].apply(lambda x: isinstance(x, (dict, list))).any():
@@ -102,7 +106,8 @@ def main():
         os.path.join(data_dir, f"{today}strava_comments.csv"),
     )
     dump_nested_csv(
-        pd.DataFrame(all_kudos), os.path.join(data_dir, f"{today}strava_kudos.csv")
+        pd.DataFrame(all_kudos),
+        os.path.join(data_dir, f"{today}strava_kudos.csv"),
     )
     print("All Strava data fetched and saved to CSV files in the data folder.")
 

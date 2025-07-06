@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 """
 Todoist data extraction utility.
 Fetches projects, sections, tasks, and activity logs, and exports them as CSV files.
@@ -60,7 +61,7 @@ def fetch_sections(
     if token is None:
         token = get_token()
     headers = {"Authorization": f"Bearer {token}"}
-    params = {"project_id": project_id} if project_id else {}
+    params = {"project_id": str(project_id)} if project_id is not None else {}
     response = requests.get(TODOIST_SECTIONS_URL, headers=headers, params=params)
     response.raise_for_status()
     return response.json()
@@ -74,8 +75,8 @@ def fetch_tasks(
         token = get_token()
     headers = {"Authorization": f"Bearer {token}"}
     params = {"limit": limit}
-    if project_id:
-        params["project_id"] = project_id
+    if project_id is not None:
+        params["project_id"] = str(project_id)
     response = requests.get(TODOIST_API_URL, headers=headers, params=params)
     response.raise_for_status()
     tasks = response.json()
@@ -124,7 +125,8 @@ def main() -> None:
     token = get_token()
     projects = fetch_projects(token=token)
     dump_nested_csv(
-        pd.DataFrame(projects), str(data_dir / f"{today}todoist_projects.csv")
+        pd.DataFrame(projects),
+        str(data_dir / f"{today}todoist_projects.csv"),
     )
 
     print("Fetching sections...")
@@ -135,7 +137,8 @@ def main() -> None:
             section["project_id"] = project["id"]
         all_sections.extend(sections)
     dump_nested_csv(
-        pd.DataFrame(all_sections), str(data_dir / f"{today}todoist_sections.csv")
+        pd.DataFrame(all_sections),
+        str(data_dir / f"{today}todoist_sections.csv"),
     )
 
     print("Fetching tasks...")
@@ -145,12 +148,16 @@ def main() -> None:
         df_tasks["created_at"] = pd.to_datetime(df_tasks["created_at"])
         if df_tasks["created_at"].dt.tz is not None:
             df_tasks["created_at"] = df_tasks["created_at"].dt.tz_localize(None)
-    dump_nested_csv(df_tasks, str(data_dir / f"{today}todoist_tasks.csv"))
+    dump_nested_csv(
+        df_tasks,
+        str(data_dir / f"{today}todoist_tasks.csv"),
+    )
 
     print("Fetching activity logs...")
     logs = fetch_activity_logs(token=token, limit=100)
     dump_nested_csv(
-        pd.DataFrame(logs), str(data_dir / f"{today}todoist_activity_logs.csv")
+        pd.DataFrame(logs),
+        str(data_dir / f"{today}todoist_activity_logs.csv"),
     )
 
     print("All data fetched and saved to CSV files in the data folder.")
