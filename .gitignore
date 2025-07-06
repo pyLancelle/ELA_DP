@@ -12,6 +12,7 @@ venv
 
 # env files
 .env
+gcs_key.json
 
 # data files
 data/
