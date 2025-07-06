@@ -54,23 +54,37 @@ def fetch_activity_kudos(token, activity_id):
 
 import json
 from datetime import datetime
+
+
+import json
+from datetime import datetime
+
+
 def dump_nested_csv(df, filename):
     for col in df.columns:
         if df[col].apply(lambda x: isinstance(x, (dict, list))).any():
-            df[col] = df[col].apply(lambda x: json.dumps(x, ensure_ascii=False) if isinstance(x, (dict, list)) else x)
+            df[col] = df[col].apply(
+                lambda x: (
+                    json.dumps(x, ensure_ascii=False)
+                    if isinstance(x, (dict, list))
+                    else x
+                )
+            )
     df.to_csv(filename, index=False)
-
 
 
 def main():
     token = get_token()
     today = datetime.today().strftime("%Y_%m_%d_")
-    data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
     os.makedirs(data_dir, exist_ok=True)
 
     print("Fetching activities...")
     activities = fetch_activities(token)
-    dump_nested_csv(pd.DataFrame(activities), os.path.join(data_dir, f"{today}strava_activities.csv"))
+    dump_nested_csv(
+        pd.DataFrame(activities),
+        os.path.join(data_dir, f"{today}strava_activities.csv"),
+    )
 
     print("Fetching comments and kudos for each activity...")
     all_comments = []
@@ -87,8 +101,14 @@ def main():
         for kudo in kudos:
             kudo["activity_id"] = activity_id
         all_kudos.extend(kudos)
-    dump_nested_csv(pd.DataFrame(all_comments), os.path.join(data_dir, f"{today}strava_comments.csv"))
-    dump_nested_csv(pd.DataFrame(all_kudos), os.path.join(data_dir, f"{today}strava_kudos.csv"))
+    dump_nested_csv(
+        pd.DataFrame(all_comments),
+        os.path.join(data_dir, f"{today}strava_comments.csv"),
+    )
+    dump_nested_csv(
+        pd.DataFrame(all_kudos),
+        os.path.join(data_dir, f"{today}strava_kudos.csv"),
+    )
     print("All Strava data fetched and saved to CSV files in the data folder.")
 
 
