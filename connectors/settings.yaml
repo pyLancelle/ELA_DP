@@ -2,8 +2,8 @@ todoist:
   tasks_limit: 200
   activity_limit: 100
 strava:
-  activities_days: 500
-  kudos_max_activities: 500
-  comments_max_activities: 500
-  laps_max_activities: 500
-  streams_max_activities: 500
+  activities_days: 5
+  kudos_max_activities: 5
+  comments_max_activities: 5
+  laps_max_activities: 5
+  streams_max_activities: 5

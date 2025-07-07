@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
+from utils import to_jsonl
+
 # Charger les variables d'environnement
 dotenv_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 
@@ -35,7 +37,10 @@ results = sp.current_user_recently_played(limit=50)
 timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 output_file = f"data/spotify_recently_played_raw_{timestamp_str}.json"
 
-with open(output_file, "w", encoding="utf-8") as f:
-    json.dump(results, f, ensure_ascii=False, indent=2)
+to_jsonl(
+    results,
+    jsonl_output_path=f"data/spotify_recently_played_raw_{timestamp_str}.jsonl",
+    key="items",
+)
 
 print(f"Dump brut enregistré dans : {output_file}")
