@@ -16,3 +16,13 @@ gcs_key.json
 
 # data files
 data/
+
+# pre-commit files
+.pre-commit-config.yaml
+.pre-commit-hooks.yaml
+.mypy_cache/
+
+# IDE files
+.vscode/
+.git/
+.github/
