@@ -5,7 +5,8 @@ build/
 dist/
 wheels/
 *.egg-info
-
+.DS_Store
+.cache
 # Virtual environments
 .venv
 venv
@@ -26,3 +27,8 @@ data/
 .vscode/
 .git/
 .github/
+
+# Jupyter Notebook files
+.ipynb_checkpoints
+*.ipynb 
+playground/
