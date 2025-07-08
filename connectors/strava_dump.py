@@ -8,7 +8,7 @@ from stravalib import Client
 # Configuration
 TOKEN_FILE = os.path.join(os.path.dirname(__file__), "strava_tokens.json")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-DAYS = 30  # Nombre de jours en arrière pour récupérer les activités
+DAYS = 10  # Nombre de jours en arrière pour récupérer les activités
 
 STREAM_TYPES = [
     "time",
@@ -93,17 +93,17 @@ def main():
             print(f"⏳ Activité {a.id} ({idx+1}/{len(acts)})")
             # Kudos
             try:
-                kudos += [k._raw for k in client.get_activity_kudos(a.id)]
+                kudos += [k.model_dump() for k in client.get_activity_kudos(a.id)]
             except Exception as e:
                 print(f"⚠️ Kudos erreur pour {a.id} : {e}")
             # Comments
             try:
-                comments += [c._raw for c in client.get_activity_comments(a.id)]
+                comments += [c.model_dump() for c in client.get_activity_comments(a.id)]
             except Exception as e:
                 print(f"⚠️ Comments erreur pour {a.id} : {e}")
             # Laps
             try:
-                laps += [lap._raw for lap in client.get_activity_laps(a.id)]
+                laps += [lap.model_dump() for lap in client.get_activity_laps(a.id)]
             except Exception as e:
                 print(f"⚠️ Laps erreur pour {a.id} : {e}")
             # Streams
@@ -112,7 +112,7 @@ def main():
                 streams.append(
                     {
                         "activity_id": a.id,
-                        "streams": {k: v._raw for k, v in sdict.items()},
+                        "streams": {k: v.model_dump() for k, v in sdict.items()},
                     }
                 )
             except Exception as e:
@@ -130,16 +130,16 @@ def main():
     try:
         athlete = client.get_athlete()
         if hasattr(athlete, "bikes"):
-            gears += [g._raw for g in athlete.bikes]
+            gears += [g.model_dump() for g in athlete.bikes]
         if hasattr(athlete, "shoes"):
-            gears += [g._raw for g in athlete.shoes]
+            gears += [g.model_dump() for g in athlete.shoes]
         dump_jsonl(gears, os.path.join(DATA_DIR, f"{prefix}gears.jsonl"))
     except Exception as e:
         print(f"⚠️ Gears non récupérés : {e}")
 
     clubs = []
     try:
-        clubs = [c._raw for c in client.get_athlete_clubs()]
+        clubs = [c.model_dump() for c in client.get_athlete_clubs()]
         dump_jsonl(clubs, os.path.join(DATA_DIR, f"{prefix}clubs.jsonl"))
     except Exception as e:
         print(f"⚠️ Clubs non récupérés : {e}")
