@@ -34,12 +34,12 @@ sp = spotipy.Spotify(
 results = sp.current_user_recently_played(limit=50)
 
 # Dump JSON BRUT
-timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-output_file = f"data/spotify_recently_played_raw_{timestamp_str}.json"
+timestamp_str = datetime.now().strftime("%Y_%m_%d_%H_%M")
+output_file = f"data/{timestamp_str}_spotify_recently_played_raw.jsonl"
 
 to_jsonl(
     results,
-    jsonl_output_path=f"data/spotify_recently_played_raw_{timestamp_str}.jsonl",
+    jsonl_output_path=output_file,
     key="items",
 )
 

@@ -4,10 +4,11 @@ import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from stravalib import Client
+from pathlib import Path
 
 # Configuration
 TOKEN_FILE = os.path.join(os.path.dirname(__file__), "strava_tokens.json")
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+DATA_DIR = Path(__file__).parent.parent / "data"
 DAYS = 10  # Nombre de jours en arrière pour récupérer les activités
 
 STREAM_TYPES = [
@@ -83,7 +84,7 @@ def main():
     # Activités brutes
     dump_jsonl(
         [a.model_dump() for a in acts],
-        os.path.join(DATA_DIR, f"{prefix}activities.jsonl"),
+        os.path.join(DATA_DIR, f"{prefix}strava_activities.jsonl"),
     )
 
     # Kudos, Comments, Laps, Streams
@@ -120,10 +121,10 @@ def main():
         except Exception as outer_e:
             print(f"❌ Activité {a.id} plantée : {outer_e}")
 
-    dump_jsonl(kudos, os.path.join(DATA_DIR, f"{prefix}kudos.jsonl"))
-    dump_jsonl(comments, os.path.join(DATA_DIR, f"{prefix}comments.jsonl"))
-    dump_jsonl(laps, os.path.join(DATA_DIR, f"{prefix}laps.jsonl"))
-    dump_jsonl(streams, os.path.join(DATA_DIR, f"{prefix}streams.jsonl"))
+    dump_jsonl(kudos, os.path.join(DATA_DIR, f"{prefix}strava_kudos.jsonl"))
+    dump_jsonl(comments, os.path.join(DATA_DIR, f"{prefix}strava_comments.jsonl"))
+    dump_jsonl(laps, os.path.join(DATA_DIR, f"{prefix}strava_laps.jsonl"))
+    dump_jsonl(streams, os.path.join(DATA_DIR, f"{prefix}strava_streams.jsonl"))
 
     # Optionnel : Dump tes gears (chaussures, vélo...) et clubs
     gears = []
@@ -133,14 +134,14 @@ def main():
             gears += [g.model_dump() for g in athlete.bikes]
         if hasattr(athlete, "shoes"):
             gears += [g.model_dump() for g in athlete.shoes]
-        dump_jsonl(gears, os.path.join(DATA_DIR, f"{prefix}gears.jsonl"))
+        dump_jsonl(gears, os.path.join(DATA_DIR, f"{prefix}strava_gears.jsonl"))
     except Exception as e:
         print(f"⚠️ Gears non récupérés : {e}")
 
     clubs = []
     try:
         clubs = [c.model_dump() for c in client.get_athlete_clubs()]
-        dump_jsonl(clubs, os.path.join(DATA_DIR, f"{prefix}clubs.jsonl"))
+        dump_jsonl(clubs, os.path.join(DATA_DIR, f"{prefix}strava_clubs.jsonl"))
     except Exception as e:
         print(f"⚠️ Clubs non récupérés : {e}")
 
