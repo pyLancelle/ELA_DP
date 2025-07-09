@@ -1,6 +1,6 @@
 todoist:
-  tasks_limit: 200
-  activity_limit: 100
+  tasks_limit: 300
+  activity_limit: 50
 strava:
   activities_days: 5
   kudos_max_activities: 5

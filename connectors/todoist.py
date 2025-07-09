@@ -1,11 +1,9 @@
 import requests
-import pandas as pd
 from datetime import datetime
 from pathlib import Path
-from utils import get_token, get_settings, dump_nested_csv, setup_logger
+from utils import get_token, get_settings, to_jsonl, setup_logger
 import logging
 
-# Endpoints
 TODOIST_API_URL = "https://api.todoist.com/rest/v2/tasks"
 TODOIST_PROJECTS_URL = "https://api.todoist.com/rest/v2/projects"
 TODOIST_SECTIONS_URL = "https://api.todoist.com/rest/v2/sections"
@@ -49,9 +47,7 @@ def main():
     # Projects
     logging.info("Fetching projects...")
     projects = fetch_projects(token)
-    dump_nested_csv(
-        pd.DataFrame(projects), str(data_dir / f"{today}todoist_projects.csv")
-    )
+    to_jsonl(projects, str(data_dir / f"{today}todoist_projects.jsonl"))
 
     # Sections
     logging.info("Fetching sections...")
@@ -61,26 +57,21 @@ def main():
         for section in sections:
             section["project_id"] = project["id"]
         all_sections.extend(sections)
-    dump_nested_csv(
-        pd.DataFrame(all_sections), str(data_dir / f"{today}todoist_sections.csv")
-    )
+    to_jsonl(all_sections, str(data_dir / f"{today}todoist_sections.jsonl"))
 
     # Tasks
     limit = config.get("todoist", {}).get("tasks_limit", 200)
     logging.info(f"Fetching up to {limit} tasks...")
     tasks = fetch_tasks(token, limit)
-    df_tasks = pd.DataFrame(tasks)
-    dump_nested_csv(df_tasks, str(data_dir / f"{today}todoist_tasks.csv"))
+    to_jsonl(tasks, str(data_dir / f"{today}todoist_tasks.jsonl"))
 
     # Activity logs
-    activity_limit = config.get("todoist", {}).get("activity_limit", 100)
+    activity_limit = config.get("todoist", {}).get("activity_limit", 200)
     logging.info(f"Fetching up to {activity_limit} activity logs...")
     logs = fetch_activity_logs(token, activity_limit)
-    dump_nested_csv(
-        pd.DataFrame(logs), str(data_dir / f"{today}todoist_activity_logs.csv")
-    )
+    to_jsonl(logs, str(data_dir / f"{today}todoist_activity_logs.jsonl"))
 
-    logging.info("All data fetched and saved to CSV.")
+    logging.info("All data fetched and saved to JSONL.")
 
 
 if __name__ == "__main__":
