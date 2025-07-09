@@ -44,3 +44,7 @@ to_jsonl(
 )
 
 print(f"Dump brut enregistré dans : {output_file}")
+with open("data/latest_spotify_dump.txt", "w") as f:
+    f.write(
+        f"data/{timestamp_str}_spotify_recently_played_raw.jsonl"
+    )  # mon_fichier_de_sortie = nom réel du fichier (avec chemin relatif)
