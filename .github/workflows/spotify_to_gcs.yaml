@@ -30,6 +30,12 @@ jobs:
       - name: List installed packages
         run: pip freeze
 
+      - name: Create .env file
+        run: |
+          echo "SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}" >> .env
+          echo "SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}" >> .env
+          echo "SPOTIFY_REDIRECT_URI=${{ secrets.SPOTIFY_REDIRECT_URI }}" >> .env
+
       - name: Run Spotify connector
         run: |
           source .venv/bin/activate
