@@ -26,6 +26,9 @@ jobs:
         run: |
           uv sync
 
+      - name: List installed packages
+        run: pip freeze
+
       - name: Run Spotify connector
         run: python connectors/spotify.py
 
