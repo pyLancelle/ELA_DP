@@ -26,9 +26,14 @@ key_path = os.environ.get(
     "GCS_KEY_FILE_PATH", "gcs_key.json"
 )  # Example reading from env var
 
-upload_to_gcs_explicit_key(
-    "ela-dp-dev",
-    "data/2025_07_06_strava_activities.csv",
-    "strava/2025_07_06_strava_activities.csv",
-    key_path,
-)
+files_to_send = [
+    f for f in os.listdir("data") if f.endswith("spotify_recently_played_raw.jsonl")
+]
+
+for file in files_to_send:
+    upload_to_gcs_explicit_key(
+        "ela-dp-dev",
+        f"data/{file}",
+        f"spotify/{file}",
+        key_path,
+    )
