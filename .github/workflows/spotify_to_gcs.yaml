@@ -25,7 +25,7 @@ jobs:
       - name: Install requirements
         run: |
           uv venv .venv
-          uv venv
+          source .venv/bin/activate
           uv sync
 
       - name: List installed packages
