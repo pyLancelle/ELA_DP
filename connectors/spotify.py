@@ -47,7 +47,7 @@ print("✅ Authentifié via refresh_token, let’s go !")
 results = sp.current_user_recently_played(limit=50)
 
 timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
-output_file = f"data/{timestamp}_spotify_recently_played_raw.jsonl"
+output_file = f"{timestamp}_spotify_recently_played_raw.jsonl"
 
 to_jsonl(
     results,
@@ -57,5 +57,5 @@ to_jsonl(
 
 print(f"📁 Dump brut enregistré dans : {output_file}")
 
-with open("data/latest_spotify_dump.txt", "w") as f:
+with open("latest_spotify_dump.txt", "w") as f:
     f.write(output_file)

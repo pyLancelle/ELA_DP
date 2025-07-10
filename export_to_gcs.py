@@ -27,13 +27,13 @@ key_path = os.environ.get(
 )  # Example reading from env var
 
 files_to_send = [
-    f for f in os.listdir("data") if f.endswith("spotify_recently_played_raw.jsonl")
+    f for f in os.listdir() if f.endswith("spotify_recently_played_raw.jsonl")
 ]
 
 for file in files_to_send:
     upload_to_gcs_explicit_key(
         "ela-dp-dev",
-        f"data/{file}",
+        f"{file}",
         f"spotify/{file}",
         key_path,
     )
