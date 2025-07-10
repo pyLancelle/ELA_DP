@@ -6,7 +6,11 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
 from utils import to_jsonl  # ta fonction d’export JSONL
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+# définir le fuseau Europe/Paris
+paris_tz = ZoneInfo("Europe/Paris")
 # ─── 1. Chargement des creds & du refresh_token ────────────────────────────────
 dotenv_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path)
@@ -46,7 +50,7 @@ print("✅ Authentifié via refresh_token, let’s go !")
 # ─── 3. Récupération des pistes récentes & dump ────────────────────────────────
 results = sp.current_user_recently_played(limit=50)
 
-timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
+timestamp = datetime.now(tz=paris_tz).strftime("%Y_%m_%d_%H_%M")
 output_file = f"{timestamp}_spotify_recently_played_raw.jsonl"
 
 to_jsonl(
