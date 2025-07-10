@@ -29,6 +29,7 @@ sp = spotipy.Spotify(
         scope="user-read-recently-played",
     )
 )
+print("Authentification Spotify réussie !")
 
 # Récupérer les pistes récentes (limite 50 par défaut, max 50)
 results = sp.current_user_recently_played(limit=50)
@@ -46,5 +47,5 @@ to_jsonl(
 print(f"Dump brut enregistré dans : {output_file}")
 with open("data/latest_spotify_dump.txt", "w") as f:
     f.write(
-        f"data/{timestamp_str}_spotify_recently_played_raw.jsonl"
+        output_file
     )  # mon_fichier_de_sortie = nom réel du fichier (avec chemin relatif)
