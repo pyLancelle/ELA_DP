@@ -18,18 +18,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install uv
+      - name: Install uv & create venv
         run: |
           pip install uv
-
-      - name: Install requirements
-        run: |
           uv venv .venv
-          source .venv/bin/activate
-          uv sync
 
-      - name: List installed packages
-        run: pip freeze
+      - name: Sync dependencies from toml & lock
+        run: |
+          uv sync
+          uv pip freeze
 
       - name: Create .env file
         run: |
@@ -39,7 +36,7 @@ jobs:
 
       - name: Run Spotify connector
         run: |
-          python connectors/spotify.py
+          uv run python connectors/spotify.py
 
       - name: Install Google Cloud SDK
         run: |
