@@ -2,7 +2,7 @@ name: Spotify to GCS
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # Toutes les 2h (UTC)
+    - cron: "0 0,8-22/2 * * *"   # Toutes les 2h (UTC)
   workflow_dispatch:
 
 jobs:
