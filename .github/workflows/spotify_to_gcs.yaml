@@ -38,7 +38,6 @@ jobs:
 
       - name: Run Spotify connector
         run: |
-          source .venv/bin/activate
           python connectors/spotify.py
 
       - name: Install Google Cloud SDK
