@@ -57,6 +57,12 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str):
     for line in content:
         try:
             data = json.loads(line)
+            try:
+                release_date = data["track"]["album"].get("release_date")
+                if release_date is not None:
+                    data["track"]["album"]["release_date"] = str(release_date)
+            except Exception:
+                pass
             data["dp_inserted_at"] = inserted_at
             data["source_file"] = filename
             rows.append(data)
