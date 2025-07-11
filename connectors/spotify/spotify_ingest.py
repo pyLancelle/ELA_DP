@@ -8,12 +8,12 @@ def get_env_config(env: str):
     if env == "dev":
         return {
             "bucket": "ela-dp-dev",
-            "bq_dataset": "ela_dp_dev",
+            "bq_dataset": "lake_spotify_dev",
         }
     elif env == "prd":
         return {
             "bucket": "ela-dp-prd",
-            "bq_dataset": "ela_dp_prd",
+            "bq_dataset": "lake_spotify_prd",
         }
     else:
         raise ValueError("Env doit être 'dev' ou 'prd'.")
