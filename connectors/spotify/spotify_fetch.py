@@ -126,7 +126,7 @@ def parse_args() -> argparse.Namespace:
         "-e",
         "--env",
         type=Path,
-        default=Path(__file__).parent.parent / ".env",
+        default=Path(__file__).parent.parent.parent / ".env",
         help="Path to the .env file",
     )
     parser.add_argument(
