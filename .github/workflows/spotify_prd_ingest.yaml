@@ -1,4 +1,4 @@
-name: "[DEV] Ingest Spotify GCS → BigQuery"
+name: "[PRD] Ingest Spotify GCS → BigQuery"
 
 on:
   schedule:
@@ -29,9 +29,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-      - name: Ingest GCS → BQ (dev)
+      - name: Ingest GCS → BQ (prd)
         run: |
-          python -m connectors.spotify.spotify_ingest --env dev --project ${{ secrets.GCP_PROJECT_ID }}
+          python -m connectors.spotify.spotify_ingest --env prd --project ${{ secrets.GCP_PROJECT_ID }}
 
         env:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
