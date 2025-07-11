@@ -1,0 +1,60 @@
+name: "[DEV] Spotify to GCS"
+
+on:
+  schedule:
+    - cron: "0 0,6-22/2 * * *"   # Toutes les 2h (UTC)
+  workflow_dispatch:
+
+jobs:
+  spotify-gcs:
+    runs-on: ubuntu-latest
+    env:
+      SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+      SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+      SPOTIFY_REDIRECT_URI: ${{ secrets.SPOTIFY_REDIRECT_URI }}
+      SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
+      GCS_BUCKET: ela-dp-dev/spotify/landing
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python & cache pip
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml','**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: pip install .
+
+      - name: Run Spotify connector
+        run: |
+          python connectors/spotify.py --limit 50
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Google Cloud SDK (gcloud + gsutil)
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          install_components: gsutil
+
+      - name: Prepare file for upload
+        id: prep
+        run: |
+          FILE_NAME=$(cat latest_spotify_dump.txt)
+          echo "UPLOAD_FILE=$FILE_NAME" >> $GITHUB_ENV
+          echo ">> Dump file to upload: $FILE_NAME"
+          ls -la .
+
+      - name: Upload to GCS
+        run: |
+          gsutil cp "$UPLOAD_FILE" "gs://$GCS_BUCKET/" \
+            || { echo '❌ Upload failed' >&2; exit 1; }
