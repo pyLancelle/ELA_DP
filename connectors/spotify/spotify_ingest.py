@@ -19,7 +19,7 @@ def get_env_config(env: str):
         raise ValueError("Env doit être 'dev' ou 'prd'.")
 
 
-def list_gcs_files(bucket_name: str, prefix: str = "spotify/raw/") -> list:
+def list_gcs_files(bucket_name: str, prefix: str = "spotify/landing/") -> list:
     client = storage.Client()
     blobs = client.list_blobs(bucket_name, prefix=prefix)
     return [
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = get_env_config(args.env)
-    bucket = f"ela-dp-{args.env}/spotify/landing"
+    bucket = f"ela-dp-{args.env}"
     bq_dataset = f"lake_spotify_{args.env}"
     bq_table = f"{args.project}.{bq_dataset}.normalized"
 
