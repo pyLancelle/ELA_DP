@@ -65,7 +65,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = get_env_config(args.env)
-    bucket = f"ela-dp-{args.env}/landing"
+    bucket = f"ela-dp-{args.env}/spotify/landing"
     bq_dataset = f"lake_spotify_{args.env}"
     bq_table = f"{args.project}.{bq_dataset}.normalized"
 
