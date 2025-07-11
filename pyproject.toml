@@ -7,6 +7,8 @@ requires-python = ">=3.12"
 dependencies = [
     "black>=25.1.0",
     "dotenv>=0.9.9",
+    "google-cloud>=0.34.0",
+    "google-cloud-bigquery>=3.34.0",
     "google-cloud-storage>=3.1.1",
     "ipykernel>=6.29.5",
     "npx>=0.1.6",

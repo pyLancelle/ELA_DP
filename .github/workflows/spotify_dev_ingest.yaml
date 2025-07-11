@@ -1,0 +1,32 @@
+name: "[DEV] Ingest Spotify GCS → BigQuery"
+
+on:
+  schedule:
+    # This cron expression schedules the workflow to run every 2 hours between 6:15 AM and 10:15 PM UTC each day.
+    - cron: "15 6-22/2 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python & cache pip
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml','**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: pip install .
+
+      - name: Ingest GCS → BQ (dev)
+        run: |
+          python -m connectors.spotify.spotify_ingest --env dev --project ${{ secrets.GCP_PROJECT_ID }}
+
+        env:
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
