@@ -116,14 +116,23 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str):
         try:
             data = json.loads(line)
 
-            # Force track.album.release_date to string if needed
-            album = data.get("track", {}).get("album", {})
-            release_date = album.get("release_date")
-            if release_date is not None and not isinstance(release_date, str):
-                data["track"]["album"]["release_date"] = str(release_date)
-            # Force presence de 'artists' comme liste vide
-            if "artists" not in album or album["artists"] is None:
-                data["track"]["album"]["artists"] = []
+            # Vérifie la présence de track > album
+            if "track" in data:
+                if "album" not in data["track"] or data["track"]["album"] is None:
+                    data["track"]["album"] = {}
+
+                album = data["track"]["album"]
+
+                # Cast release_date en string si nécessaire
+                release_date = album.get("release_date")
+                if release_date is not None and not isinstance(release_date, str):
+                    data["track"]["album"]["release_date"] = str(release_date)
+
+                # Force presence de 'artists' comme liste vide
+                if "artists" not in album or album["artists"] is None:
+                    data["track"]["album"]["artists"] = []
+
+            # Ajout des métadonnées
             data["dp_inserted_at"] = inserted_at
             data["source_file"] = filename
 
