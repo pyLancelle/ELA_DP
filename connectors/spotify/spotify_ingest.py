@@ -50,6 +50,18 @@ spotify_schema = [
                     bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
                     bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
                     bigquery.SchemaField("total_tracks", "INTEGER", mode="NULLABLE"),
+                    bigquery.SchemaField(
+                        "artists",
+                        "RECORD",
+                        mode="REPEATED",
+                        fields=[
+                            bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
+                            bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
+                            bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
+                            bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
+                            bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
+                        ],
+                    ),
                 ],
             ),
         ],
