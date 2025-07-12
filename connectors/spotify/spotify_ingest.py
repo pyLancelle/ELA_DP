@@ -60,6 +60,16 @@ spotify_schema = [
                             bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
                             bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
                             bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
+                            bigquery.SchemaField(
+                                "external_urls",
+                                "RECORD",
+                                mode="NULLABLE",
+                                fields=[
+                                    bigquery.SchemaField(
+                                        "spotify", "STRING", mode="NULLABLE"
+                                    ),
+                                ],
+                            ),
                         ],
                     ),
                 ],
