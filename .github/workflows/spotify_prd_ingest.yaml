@@ -3,7 +3,7 @@ name: "[PRD] Ingest Spotify GCS → BigQuery"
 on:
   schedule:
     # This cron expression schedules the workflow to run every 2 hours between 6:15 AM and 10:15 PM UTC each day.
-    - cron: "15 6-22/2 * * *"
+    - cron: "0 16 * * *"
   workflow_dispatch:
 
 jobs:
