@@ -258,6 +258,8 @@ spotify_schema = [
         ),
         None,
     ),
+    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", mode="NULLABLE"),
+    bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
 ]
 
 
