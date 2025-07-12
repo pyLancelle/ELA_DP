@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: spotify
+    database: polar-scene-465223-f7
+    schema: "dp_lake_{{ target.name }}"
+    tables:
+      - name: staging_spotify
+        description: "Fichiers JSONL bruts dumpés depuis l’API Spotify"
+        columns:
+          - name: played_at
+            description: "Horodatage du moment où la piste a été écoutée"
+            tests:
+              - not_null
+          - name: track
+            description: "Objet JSON complet décrivant la piste"
