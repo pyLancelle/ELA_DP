@@ -32,3 +32,5 @@ data/
 .ipynb_checkpoints
 *.ipynb 
 playground/
+
+logs/
