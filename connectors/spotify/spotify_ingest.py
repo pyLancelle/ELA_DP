@@ -267,12 +267,12 @@ def get_env_config(env: str):
     if env == "dev":
         return {
             "bucket": "ela-dp-dev",
-            "bq_dataset": "dp_lake_dev",
+            "bq_dataset": "lake_spotify_dev",
         }
     elif env == "prd":
         return {
             "bucket": "ela-dp-prd",
-            "bq_dataset": "dp_lake_prd",
+            "bq_dataset": "lake_spotify_prd",
         }
     else:
         raise ValueError("Env doit être 'dev' ou 'prd'.")
@@ -373,7 +373,7 @@ if __name__ == "__main__":
     config = get_env_config(args.env)
     bucket = config["bucket"]
     dataset = config["bq_dataset"]
-    table_id = f"{args.project}.{dataset}.staging_spotify_raw"
+    table_id = f"{args.project}.{dataset}.staging_spotify"
     inserted_at = datetime.utcnow().isoformat()
 
     uris = list_gcs_files(bucket)
