@@ -98,13 +98,14 @@ def move_gcs_file(bucket_name: str, source_path: str, dest_prefix: str):
 
 
 def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str):
-    # Récupération des composants GCS
+    from google.cloud import bigquery, storage
+    import json
+
     parts = uri.split("/")
     bucket_name = parts[2]
     blob_path = "/".join(parts[3:])
     filename = parts[-1]
 
-    # Lecture du fichier JSONL
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
@@ -114,30 +115,34 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str):
     for line in content:
         try:
             data = json.loads(line)
-            try:
-                release_date = data["track"]["album"].get("release_date")
-                if release_date is not None:
-                    data["track"]["album"]["release_date"] = str(release_date)
-            except Exception:
-                pass
+
+            # Force track.album.release_date to string if needed
+            album = data.get("track", {}).get("album", {})
+            release_date = album.get("release_date")
+            if release_date is not None and not isinstance(release_date, str):
+                data["track"]["album"]["release_date"] = str(release_date)
+
             data["dp_inserted_at"] = inserted_at
             data["source_file"] = filename
+
             rows.append(data)
+
         except json.JSONDecodeError:
             print(f"❌ Ligne invalide ignorée dans {filename}")
+            continue
+        except Exception as e:
+            print(f"⚠️ Erreur de cast dans {filename} : {e}")
             continue
 
     if not rows:
         raise ValueError(f"Fichier vide ou invalide : {filename}")
 
-    # Chargement dans BigQuery
     bq_client = bigquery.Client()
     job = bq_client.load_table_from_json(
         rows,
         table_id,
         job_config=bigquery.LoadJobConfig(
             schema=spotify_schema,
-            autodetect=True,
             write_disposition="WRITE_APPEND",
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         ),
