@@ -7,79 +7,257 @@ from google.cloud import bigquery
 
 spotify_schema = [
     bigquery.SchemaField(
+        "context",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (
+            bigquery.bigquery.SchemaField(
+                "external_urls",
+                "RECORD",
+                "NULLABLE",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "spotify", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
+        ),
+        None,
+    ),
+    bigquery.SchemaField("played_at", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField(
         "track",
         "RECORD",
-        mode="NULLABLE",
-        fields=[
-            bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("popularity", "INTEGER", mode="NULLABLE"),
-            bigquery.SchemaField("duration_ms", "INTEGER", mode="NULLABLE"),
-            bigquery.SchemaField("explicit", "BOOLEAN", mode="NULLABLE"),
-            bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("preview_url", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("track_number", "INTEGER", mode="NULLABLE"),
-            bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
-            bigquery.SchemaField("is_local", "BOOLEAN", mode="NULLABLE"),
-            bigquery.SchemaField(
-                "artists",
-                "RECORD",
-                mode="REPEATED",
-                fields=[
-                    bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
-                ],
-            ),
+        "NULLABLE",
+        None,
+        None,
+        (
             bigquery.SchemaField(
                 "album",
                 "RECORD",
-                mode="NULLABLE",
-                fields=[
-                    bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("album_type", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("release_date", "STRING", mode="NULLABLE"),
+                "NULLABLE",
+                None,
+                None,
+                (
                     bigquery.SchemaField(
-                        "release_date_precision", "STRING", mode="NULLABLE"
+                        "album_type", "STRING", "NULLABLE", None, None, (), None
                     ),
-                    bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
-                    bigquery.SchemaField("total_tracks", "INTEGER", mode="NULLABLE"),
                     bigquery.SchemaField(
                         "artists",
                         "RECORD",
-                        mode="REPEATED",
-                        fields=[
-                            bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
-                            bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
-                            bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
-                            bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
-                            bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
+                        "REPEATED",
+                        None,
+                        None,
+                        (
                             bigquery.SchemaField(
                                 "external_urls",
                                 "RECORD",
-                                mode="NULLABLE",
-                                fields=[
+                                "NULLABLE",
+                                None,
+                                None,
+                                (
                                     bigquery.SchemaField(
-                                        "spotify", "STRING", mode="NULLABLE"
+                                        "spotify",
+                                        "STRING",
+                                        "NULLABLE",
+                                        None,
+                                        None,
+                                        (),
+                                        None,
                                     ),
-                                ],
+                                ),
+                                None,
                             ),
-                        ],
+                            bigquery.SchemaField(
+                                "href", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                            bigquery.SchemaField(
+                                "id", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                            bigquery.SchemaField(
+                                "name", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                            bigquery.SchemaField(
+                                "type", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                            bigquery.SchemaField(
+                                "uri", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                        ),
+                        None,
                     ),
-                ],
+                    bigquery.SchemaField(
+                        "available_markets", "STRING", "REPEATED", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "external_urls",
+                        "RECORD",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField(
+                                "spotify", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                        ),
+                        None,
+                    ),
+                    bigquery.SchemaField(
+                        "href", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "id", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "images",
+                        "RECORD",
+                        "REPEATED",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField(
+                                "height", "INTEGER", "NULLABLE", None, None, (), None
+                            ),
+                            bigquery.SchemaField(
+                                "url", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                            bigquery.SchemaField(
+                                "width", "INTEGER", "NULLABLE", None, None, (), None
+                            ),
+                        ),
+                        None,
+                    ),
+                    bigquery.SchemaField(
+                        "name", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "release_date", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "release_date_precision",
+                        "STRING",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (),
+                        None,
+                    ),
+                    bigquery.SchemaField(
+                        "total_tracks", "INTEGER", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "type", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "uri", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
             ),
-        ],
+            bigquery.SchemaField(
+                "artists",
+                "RECORD",
+                "REPEATED",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "external_urls",
+                        "RECORD",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField(
+                                "spotify", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                        ),
+                        None,
+                    ),
+                    bigquery.SchemaField(
+                        "href", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "id", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "name", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "type", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "uri", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField(
+                "available_markets", "STRING", "REPEATED", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "disc_number", "INTEGER", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "duration_ms", "INTEGER", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "explicit", "BOOLEAN", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "external_ids",
+                "RECORD",
+                "NULLABLE",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "isrc", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField(
+                "external_urls",
+                "RECORD",
+                "NULLABLE",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "spotify", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("id", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField(
+                "is_local", "BOOLEAN", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField("name", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField(
+                "popularity", "INTEGER", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "preview_url", "STRING", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "track_number", "INTEGER", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
+        ),
+        None,
     ),
-    bigquery.SchemaField("played_at", "TIMESTAMP", mode="NULLABLE"),
-    # Champs ajoutés dynamiquement par toi
-    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", mode="NULLABLE"),
-    bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
 ]
 
 
