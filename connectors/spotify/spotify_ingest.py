@@ -3,6 +3,63 @@ import json
 from datetime import datetime, timezone
 from google.cloud import bigquery, storage
 
+from google.cloud import bigquery
+
+spotify_schema = [
+    bigquery.SchemaField(
+        "track",
+        "RECORD",
+        mode="NULLABLE",
+        fields=[
+            bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("popularity", "INTEGER", mode="NULLABLE"),
+            bigquery.SchemaField("duration_ms", "INTEGER", mode="NULLABLE"),
+            bigquery.SchemaField("explicit", "BOOLEAN", mode="NULLABLE"),
+            bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("preview_url", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("track_number", "INTEGER", mode="NULLABLE"),
+            bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("is_local", "BOOLEAN", mode="NULLABLE"),
+            bigquery.SchemaField(
+                "artists",
+                "RECORD",
+                mode="REPEATED",
+                fields=[
+                    bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
+                ],
+            ),
+            bigquery.SchemaField(
+                "album",
+                "RECORD",
+                mode="NULLABLE",
+                fields=[
+                    bigquery.SchemaField("id", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("name", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("album_type", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("release_date", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField(
+                        "release_date_precision", "STRING", mode="NULLABLE"
+                    ),
+                    bigquery.SchemaField("href", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("uri", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("type", "STRING", mode="NULLABLE"),
+                    bigquery.SchemaField("total_tracks", "INTEGER", mode="NULLABLE"),
+                ],
+            ),
+        ],
+    ),
+    bigquery.SchemaField("played_at", "TIMESTAMP", mode="NULLABLE"),
+    # Champs ajoutés dynamiquement par toi
+    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", mode="NULLABLE"),
+    bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
+]
+
 
 def get_env_config(env: str):
     if env == "dev":
@@ -79,6 +136,7 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str):
         rows,
         table_id,
         job_config=bigquery.LoadJobConfig(
+            schema=spotify_schema,
             autodetect=True,
             write_disposition="WRITE_APPEND",
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
