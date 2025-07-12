@@ -13,7 +13,7 @@ spotify_schema = [
         None,
         None,
         (
-            bigquery.bigquery.SchemaField(
+            bigquery.SchemaField(
                 "external_urls",
                 "RECORD",
                 "NULLABLE",
