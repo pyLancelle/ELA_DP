@@ -370,7 +370,7 @@ if __name__ == "__main__":
     config = get_env_config(args.env)
     bucket = config["bucket"]
     dataset = config["bq_dataset"]
-    table_id = f"{args.project}.{dataset}.staging_spotify_raw"
+    table_id = f"{args.project}.{dataset}.staging_spotify"
     inserted_at = datetime.utcnow().isoformat()
 
     uris = list_gcs_files(bucket)
