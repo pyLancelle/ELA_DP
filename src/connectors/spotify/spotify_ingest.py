@@ -3,7 +3,9 @@ from datetime import datetime, timezone
 from google.cloud import bigquery, storage
 import os
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcs_key.json"
+dev = False
+if dev:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcs_key.json"
 
 spotify_schema = [
     bigquery.SchemaField(
