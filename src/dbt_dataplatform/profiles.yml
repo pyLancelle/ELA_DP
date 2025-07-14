@@ -1,0 +1,21 @@
+dbt_dataplatform:
+  target: dev
+
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: polar-scene-465223-f7
+      dataset: dp_lake_dev         # overridé dans dbt_project.yml
+      location: US
+      threads: 2
+      keyfile: ../../gcs_key.json
+
+    prd:
+      type: bigquery
+      method: service-account
+      project: polar-scene-465223-f7
+      dataset: dp_lake_prd             # overridé dans dbt_project.yml
+      location: US
+      threads: 2
+      keyfile: ../../gcs_key.json
