@@ -21,3 +21,5 @@ dependencies = [
     "stravalib>=2.4",
     "types-requests>=2.32.4.20250611",
 ]
+[tool.setuptools.packages.find]
+where = ["src"]
