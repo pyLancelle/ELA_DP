@@ -31,7 +31,7 @@ jobs:
 
       - name: Ingest GCS → BQ (dev)
         run: |
-          python -m connectors.spotify.spotify_ingest --env dev --project ${{ secrets.GCP_PROJECT_ID }}
+          python -m src.connectors.spotify.spotify_ingest --env dev --project ${{ secrets.GCP_PROJECT_ID }}
 
         env:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
