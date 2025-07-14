@@ -1,9 +1,11 @@
 import argparse
-import json
 from datetime import datetime, timezone
 from google.cloud import bigquery, storage
+import os
 
-from google.cloud import bigquery
+dev = False
+if dev:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcs_key.json"
 
 spotify_schema = [
     bigquery.SchemaField(
@@ -264,15 +266,10 @@ spotify_schema = [
 
 
 def get_env_config(env: str):
-    if env == "dev":
+    if env == "dev" or env == "prd":
         return {
-            "bucket": "ela-dp-dev",
-            "bq_dataset": "lake_spotify_dev",
-        }
-    elif env == "prd":
-        return {
-            "bucket": "ela-dp-prd",
-            "bq_dataset": "lake_spotify_prd",
+            "bucket": f"ela-dp-{env}",
+            "bq_dataset": f"dp_lake_{env}",
         }
     else:
         raise ValueError("Env doit être 'dev' ou 'prd'.")

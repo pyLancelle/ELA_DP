@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Spotify connector
         run: |
-          python -m connectors.spotify.spotify_fetch --limit 50
+          python -m src.connectors.spotify.spotify_fetch --limit 50
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
