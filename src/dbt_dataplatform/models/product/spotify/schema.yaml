@@ -10,3 +10,21 @@ models:
         description: Identifiant de l'artiste
       - name: play_count
         description: Nombre d'écoutes ce jour
+  - name: product_spotify__top10_artists
+    description: Top 10 artistes les plus écoutés
+    columns:
+      - name: artist_id
+        description: Identifiant de l'artiste
+      - name: play_count
+        description: Nombre total d'écoutes
+      - name: total_play_time_ms
+        description: Temps total d'écoute en millisecondes
+  - name: product_spotify__top10_tracks
+    description: Top 10 titres les plus écoutés
+    columns:
+      - name: track_id
+        description: Identifiant de la piste
+      - name: play_count
+        description: Nombre total d'écoutes
+      - name: total_play_time_ms
+        description: Temps total d'écoute en millisecondes
