@@ -3,17 +3,6 @@ version: 2
 sources:
   - name: spotify
     database: polar-scene-465223-f7
-    schema: "dp_lake_{{ target.name }}"
+    schema: "{{ 'dp_lake_' ~ target.name }}"  # Jinja actif
     tables:
-      - name: staging_spotify_raw
-      - name: bronze__spotify_recently_played_clean
-        description: Table bronze nettoyée et dédupliquée par played_at + track_id
-
-models:
-  - name: lake_spotify__svc_tracks
-    description: Données Spotify nettoyées et dédupliquées
-    columns:
-      - name: played_at
-        description: Timestamp du morceau
-      - name: track_id
-        description: Identifiant unique de la piste
+      - name: staging_spotify

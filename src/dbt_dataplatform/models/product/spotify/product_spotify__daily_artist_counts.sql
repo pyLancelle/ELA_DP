@@ -1,3 +1,4 @@
+{{ config(dataset=get_schema('product'), materialized='view') }}
 SELECT
     DATE(played_at) AS play_date,
     artist_id,

@@ -1,3 +1,5 @@
+{{ config(dataset=get_schema('hub'), materialized='view') }}
+
 SELECT
     played_at,
     track.id AS track_id,

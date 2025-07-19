@@ -1,16 +1,15 @@
-{{
-    config(
-        materialized='incremental',
-        unique_key=['played_at', 'track_id']
-    )
-}}
+{{ config(
+    dataset=get_schema('lake'),
+    materialized='incremental',
+    unique_key=['played_at', 'track_id']
+) }}
 
 WITH raw_data AS (
     SELECT
         *,
         TIMESTAMP(played_at) AS played_at_ts,
         track.id AS track_id
-    FROM {{ source('spotify', 'staging_spotify_raw') }}
+    FROM {{ source('spotify', 'staging_spotify') }}
     WHERE played_at IS NOT NULL
     {% if is_incremental() %}
         AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})

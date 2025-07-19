@@ -1,2 +1,3 @@
+{{ config(dataset=get_schema('lake')) }}
 SELECT *
-FROM {{ source('spotify', 'staging_spotify_raw') }}
+FROM {{ source('spotify', 'staging_spotify') }}

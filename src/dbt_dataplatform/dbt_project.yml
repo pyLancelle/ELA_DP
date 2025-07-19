@@ -9,9 +9,8 @@ model-paths: ["models"]
 models:
   dbt_dataplatform:
     lake:
-      +schema: "dp_lake_{{ target.name }}"
+      +materialized: table
     hub:
-      +schema: "dp_hub_{{ target.name }}"
+      +materialized: view
     product:
-      +schema: "dp_product_{{ target.name }}"
-    +materialized: view
+      +materialized: view
