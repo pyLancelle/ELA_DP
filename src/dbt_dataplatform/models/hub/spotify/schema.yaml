@@ -1,0 +1,15 @@
+version: 2
+sources:
+  - name: spotify
+    tables:
+      - name: hub_spotify__plays
+models:
+  - name: hub_spotify__plays
+    description: Historique des écoutes Spotify avec détails piste et artiste
+    columns:
+      - name: played_at
+        description: Timestamp de l'écoute
+      - name: track_id
+        description: Identifiant de la piste
+      - name: artist_id
+        description: Identifiant de l'artiste

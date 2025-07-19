@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: product_spotify__daily_artist_counts
+    description: Nombre d'écoutes par artiste et par jour
+    columns:
+      - name: play_date
+        description: Date de lecture
+      - name: artist_id
+        description: Identifiant de l'artiste
+      - name: play_count
+        description: Nombre d'écoutes ce jour

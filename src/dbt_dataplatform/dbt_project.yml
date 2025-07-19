@@ -8,10 +8,9 @@ model-paths: ["models"]
 
 models:
   dbt_dataplatform:
-    staging:
-      +schema: "dp_lake_{{ target.name }}"
-    service:
-      +schema: "dp_hub_{{ target.name }}"
+    lake:
+      +materialized: table
+    hub:
+      +materialized: view
     product:
-      +schema: "dp_product_{{ target.name }}"
-    +materialized: view
+      +materialized: view
