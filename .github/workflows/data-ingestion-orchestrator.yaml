@@ -321,7 +321,7 @@ jobs:
             
             for file in $JSONL_FILES; do
               echo "⬆️  Uploading: $file"
-              gsutil cp "$file" "gs://ela-dp-${{ github.event.inputs.environment || 'dev' }}/spotify/landing/" \
+              gsutil cp "$file" "gs://ela-dp-${{ github.event.inputs.environment || 'dev' }}/${{ matrix.job.service }}/landing/" \
                 || echo "❌ Upload failed for $file"
             done
             
