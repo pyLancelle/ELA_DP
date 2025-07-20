@@ -370,6 +370,9 @@ saved_tracks_schema = [
                         None,
                     ),
                     bigquery.SchemaField(
+                        "is_playable", "BOOLEAN", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
                         "name", "STRING", "NULLABLE", None, None, (), None
                     ),
                     bigquery.SchemaField(
