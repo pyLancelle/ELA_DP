@@ -1,12 +1,12 @@
-name: "[DEV] Spotify to GCS"
+name: "[DEV] Spotify Saved Tracks to GCS"
 
 on:
   schedule:
-    - cron: "0 0,6-22/2 * * *"   # Toutes les 2h (UTC)
+    - cron: "0 12 * * 0"   # Weekly on Sundays at 12:00 UTC
   workflow_dispatch:
 
 jobs:
-  spotify-gcs:
+  spotify-saved-tracks:
     runs-on: ubuntu-latest
     env:
       SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
@@ -31,10 +31,10 @@ jobs:
       - name: Install dependencies
         run: pip install .
 
-      - name: Run Spotify connector - Recently Played
+      - name: Run Spotify connector - Saved Tracks
         run: |
-          # Fetch recently played tracks (50 songs) - runs every 2 hours
-          python -m src.connectors.spotify.spotify_fetch recently_played --limit 50
+          # Fetch saved tracks (liked songs from library) - runs weekly
+          python -m src.connectors.spotify.spotify_fetch saved_tracks --limit 500
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
@@ -53,15 +53,15 @@ jobs:
           echo ">> Files generated:"
           ls -la *.jsonl || echo "No JSONL files found"
           
-          # Find recently played Spotify files from this run
-          SPOTIFY_FILES=$(find . -name "*spotify_recently_played*.jsonl" -type f)
+          # Find saved tracks Spotify files from this run
+          SPOTIFY_FILES=$(find . -name "*spotify_saved_tracks*.jsonl" -type f)
           
           if [ -z "$SPOTIFY_FILES" ]; then
-            echo "❌ No Spotify recently played files found to upload"
+            echo "❌ No Spotify saved tracks files found to upload"
             exit 1
           fi
           
-          echo ">> Spotify recently played files to upload:"
+          echo ">> Spotify saved tracks files to upload:"
           echo "$SPOTIFY_FILES"
           
           # Store files list for upload step
@@ -79,4 +79,4 @@ jobs:
             fi
           done < spotify_files_to_upload.txt
           
-          echo "🎉 All Spotify files uploaded successfully"
+          echo "🎉 Spotify saved tracks uploaded successfully"

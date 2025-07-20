@@ -13,3 +13,25 @@ models:
         description: Identifiant de la piste
       - name: artist_id
         description: Identifiant de l'artiste
+  - name: hub_spotify__tracks
+    description: Informations uniques sur les pistes
+    columns:
+      - name: track_id
+        description: Identifiant de la piste
+      - name: album_id
+        description: Identifiant de l'album
+  - name: hub_spotify__artists
+    description: Liste unique des artistes
+    columns:
+      - name: artist_id
+        description: Identifiant de l'artiste
+  - name: hub_spotify__albums
+    description: Liste unique des albums
+    columns:
+      - name: album_id
+        description: Identifiant de l'album
+  - name: hub_spotify__playlists
+    description: Playlists associées aux écoutes
+    columns:
+      - name: playlist_id
+        description: Identifiant de la playlist
