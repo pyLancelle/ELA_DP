@@ -37,6 +37,19 @@ job_groups:
     description: "Jobs that run monthly (PRD)"
     jobs: ["spotify_playlists", "spotify_top_tracks", "spotify_top_artists"]
 
+  # New pipeline groups
+  garmin_pipeline:
+    description: "Complete Garmin pipeline (fetch + ingest)"
+    jobs: ["garmin_activities", "garmin_sleep", "garmin_heart_rate", "garmin_ingest"]
+  
+  strava_pipeline:
+    description: "Complete Strava pipeline (fetch + ingest)"
+    jobs: ["strava_activities", "strava_athlete", "strava_ingest"]
+  
+  ingestion_only:
+    description: "Run only ingestion jobs (GCS → BigQuery)"
+    jobs: ["garmin_ingest", "strava_ingest"]
+
 # Individual Jobs Configuration - PRD Environment
 jobs:
   # =================== SPOTIFY JOBS (PRD) ===================
@@ -108,7 +121,7 @@ jobs:
     cron: "0 */6 * * *"  # Every 6 hours for production
     command: "python -m src.connectors.strava.strava"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
 
   strava_athlete:
@@ -118,7 +131,7 @@ jobs:
     cron: "0 6 * * 1"  # Weekly on Mondays at 6:00 UTC
     command: "python -m src.connectors.strava.strava --athlete"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
 
   # =================== GARMIN JOBS (PRD) ===================
@@ -129,7 +142,7 @@ jobs:
     cron: "0 */4 * * *"  # Every 4 hours for production
     command: "python -m src.connectors.garmin.garmin_fetch activities --days 7"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   garmin_sleep:
@@ -139,7 +152,7 @@ jobs:
     cron: "0 8 * * *"  # Daily at 8:00 UTC
     command: "python -m src.connectors.garmin.garmin_fetch sleep --days 2"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   garmin_heart_rate:
@@ -149,7 +162,7 @@ jobs:
     cron: "0 */8 * * *"  # Every 8 hours for production
     command: "python -m src.connectors.garmin.garmin_fetch heart_rate --days 1"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   # =================== TODOIST JOBS (PRD) ===================
@@ -160,7 +173,7 @@ jobs:
     cron: "0 */4 * * *"  # Every 4 hours for production
     command: "python -m src.connectors.todoist.todoist tasks"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["TODOIST_API_TOKEN"]
 
   todoist_projects:
@@ -170,8 +183,29 @@ jobs:
     cron: "0 7 * * *"  # Daily at 7:00 UTC
     command: "python -m src.connectors.todoist.todoist projects"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["TODOIST_API_TOKEN"]
+
+  # =================== INGESTION JOBS (PRD) ===================
+  garmin_ingest:
+    service: "garmin"
+    data_type: "ingest"
+    description: "Ingest Garmin data from GCS to BigQuery (PRD)"
+    cron: "30 */4 * * *"  # 30 minutes after data fetch
+    command: "python -m src.connectors.garmin.garmin_ingest --env prd --project ela-dp"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  strava_ingest:
+    service: "strava"
+    data_type: "ingest"
+    description: "Ingest Strava data from GCS to BigQuery (PRD)"
+    cron: "30 */6 * * *"  # 30 minutes after data fetch
+    command: "python -m src.connectors.strava.strava_ingest --env prd --project ela-dp"
+    environment: "prd"
+    enabled: false  # Disabled until Strava OAuth is configured
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
 # Service-specific configuration
 services:
