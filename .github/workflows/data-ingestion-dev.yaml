@@ -211,9 +211,9 @@ jobs:
               f.write(f"execution_summary=Environment: DEV, Jobs: {len(jobs_to_run)}\n")
               f.write(f"has_jobs={has_jobs}\n")
               
-          # Also write individual job IDs for matrix (safer approach)
-          job_ids = [job['job_id'] for job in jobs_to_run]
-          f.write(f"job_ids={json.dumps(job_ids)}\n")
+              # Also write individual job IDs for matrix (safer approach)
+              job_ids = [job['job_id'] for job in jobs_to_run]
+              f.write(f"job_ids={json.dumps(job_ids)}\n")
           
           EOF
 
