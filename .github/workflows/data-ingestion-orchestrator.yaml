@@ -243,7 +243,8 @@ jobs:
       
       - name: Install dependencies with uv
         run: |
-          uv pip install --system .
+          # Install the project dependencies
+          uv pip install --system -e .
 
       - name: Validate job dependencies
         run: |
