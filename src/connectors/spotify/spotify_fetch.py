@@ -47,6 +47,8 @@ class DataType(Enum):
 
     RECENTLY_PLAYED = "recently_played"
     SAVED_TRACKS = "saved_tracks"
+    SAVED_ALBUMS = "saved_albums"
+    FOLLOWED_ARTISTS = "followed_artists"
     PLAYLISTS = "playlists"
     USER_PROFILE = "user_profile"
     TOP_TRACKS = "top_tracks"
@@ -78,6 +80,8 @@ class SpotifyConnector:
     SCOPES = {
         DataType.RECENTLY_PLAYED: "user-read-recently-played",
         DataType.SAVED_TRACKS: "user-library-read",
+        DataType.SAVED_ALBUMS: "user-library-read",
+        DataType.FOLLOWED_ARTISTS: "user-follow-read",
         DataType.PLAYLISTS: "playlist-read-private playlist-read-collaborative",
         DataType.USER_PROFILE: "user-read-private user-read-email",
         DataType.TOP_TRACKS: "user-top-read",
@@ -197,6 +201,78 @@ class SpotifyConnector:
         except Exception as e:
             raise SpotifyConnectorError(f"Error fetching saved tracks: {e}") from e
 
+    def fetch_saved_albums(self, limit: int = DEFAULT_LIMIT) -> List[Dict[str, Any]]:
+        """Fetch user's saved albums."""
+        try:
+            items = []
+            offset = 0
+            batch_size = min(limit, 50)  # Spotify API limit
+
+            while len(items) < limit:
+                remaining = limit - len(items)
+                current_limit = min(batch_size, remaining)
+
+                results = self.client.current_user_saved_albums(
+                    limit=current_limit, offset=offset
+                )
+                batch_items = results.get("items", [])
+
+                if not batch_items:
+                    break
+
+                items.extend(batch_items)
+                offset += len(batch_items)
+
+                # If we got fewer items than requested, we've reached the end
+                if len(batch_items) < current_limit:
+                    break
+
+            logging.info(f"Fetched {len(items)} saved albums")
+            return items[:limit]  # Ensure we don't exceed the limit
+
+        except Exception as e:
+            raise SpotifyConnectorError(f"Error fetching saved albums: {e}") from e
+
+    def fetch_followed_artists(
+        self, limit: int = DEFAULT_LIMIT
+    ) -> List[Dict[str, Any]]:
+        """Fetch user's followed artists."""
+        try:
+            items = []
+            after = None
+            batch_size = min(limit, 50)  # Spotify API limit
+
+            while len(items) < limit:
+                remaining = limit - len(items)
+                current_limit = min(batch_size, remaining)
+
+                results = self.client.current_user_followed_artists(
+                    limit=current_limit, after=after
+                )
+
+                # Extract artists from the response structure
+                artists_data = results.get("artists", {})
+                batch_items = artists_data.get("items", [])
+
+                if not batch_items:
+                    break
+
+                items.extend(batch_items)
+
+                # Get cursor for next page
+                cursors = artists_data.get("cursors", {})
+                after = cursors.get("after")
+
+                # If no next cursor, we've reached the end
+                if not after or len(batch_items) < current_limit:
+                    break
+
+            logging.info(f"Fetched {len(items)} followed artists")
+            return items[:limit]  # Ensure we don't exceed the limit
+
+        except Exception as e:
+            raise SpotifyConnectorError(f"Error fetching followed artists: {e}") from e
+
     def fetch_playlists(self, limit: int = DEFAULT_LIMIT) -> List[Dict[str, Any]]:
         """Fetch user's playlists."""
         try:
@@ -251,6 +327,8 @@ class SpotifyConnector:
         method_map = {
             DataType.RECENTLY_PLAYED: self.fetch_recently_played,
             DataType.SAVED_TRACKS: self.fetch_saved_tracks,
+            DataType.SAVED_ALBUMS: self.fetch_saved_albums,
+            DataType.FOLLOWED_ARTISTS: self.fetch_followed_artists,
             DataType.PLAYLISTS: self.fetch_playlists,
             DataType.USER_PROFILE: self.fetch_user_profile,
             DataType.TOP_TRACKS: self.fetch_top_tracks,
