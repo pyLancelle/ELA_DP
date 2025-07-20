@@ -147,8 +147,7 @@ jobs:
                           'job_id': job_id,
                           'command': config['jobs'][job_id]['command'],
                           'description': config['jobs'][job_id]['description'],
-                          'service': config['jobs'][job_id]['service'],
-                          'dependencies': config['jobs'][job_id].get('dependencies', [])
+                          'service': config['jobs'][job_id]['service']
                       })
                   else:
                       print(f"❌ Job {job_id} should not run at this time")
@@ -168,8 +167,7 @@ jobs:
                                   'job_id': group_job_id,
                                   'command': config['jobs'][group_job_id]['command'],
                                   'description': config['jobs'][group_job_id]['description'],
-                                  'service': config['jobs'][group_job_id]['service'],
-                                  'dependencies': config['jobs'][group_job_id].get('dependencies', [])
+                                  'service': config['jobs'][group_job_id]['service']
                               })
                       else:
                           print(f"❌ Job {group_job_id} from group {job_group} not found")
@@ -186,8 +184,7 @@ jobs:
                           'job_id': job_name,
                           'command': job_config['command'],
                           'description': job_config['description'],
-                          'service': job_config['service'],
-                          'dependencies': job_config.get('dependencies', [])
+                          'service': job_config['service']
                       })
 
           # Output results
@@ -242,24 +239,33 @@ jobs:
 
       - name: Validate job dependencies
         env:
-          JOB_DATA: ${{ toJson(matrix.job) }}
+          JOB_ID: ${{ matrix.job.job_id }}
         run: |
           python << 'EOF'
           import os
-          import json
+          import yaml
           
-          job = json.loads(os.environ['JOB_DATA'])
-          missing_deps = []
+          job_id = os.environ['JOB_ID']
           
-          for dep in job['dependencies']:
-              if not os.getenv(dep):
-                  missing_deps.append(dep)
+          # Load config to get dependencies
+          with open('ingestion-config-dev.yaml', 'r') as f:
+              config = yaml.safe_load(f)
           
-          if missing_deps:
-              print(f"❌ Missing dependencies for {job['job_id']}: {missing_deps}")
-              exit(1)
+          if job_id in config['jobs']:
+              dependencies = config['jobs'][job_id].get('dependencies', [])
+              missing_deps = []
+              
+              for dep in dependencies:
+                  if not os.getenv(dep):
+                      missing_deps.append(dep)
+              
+              if missing_deps:
+                  print(f"❌ Missing dependencies for {job_id}: {missing_deps}")
+                  exit(1)
+              else:
+                  print(f"✅ All dependencies available for {job_id}")
           else:
-              print(f"✅ All dependencies available for {job['job_id']}")
+              print(f"✅ Job {job_id} not found in config (skipping dependency check)")
           EOF
 
       - name: Execute job
