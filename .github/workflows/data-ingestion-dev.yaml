@@ -213,7 +213,7 @@ jobs:
   # Execution phase - runs the determined jobs in parallel
   execute-jobs:
     needs: determine-jobs
-    if: fromJson(needs.determine-jobs.outputs.jobs_to_run)[0] != null
+    if: needs.determine-jobs.outputs.jobs_to_run != '[]'
     runs-on: ubuntu-latest
     
     strategy:
