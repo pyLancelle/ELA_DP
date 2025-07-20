@@ -144,7 +144,7 @@ Configure these secrets in your GitHub repository:
 - `TODOIST_API_TOKEN`
 
 #### Google Cloud
-- `GCS_SERVICE_ACCOUNT_KEY` (base64 encoded service account JSON)
+- `GCP_SERVICE_ACCOUNT_KEY` (base64 encoded service account JSON)
 - `GCP_PROJECT_ID`
 
 ### 3. Testing

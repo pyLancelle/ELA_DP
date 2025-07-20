@@ -281,21 +281,36 @@ jobs:
           
           echo "✅ Job completed successfully at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-      - name: Authenticate to Google Cloud
+      - name: Check GCS credentials and authenticate
         if: success()
+        run: |
+          if [ -n "$GCP_KEY" ]; then
+            echo "✅ GCP credentials available (length: ${#GCP_KEY})"
+            echo "🔐 Proceeding with Google Cloud authentication"
+          else
+            echo "❌ GCP_SERVICE_ACCOUNT_KEY secret appears to be empty"
+            echo "⚠️ Skipping GCS upload - please check your GitHub secrets configuration"
+            echo "SKIP_GCS=true" >> $GITHUB_ENV
+            exit 0
+          fi
+        env:
+          GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Authenticate to Google Cloud
+        if: success() && env.SKIP_GCS != 'true'
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.GCS_SERVICE_ACCOUNT_KEY }}
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       - name: Set up Google Cloud SDK
-        if: success()
+        if: success() && env.SKIP_GCS != 'true'
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           install_components: gsutil
 
       - name: Upload generated files to GCS
-        if: success()
+        if: success() && env.SKIP_GCS != 'true'
         run: |
           # Find and upload any generated .jsonl files
           JSONL_FILES=$(find . -name "*.jsonl" -type f -newer /proc/self 2>/dev/null | head -10)
@@ -314,6 +329,17 @@ jobs:
           else
             echo "ℹ️  No JSONL files found to upload for job: ${{ matrix.job.job_id }}"
           fi
+
+      - name: Show generated files (GCS upload skipped)
+        if: success() && env.SKIP_GCS == 'true'
+        run: |
+          echo "📁 Generated files (GCS upload was skipped):"
+          find . -name "*.jsonl" -type f 2>/dev/null | head -10 || echo "No JSONL files found"
+          echo ""
+          echo "💡 To enable GCS upload:"
+          echo "   1. Verify GCP_SERVICE_ACCOUNT_KEY secret contains valid JSON"
+          echo "   2. Verify GCP_PROJECT_ID secret is set"
+          echo "   3. Ensure service account has Storage Admin permissions"
 
 
       - name: Capture job logs on failure
