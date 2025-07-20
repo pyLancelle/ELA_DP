@@ -502,7 +502,6 @@ saved_tracks_schema = [
     bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
 ]
 
-
 saved_albums_schema = [
     bigquery.SchemaField("added_at", "STRING", "NULLABLE", None, None, (), None),
     bigquery.SchemaField(
@@ -665,7 +664,6 @@ def get_schema_for_type(file_type: str):
     else:
         return spotify_schema
 
-
 def get_env_config(env: str):
     if env == "dev" or env == "prd":
         return {
@@ -751,6 +749,7 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
     # Get appropriate schema for file type
     schema = get_schema_for_type(file_type)
 
+
     bq_client = bigquery.Client()
     job = bq_client.load_table_from_json(
         rows,
@@ -774,7 +773,6 @@ if __name__ == "__main__":
     config = get_env_config(args.env)
     bucket = config["bucket"]
     dataset = config["bq_dataset"]
-    table_id = f"{args.project}.{dataset}.staging_spotify"
     inserted_at = datetime.utcnow().isoformat()
 
     uris = list_gcs_files(bucket)
