@@ -1,4 +1,4 @@
-name: "Data Ingestion Orchestrator"
+name: "Data Ingestion PRD"
 
 on:
   # Automatic execution every hour to check for scheduled jobs
@@ -29,14 +29,6 @@ on:
         required: false
         type: boolean
         default: false
-      environment:
-        description: "Environment to run against"
-        required: false
-        type: choice
-        options:
-          - "dev"
-          - "prd"
-        default: "dev"
 
 env:
   # Spotify credentials
@@ -89,15 +81,15 @@ jobs:
           from croniter import croniter
           import pytz
 
-          # Load configuration
-          with open('ingestion-config.yaml', 'r') as f:
+          # Load PRD configuration
+          with open('ingestion-config-prd.yaml', 'r') as f:
               config = yaml.safe_load(f)
 
           # Get inputs
           job_id = "${{ github.event.inputs.job_id }}"
           job_group = "${{ github.event.inputs.job_group }}"
           force_run = "${{ github.event.inputs.force_run }}" == "true"
-          target_env = "${{ github.event.inputs.environment }}" or "dev"
+          target_env = "prd"  # Always PRD for this workflow
           
           # Setup timezone
           tz = pytz.timezone(config['global']['timezone'])
@@ -111,7 +103,7 @@ jobs:
                   print(f"⏸️  Job {job_name} is disabled")
                   return False
               
-              if job_config.get('environment', 'dev') != target_env:
+              if job_config.get('environment', 'prd') != target_env:
                   print(f"🔄 Job {job_name} environment mismatch: {job_config.get('environment')} != {target_env}")
                   return False
               
@@ -196,7 +188,7 @@ jobs:
                       })
 
           # Output results
-          print(f"\n📊 Execution Summary:")
+          print(f"\n📊 Execution Summary (PRD):")
           print(f"   • Environment: {target_env}")
           print(f"   • Trigger: {'Manual' if job_id or job_group or force_run else 'Scheduled'}")
           print(f"   • Jobs to run: {len(jobs_to_run)}")
@@ -211,7 +203,7 @@ jobs:
           
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"jobs_to_run={jobs_json}\n")
-              f.write(f"execution_summary=Environment: {target_env}, Jobs: {len(jobs_to_run)}\n")
+              f.write(f"execution_summary=Environment: PRD, Jobs: {len(jobs_to_run)}\n")
           
           EOF
 
@@ -224,7 +216,7 @@ jobs:
     strategy:
       matrix:
         job: ${{ fromJson(needs.determine-jobs.outputs.jobs_to_run) }}
-      max-parallel: 3
+      max-parallel: 5  # Higher parallelism for PRD
       fail-fast: false
     
     steps:
@@ -243,7 +235,6 @@ jobs:
       
       - name: Install dependencies with uv
         run: |
-          # Install the project dependencies
           uv pip install --system -e .
 
       - name: Validate job dependencies
@@ -271,15 +262,15 @@ jobs:
       - name: Execute job
         id: execute
         run: |
-          echo "🚀 Executing job: ${{ matrix.job.job_id }}"
+          echo "🚀 Executing PRD job: ${{ matrix.job.job_id }}"
           echo "📝 Description: ${{ matrix.job.description }}"
           echo "🔧 Command: ${{ matrix.job.command }}"
           echo "⏰ Started at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           
-          # Execute the command with timeout
-          timeout 30m ${{ matrix.job.command }}
+          # Execute the command with timeout (longer for PRD)
+          timeout 45m ${{ matrix.job.command }}
           
-          echo "✅ Job completed successfully at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "✅ PRD job completed successfully at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
       - name: Check GCS credentials and authenticate
         if: success()
@@ -321,13 +312,13 @@ jobs:
             
             for file in $JSONL_FILES; do
               echo "⬆️  Uploading: $file"
-              gsutil cp "$file" "gs://ela-dp-${{ github.event.inputs.environment || 'dev' }}/${{ matrix.job.service }}/landing/" \
+              gsutil cp "$file" "gs://ela-dp-prd/${{ matrix.job.service }}/landing/" \
                 || echo "❌ Upload failed for $file"
             done
             
-            echo "✅ Upload completed for job: ${{ matrix.job.job_id }}"
+            echo "✅ Upload completed for PRD job: ${{ matrix.job.job_id }}"
           else
-            echo "ℹ️  No JSONL files found to upload for job: ${{ matrix.job.job_id }}"
+            echo "ℹ️  No JSONL files found to upload for PRD job: ${{ matrix.job.job_id }}"
           fi
 
       - name: Show generated files (GCS upload skipped)
@@ -341,25 +332,24 @@ jobs:
           echo "   2. Verify GCP_PROJECT_ID secret is set"
           echo "   3. Ensure service account has Storage Admin permissions"
 
-
       - name: Capture job logs on failure
         if: failure()
         env:
           JOB_DATA: ${{ toJson(matrix.job) }}
         run: |
-          echo "❌ Job ${{ matrix.job.job_id }} failed"
+          echo "❌ PRD Job ${{ matrix.job.job_id }} failed"
           echo "📋 Capturing logs and environment info"
           
           # Create failure report
           cat > job_failure_report.txt << EOF
-          Job Failure Report
-          ==================
+          Job Failure Report (PRD)
+          =========================
           Job ID: ${{ matrix.job.job_id }}
           Service: ${{ matrix.job.service }}
           Command: ${{ matrix.job.command }}
           Description: ${{ matrix.job.description }}
           Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-          Environment: ${{ github.event.inputs.environment || 'dev' }}
+          Environment: PRD
           Workflow Run: ${{ github.run_id }}
           
           Dependencies Status:
@@ -379,9 +369,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: job-failure-logs-${{ matrix.job.job_id }}
+          name: prd-job-failure-logs-${{ matrix.job.job_id }}
           path: job_failure_report.txt
-          retention-days: 7
+          retention-days: 14  # Longer retention for PRD
 
   # Summary phase - generates execution report
   execution-summary:
@@ -392,24 +382,24 @@ jobs:
     steps:
       - name: Generate execution summary
         run: |
-          echo "# 📊 Data Ingestion Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "# 🏭 Data Ingestion PRD Environment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Execution Details:**" >> $GITHUB_STEP_SUMMARY
           echo "- **Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- **Trigger:** ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** ${{ github.event.inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **${{ needs.determine-jobs.outputs.execution_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** 🏭 **PRODUCTION**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **${{ needs.determine-jobs.outputs.execution_summary }}**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Job results summary
           if [ "${{ needs.execute-jobs.result }}" = "success" ]; then
-            echo "✅ **Status:** All jobs completed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Status:** All PRD jobs completed successfully" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.execute-jobs.result }}" = "failure" ]; then
-            echo "❌ **Status:** Some jobs failed (check individual job logs)" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Status:** Some PRD jobs failed (check individual job logs)" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.execute-jobs.result }}" = "skipped" ]; then
-            echo "⏭️ **Status:** No jobs were scheduled to run" >> $GITHUB_STEP_SUMMARY
+            echo "⏭️ **Status:** No PRD jobs were scheduled to run" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ **Status:** Jobs execution was cancelled or had other issues" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Status:** PRD jobs execution was cancelled or had other issues" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -427,9 +417,9 @@ jobs:
               print(f'  - _{job[\"description\"]}_')
           " >> $GITHUB_STEP_SUMMARY
           else
-            echo "- No jobs were executed in this run" >> $GITHUB_STEP_SUMMARY
+            echo "- No jobs were executed in this PRD run" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "_Workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})_" >> $GITHUB_STEP_SUMMARY
+          echo "_PRD Workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})_" >> $GITHUB_STEP_SUMMARY
