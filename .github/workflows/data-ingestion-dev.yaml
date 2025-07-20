@@ -1,4 +1,4 @@
-name: "Data Ingestion DEV"
+name: "[DEV] Data Ingestion"
 
 on:
   # Automatic execution every hour to check for scheduled jobs
