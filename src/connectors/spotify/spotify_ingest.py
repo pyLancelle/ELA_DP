@@ -635,9 +635,341 @@ saved_albums_schema = [
                 ),
                 None,
             ),
+            bigquery.SchemaField(
+                "tracks",
+                "RECORD",
+                "NULLABLE",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "href", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "limit", "INTEGER", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "next", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "offset", "INTEGER", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "previous", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "total", "INTEGER", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "items", "JSON", "REPEATED", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
         ),
         None,
     ),
+    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", mode="NULLABLE"),
+    bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
+]
+
+# Schema for Spotify playlists
+playlists_schema = [
+    bigquery.SchemaField("collaborative", "BOOLEAN", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("description", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField(
+        "external_urls",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (bigquery.SchemaField("spotify", "STRING", "NULLABLE", None, None, (), None),),
+        None,
+    ),
+    bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("id", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField(
+        "images",
+        "RECORD",
+        "REPEATED",
+        None,
+        None,
+        (
+            bigquery.SchemaField("height", "INTEGER", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("url", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("width", "INTEGER", "NULLABLE", None, None, (), None),
+        ),
+        None,
+    ),
+    bigquery.SchemaField("name", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField(
+        "owner",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (
+            bigquery.SchemaField(
+                "external_urls",
+                "RECORD",
+                "NULLABLE",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "spotify", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("id", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField(
+                "display_name", "STRING", "NULLABLE", None, None, (), None
+            ),
+        ),
+        None,
+    ),
+    bigquery.SchemaField("primary_color", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("public", "BOOLEAN", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("snapshot_id", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField(
+        "tracks",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (
+            bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("total", "INTEGER", "NULLABLE", None, None, (), None),
+        ),
+        None,
+    ),
+    bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", mode="NULLABLE"),
+    bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
+]
+
+# Schema for Spotify top artists
+top_artists_schema = [
+    bigquery.SchemaField(
+        "external_urls",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (bigquery.SchemaField("spotify", "STRING", "NULLABLE", None, None, (), None),),
+        None,
+    ),
+    bigquery.SchemaField(
+        "followers",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (
+            bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("total", "INTEGER", "NULLABLE", None, None, (), None),
+        ),
+        None,
+    ),
+    bigquery.SchemaField("genres", "STRING", "REPEATED", None, None, (), None),
+    bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("id", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField(
+        "images",
+        "RECORD",
+        "REPEATED",
+        None,
+        None,
+        (
+            bigquery.SchemaField("height", "INTEGER", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("url", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("width", "INTEGER", "NULLABLE", None, None, (), None),
+        ),
+        None,
+    ),
+    bigquery.SchemaField("name", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("popularity", "INTEGER", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", mode="NULLABLE"),
+    bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
+]
+
+# Schema for Spotify top tracks (similar to track in spotify_schema but as top-level object)
+top_tracks_schema = [
+    bigquery.SchemaField(
+        "album",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (
+            bigquery.SchemaField(
+                "album_type", "STRING", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "artists",
+                "RECORD",
+                "REPEATED",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "external_urls",
+                        "RECORD",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField(
+                                "spotify", "STRING", "NULLABLE", None, None, (), None
+                            ),
+                        ),
+                        None,
+                    ),
+                    bigquery.SchemaField(
+                        "href", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "id", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "name", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "type", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "uri", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField(
+                "available_markets", "STRING", "REPEATED", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "external_urls",
+                "RECORD",
+                "NULLABLE",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "spotify", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("id", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField(
+                "images",
+                "RECORD",
+                "REPEATED",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "height", "INTEGER", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "url", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                    bigquery.SchemaField(
+                        "width", "INTEGER", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField("name", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField(
+                "release_date", "STRING", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField(
+                "release_date_precision",
+                "STRING",
+                "NULLABLE",
+                None,
+                None,
+                (),
+                None,
+            ),
+            bigquery.SchemaField(
+                "total_tracks", "INTEGER", "NULLABLE", None, None, (), None
+            ),
+            bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
+        ),
+        None,
+    ),
+    bigquery.SchemaField(
+        "artists",
+        "RECORD",
+        "REPEATED",
+        None,
+        None,
+        (
+            bigquery.SchemaField(
+                "external_urls",
+                "RECORD",
+                "NULLABLE",
+                None,
+                None,
+                (
+                    bigquery.SchemaField(
+                        "spotify", "STRING", "NULLABLE", None, None, (), None
+                    ),
+                ),
+                None,
+            ),
+            bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("id", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("name", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+            bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
+        ),
+        None,
+    ),
+    bigquery.SchemaField(
+        "available_markets", "STRING", "REPEATED", None, None, (), None
+    ),
+    bigquery.SchemaField("disc_number", "INTEGER", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("duration_ms", "INTEGER", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("explicit", "BOOLEAN", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField(
+        "external_ids",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (bigquery.SchemaField("isrc", "STRING", "NULLABLE", None, None, (), None),),
+        None,
+    ),
+    bigquery.SchemaField(
+        "external_urls",
+        "RECORD",
+        "NULLABLE",
+        None,
+        None,
+        (bigquery.SchemaField("spotify", "STRING", "NULLABLE", None, None, (), None),),
+        None,
+    ),
+    bigquery.SchemaField("href", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("id", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("is_local", "BOOLEAN", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("is_playable", "BOOLEAN", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("name", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("popularity", "INTEGER", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("preview_url", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("track_number", "INTEGER", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("type", "STRING", "NULLABLE", None, None, (), None),
+    bigquery.SchemaField("uri", "STRING", "NULLABLE", None, None, (), None),
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", mode="NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", mode="NULLABLE"),
 ]
@@ -649,6 +981,12 @@ def detect_file_type(filename: str) -> str:
         return "saved_tracks"
     elif "saved_albums" in filename:
         return "saved_albums"
+    elif "playlists" in filename:
+        return "playlists"
+    elif "top_artists" in filename:
+        return "top_artists"
+    elif "top_tracks" in filename:
+        return "top_tracks"
     elif "followed_artists" in filename:
         return "followed_artists"
     else:
@@ -661,8 +999,15 @@ def get_schema_for_type(file_type: str):
         return saved_tracks_schema
     elif file_type == "saved_albums":
         return saved_albums_schema
+    elif file_type == "playlists":
+        return playlists_schema
+    elif file_type == "top_artists":
+        return top_artists_schema
+    elif file_type == "top_tracks":
+        return top_tracks_schema
     else:
         return spotify_schema
+
 
 def get_env_config(env: str):
     if env == "dev" or env == "prd":
@@ -749,7 +1094,6 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
     # Get appropriate schema for file type
     schema = get_schema_for_type(file_type)
 
-
     bq_client = bigquery.Client()
     job = bq_client.load_table_from_json(
         rows,
@@ -767,8 +1111,12 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", choices=["dev", "prd"], required=True)
-    parser.add_argument("--project", required=True)
     args = parser.parse_args()
+
+    # Get project ID from environment variable
+    project_id = os.getenv("GCP_PROJECT_ID")
+    if not project_id:
+        raise ValueError("GCP_PROJECT_ID environment variable is required")
 
     config = get_env_config(args.env)
     bucket = config["bucket"]
@@ -785,13 +1133,19 @@ if __name__ == "__main__":
 
             # Choose table based on file type
             if file_type == "saved_tracks":
-                table_id = f"{args.project}.{dataset}.staging_spotify_saved_tracks"
+                table_id = f"{project_id}.{dataset}.staging_spotify_saved_tracks"
             elif file_type == "saved_albums":
-                table_id = f"{args.project}.{dataset}.staging_spotify_saved_albums"
+                table_id = f"{project_id}.{dataset}.staging_spotify_saved_albums"
+            elif file_type == "playlists":
+                table_id = f"{project_id}.{dataset}.staging_spotify_playlists"
+            elif file_type == "top_artists":
+                table_id = f"{project_id}.{dataset}.staging_spotify_top_artists"
+            elif file_type == "top_tracks":
+                table_id = f"{project_id}.{dataset}.staging_spotify_top_tracks"
             elif file_type == "followed_artists":
-                table_id = f"{args.project}.{dataset}.staging_spotify_followed_artists"
+                table_id = f"{project_id}.{dataset}.staging_spotify_followed_artists"
             else:
-                table_id = f"{args.project}.{dataset}.staging_spotify"
+                table_id = f"{project_id}.{dataset}.staging_spotify"
 
             print(f"📊 Processing {file_type} file: {filename}")
             load_jsonl_with_metadata(uri, table_id, inserted_at, file_type)

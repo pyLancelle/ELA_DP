@@ -16,7 +16,7 @@ import os
 import sys
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
@@ -160,75 +160,144 @@ class SpotifyConnector:
         return self._client
 
     def fetch_recently_played(self, limit: int = DEFAULT_LIMIT) -> List[Dict[str, Any]]:
-        """Fetch recently played tracks."""
+        """Fetch recently played tracks with 1-hour safety buffer (from 23:00 yesterday)."""
         try:
-            results = self.client.current_user_recently_played(limit=limit)
+            # Calculate 23:00 yesterday Paris time (1-hour safety buffer for edge cases)
+            paris_tz = ZoneInfo("Europe/Paris")
+            now_paris = datetime.now(paris_tz)
+            today_midnight_paris = now_paris.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+
+            # Start from 23:00 yesterday to catch late night tracks
+            yesterday_23h_paris = today_midnight_paris - timedelta(hours=1)
+
+            # Convert to Unix timestamp in milliseconds (required by Spotify API)
+            after_timestamp = int(yesterday_23h_paris.timestamp() * 1000)
+
+            # Get tracks played after 23:00 yesterday using API filter
+            results = self.client.current_user_recently_played(
+                limit=limit, after=after_timestamp
+            )
             items = results.get("items", [])
-            logging.info(f"Fetched {len(items)} recently played tracks")
+
+            logging.info(
+                f"Fetched {len(items)} tracks played since 23:00 yesterday (1h safety buffer)"
+            )
             return items
         except Exception as e:
             raise SpotifyConnectorError(f"Error fetching recently played: {e}") from e
 
     def fetch_saved_tracks(self, limit: int = DEFAULT_LIMIT) -> List[Dict[str, Any]]:
-        """Fetch user's saved tracks (liked songs)."""
+        """Fetch saved tracks added since 23:00 yesterday (1-hour safety buffer)."""
         try:
-            items = []
+            # Calculate 23:00 yesterday Paris time (1-hour safety buffer)
+            paris_tz = ZoneInfo("Europe/Paris")
+            now_paris = datetime.now(paris_tz)
+            today_midnight_paris = now_paris.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            yesterday_23h_paris = today_midnight_paris - timedelta(hours=1)
+
+            filtered_items = []
             offset = 0
-            batch_size = min(limit, 50)  # Spotify API limit
+            batch_size = 50  # Max API limit
 
-            while len(items) < limit:
-                remaining = limit - len(items)
-                current_limit = min(batch_size, remaining)
-
+            while len(filtered_items) < limit:
+                # Fetch batch from API
                 results = self.client.current_user_saved_tracks(
-                    limit=current_limit, offset=offset
+                    limit=batch_size, offset=offset
                 )
                 batch_items = results.get("items", [])
 
                 if not batch_items:
                     break
 
-                items.extend(batch_items)
+                # Filter by added_at timestamp (client-side)
+                for item in batch_items:
+                    added_at_str = item.get("added_at", "")
+                    if added_at_str:
+                        added_at = datetime.fromisoformat(
+                            added_at_str.replace("Z", "+00:00")
+                        )
+                        added_at_paris = added_at.astimezone(paris_tz)
+
+                        if added_at_paris >= yesterday_23h_paris:
+                            filtered_items.append(item)
+                        else:
+                            # Items are ordered by recency, so stop when we hit older items
+                            logging.info(
+                                f"Fetched {len(filtered_items)} saved tracks added since 23:00 yesterday"
+                            )
+                            return filtered_items[:limit]
+
                 offset += len(batch_items)
 
                 # If we got fewer items than requested, we've reached the end
-                if len(batch_items) < current_limit:
+                if len(batch_items) < batch_size:
                     break
 
-            logging.info(f"Fetched {len(items)} saved tracks")
-            return items[:limit]  # Ensure we don't exceed the limit
+            logging.info(
+                f"Fetched {len(filtered_items)} saved tracks added since 23:00 yesterday"
+            )
+            return filtered_items[:limit]
 
         except Exception as e:
             raise SpotifyConnectorError(f"Error fetching saved tracks: {e}") from e
 
     def fetch_saved_albums(self, limit: int = DEFAULT_LIMIT) -> List[Dict[str, Any]]:
-        """Fetch user's saved albums."""
+        """Fetch saved albums added since 23:00 yesterday (1-hour safety buffer)."""
         try:
-            items = []
+            # Calculate 23:00 yesterday Paris time (1-hour safety buffer)
+            paris_tz = ZoneInfo("Europe/Paris")
+            now_paris = datetime.now(paris_tz)
+            today_midnight_paris = now_paris.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            yesterday_23h_paris = today_midnight_paris - timedelta(hours=1)
+
+            filtered_items = []
             offset = 0
-            batch_size = min(limit, 50)  # Spotify API limit
+            batch_size = 50  # Max API limit
 
-            while len(items) < limit:
-                remaining = limit - len(items)
-                current_limit = min(batch_size, remaining)
-
+            while len(filtered_items) < limit:
+                # Fetch batch from API
                 results = self.client.current_user_saved_albums(
-                    limit=current_limit, offset=offset
+                    limit=batch_size, offset=offset
                 )
                 batch_items = results.get("items", [])
 
                 if not batch_items:
                     break
 
-                items.extend(batch_items)
+                # Filter by added_at timestamp (client-side)
+                for item in batch_items:
+                    added_at_str = item.get("added_at", "")
+                    if added_at_str:
+                        added_at = datetime.fromisoformat(
+                            added_at_str.replace("Z", "+00:00")
+                        )
+                        added_at_paris = added_at.astimezone(paris_tz)
+
+                        if added_at_paris >= yesterday_23h_paris:
+                            filtered_items.append(item)
+                        else:
+                            # Items are ordered by recency, so stop when we hit older items
+                            logging.info(
+                                f"Fetched {len(filtered_items)} saved albums added since 23:00 yesterday"
+                            )
+                            return filtered_items[:limit]
+
                 offset += len(batch_items)
 
                 # If we got fewer items than requested, we've reached the end
-                if len(batch_items) < current_limit:
+                if len(batch_items) < batch_size:
                     break
 
-            logging.info(f"Fetched {len(items)} saved albums")
-            return items[:limit]  # Ensure we don't exceed the limit
+            logging.info(
+                f"Fetched {len(filtered_items)} saved albums added since 23:00 yesterday"
+            )
+            return filtered_items[:limit]
 
         except Exception as e:
             raise SpotifyConnectorError(f"Error fetching saved albums: {e}") from e
