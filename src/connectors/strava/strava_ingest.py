@@ -8,11 +8,9 @@ Follows the same pattern as spotify_ingest.py for consistency.
 Supported data types:
 - Activities (workouts, GPS tracks, performance metrics)
 - Athlete (profile information)
-- Kudos, Comments (social interaction data)
+- Kudos (social interaction data)
 - Laps (detailed activity segments)
 - Streams (GPS and sensor time-series data)
-- Gears (equipment information)
-- Clubs (community data)
 
 Usage:
     python -m src.connectors.strava.strava_ingest --env dev --project YOUR_PROJECT_ID
@@ -200,21 +198,6 @@ strava_activities_schema = [
             bigquery.SchemaField("split", "INTEGER", "NULLABLE"),
         ),
     ),
-    # Gear information
-    bigquery.SchemaField(
-        "gear",
-        "RECORD",
-        "NULLABLE",
-        None,
-        None,
-        (
-            bigquery.SchemaField("id", "STRING", "NULLABLE"),
-            bigquery.SchemaField("primary", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("name", "STRING", "NULLABLE"),
-            bigquery.SchemaField("resource_state", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("distance", "FLOAT", "NULLABLE"),
-        ),
-    ),
     # Metadata fields
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
@@ -248,31 +231,6 @@ strava_athlete_schema = [
     bigquery.SchemaField("athlete_type", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("date_preference", "STRING", "NULLABLE"),
     bigquery.SchemaField("measurement_preference", "STRING", "NULLABLE"),
-    bigquery.SchemaField(
-        "clubs",
-        "RECORD",
-        "REPEATED",
-        None,
-        None,
-        (
-            bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("resource_state", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("name", "STRING", "NULLABLE"),
-            bigquery.SchemaField("profile_medium", "STRING", "NULLABLE"),
-            bigquery.SchemaField("profile", "STRING", "NULLABLE"),
-            bigquery.SchemaField("cover_photo", "STRING", "NULLABLE"),
-            bigquery.SchemaField("cover_photo_small", "STRING", "NULLABLE"),
-            bigquery.SchemaField("sport_type", "STRING", "NULLABLE"),
-            bigquery.SchemaField("city", "STRING", "NULLABLE"),
-            bigquery.SchemaField("state", "STRING", "NULLABLE"),
-            bigquery.SchemaField("country", "STRING", "NULLABLE"),
-            bigquery.SchemaField("private", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("member_count", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("featured", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("verified", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("url", "STRING", "NULLABLE"),
-        ),
-    ),
     bigquery.SchemaField(
         "bikes",
         "RECORD",
@@ -335,29 +293,6 @@ strava_kudos_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-strava_comments_schema = [
-    bigquery.SchemaField("activity_id", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("text", "STRING", "NULLABLE"),
-    bigquery.SchemaField("created_at", "STRING", "NULLABLE"),
-    bigquery.SchemaField(
-        "athlete",
-        "RECORD",
-        "NULLABLE",
-        None,
-        None,
-        (
-            bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("firstname", "STRING", "NULLABLE"),
-            bigquery.SchemaField("lastname", "STRING", "NULLABLE"),
-            bigquery.SchemaField("profile", "STRING", "NULLABLE"),
-            bigquery.SchemaField("profile_medium", "STRING", "NULLABLE"),
-        ),
-    ),
-    # Metadata fields
-    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
-    bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
-]
 
 strava_laps_schema = [
     bigquery.SchemaField("activity_id", "INTEGER", "NULLABLE"),
@@ -384,43 +319,6 @@ strava_laps_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-strava_gears_schema = [
-    bigquery.SchemaField("id", "STRING", "NULLABLE"),
-    bigquery.SchemaField("primary", "BOOLEAN", "NULLABLE"),
-    bigquery.SchemaField("name", "STRING", "NULLABLE"),
-    bigquery.SchemaField("resource_state", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("distance", "FLOAT", "NULLABLE"),
-    bigquery.SchemaField("brand_name", "STRING", "NULLABLE"),
-    bigquery.SchemaField("model_name", "STRING", "NULLABLE"),
-    bigquery.SchemaField("frame_type", "STRING", "NULLABLE"),
-    bigquery.SchemaField("description", "STRING", "NULLABLE"),
-    # Metadata fields
-    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
-    bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
-]
-
-strava_clubs_schema = [
-    bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("resource_state", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("name", "STRING", "NULLABLE"),
-    bigquery.SchemaField("profile_medium", "STRING", "NULLABLE"),
-    bigquery.SchemaField("profile", "STRING", "NULLABLE"),
-    bigquery.SchemaField("cover_photo", "STRING", "NULLABLE"),
-    bigquery.SchemaField("cover_photo_small", "STRING", "NULLABLE"),
-    bigquery.SchemaField("sport_type", "STRING", "NULLABLE"),
-    bigquery.SchemaField("city", "STRING", "NULLABLE"),
-    bigquery.SchemaField("state", "STRING", "NULLABLE"),
-    bigquery.SchemaField("country", "STRING", "NULLABLE"),
-    bigquery.SchemaField("private", "BOOLEAN", "NULLABLE"),
-    bigquery.SchemaField("member_count", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("featured", "BOOLEAN", "NULLABLE"),
-    bigquery.SchemaField("verified", "BOOLEAN", "NULLABLE"),
-    bigquery.SchemaField("url", "STRING", "NULLABLE"),
-    # Metadata fields
-    bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
-    bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
-]
-
 
 def detect_file_type(filename: str) -> str:
     """Detect the type of Strava data file based on filename patterns."""
@@ -431,16 +329,10 @@ def detect_file_type(filename: str) -> str:
         return "athlete"
     elif "kudos" in filename_lower:
         return "kudos"
-    elif "comments" in filename_lower:
-        return "comments"
     elif "laps" in filename_lower:
         return "laps"
     elif "streams" in filename_lower:
         return "streams"
-    elif "gears" in filename_lower:
-        return "gears"
-    elif "clubs" in filename_lower:
-        return "clubs"
     else:
         return "activities"  # Default fallback
 
@@ -452,10 +344,7 @@ def get_schema_for_type(file_type: str):
         "athlete": strava_athlete_schema,
         "streams": strava_streams_schema,
         "kudos": strava_kudos_schema,
-        "comments": strava_comments_schema,
         "laps": strava_laps_schema,
-        "gears": strava_gears_schema,
-        "clubs": strava_clubs_schema,
     }
     return schemas.get(file_type, strava_activities_schema)  # Default fallback
 
@@ -545,18 +434,13 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
                 if "athlete" not in data or data["athlete"] is None:
                     data["athlete"] = {}
 
-                # Handle gear record properly
-                if "gear" in data and data["gear"] is not None:
-                    if not isinstance(data["gear"], dict):
-                        data["gear"] = {}
-
             elif file_type == "athlete":
                 # Validate athlete data
                 if "id" not in data:
                     continue
 
-                # Ensure clubs, bikes, shoes are lists
-                for list_field in ["clubs", "bikes", "shoes"]:
+                # Ensure bikes, shoes are lists
+                for list_field in ["bikes", "shoes"]:
                     if list_field not in data:
                         data[list_field] = []
                     elif not isinstance(data[list_field], list):
@@ -578,12 +462,9 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
                     else:
                         data["data"] = [str(data["data"])]
 
-            elif file_type in ["kudos", "comments", "laps", "gears", "clubs"]:
+            elif file_type in ["kudos", "laps"]:
                 # Add activity_id if missing for social data
-                if (
-                    file_type in ["kudos", "comments", "laps"]
-                    and "activity_id" not in data
-                ):
+                if file_type in ["kudos", "laps"] and "activity_id" not in data:
                     # Try to extract from filename
                     try:
                         activity_id = int(filename.split("_")[0])
