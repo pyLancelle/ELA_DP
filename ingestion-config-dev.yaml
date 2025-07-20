@@ -1,0 +1,193 @@
+# ELA Data Platform - DEV Environment Ingestion Configuration
+# This file defines all data ingestion jobs for DEVELOPMENT environment
+# DEV environment uses more frequent schedules for testing and development
+
+# Global Configuration
+global:
+  timezone: "Europe/Paris"
+  retry_attempts: 2
+  max_parallel_jobs: 3
+  gcs_bucket: "ela-dp-dev"
+  timeout_minutes: 15
+  environment: "dev"
+
+# Job Groups for manual execution
+job_groups:
+  spotify_all:
+    description: "All Spotify data sources (DEV)"
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_playlists", "spotify_top_tracks", "spotify_top_artists"]
+  
+  fitness_all:
+    description: "All fitness data sources (DEV)"
+    jobs: ["strava_activities", "strava_athlete", "garmin_activities", "garmin_sleep", "garmin_heart_rate"]
+  
+  productivity_all:
+    description: "All productivity data sources (DEV)"
+    jobs: ["todoist_tasks", "todoist_projects"]
+  
+  frequent_jobs:
+    description: "Frequently running jobs for development testing"
+    jobs: ["spotify_recently_played", "strava_activities", "garmin_activities", "todoist_tasks"]
+  
+  daily_jobs:
+    description: "Jobs that run daily (DEV)"
+    jobs: ["spotify_saved_tracks", "garmin_sleep", "todoist_projects"]
+
+# Individual Jobs Configuration - DEV Environment
+jobs:
+  # =================== SPOTIFY JOBS (DEV) ===================
+  spotify_recently_played:
+    service: "spotify"
+    data_type: "recently_played"
+    description: "Fetch recently played tracks from Spotify (DEV - frequent testing)"
+    cron: "0 * * * *"  # Every hour for testing
+    command: "python -m src.connectors.spotify.spotify_fetch recently_played --limit 20"
+    environment: "dev"
+    enabled: true
+    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
+
+  spotify_saved_tracks:
+    service: "spotify"
+    data_type: "saved_tracks"
+    description: "Fetch saved tracks from Spotify (DEV - daily testing)"
+    cron: "0 10 * * *"  # Daily at 10:00 UTC for testing
+    command: "python -m src.connectors.spotify.spotify_fetch saved_tracks --limit 100"
+    environment: "dev"
+    enabled: true
+    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
+
+  spotify_saved_albums:
+    service: "spotify"
+    data_type: "saved_albums"
+    description: "Fetch saved albums from Spotify (DEV - daily testing)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.spotify.spotify_fetch saved_albums --limit 50"
+    environment: "dev"
+    enabled: true
+    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
+
+  spotify_playlists:
+    service: "spotify"
+    data_type: "playlists"
+    description: "Fetch user playlists from Spotify (DEV - weekly testing)"
+    cron: "0 14 * * 1"  # Weekly on Mondays at 14:00 UTC
+    command: "python -m src.connectors.spotify.spotify_fetch playlists --limit 25"
+    environment: "dev"
+    enabled: true
+    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
+
+  spotify_top_tracks:
+    service: "spotify"
+    data_type: "top_tracks"
+    description: "Fetch top tracks from Spotify (DEV - weekly testing)"
+    cron: "0 15 * * 1"  # Weekly on Mondays at 15:00 UTC
+    command: "python -m src.connectors.spotify.spotify_fetch top_tracks --limit 25 --time-range medium_term"
+    environment: "dev"
+    enabled: true
+    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
+
+  spotify_top_artists:
+    service: "spotify"
+    data_type: "top_artists"
+    description: "Fetch top artists from Spotify (DEV - weekly testing)"
+    cron: "0 16 * * 1"  # Weekly on Mondays at 16:00 UTC
+    command: "python -m src.connectors.spotify.spotify_fetch top_artists --limit 25 --time-range medium_term"
+    environment: "dev"
+    enabled: true
+    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
+
+  # =================== STRAVA JOBS (DEV) ===================
+  strava_activities:
+    service: "strava"
+    data_type: "activities"
+    description: "Fetch activities from Strava (DEV - frequent testing)"
+    cron: "0 */2 * * *"  # Every 2 hours for testing
+    command: "python -m src.connectors.strava.strava"
+    environment: "dev"
+    enabled: true
+    dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
+
+  strava_athlete:
+    service: "strava"
+    data_type: "athlete"
+    description: "Fetch athlete profile from Strava (DEV - daily testing)"
+    cron: "0 12 * * *"  # Daily at 12:00 UTC for testing
+    command: "python -m src.connectors.strava.strava --athlete"
+    environment: "dev"
+    enabled: true
+    dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
+
+  # =================== GARMIN JOBS (DEV) ===================
+  garmin_activities:
+    service: "garmin"
+    data_type: "activities"
+    description: "Fetch activities from Garmin (DEV - frequent testing)"
+    cron: "0 */2 * * *"  # Every 2 hours for testing
+    command: "python -m src.connectors.garmin.garmin_fetch activities --days 3"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_sleep:
+    service: "garmin"
+    data_type: "sleep"
+    description: "Fetch sleep data from Garmin (DEV - daily testing)"
+    cron: "0 13 * * *"  # Daily at 13:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch sleep --days 1"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_heart_rate:
+    service: "garmin"
+    data_type: "heart_rate"
+    description: "Fetch heart rate data from Garmin (DEV - every 4 hours)"
+    cron: "0 */4 * * *"  # Every 4 hours for testing
+    command: "python -m src.connectors.garmin.garmin_fetch heart_rate --days 1"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  # =================== TODOIST JOBS (DEV) ===================
+  todoist_tasks:
+    service: "todoist"
+    data_type: "tasks"
+    description: "Fetch tasks from Todoist (DEV - frequent testing)"
+    cron: "0 */2 * * *"  # Every 2 hours for testing
+    command: "python -m src.connectors.todoist.todoist tasks"
+    environment: "dev"
+    enabled: true
+    dependencies: ["TODOIST_API_TOKEN"]
+
+  todoist_projects:
+    service: "todoist"
+    data_type: "projects"
+    description: "Fetch projects from Todoist (DEV - daily testing)"
+    cron: "0 9 * * *"  # Daily at 9:00 UTC for testing
+    command: "python -m src.connectors.todoist.todoist projects"
+    environment: "dev"
+    enabled: true
+    dependencies: ["TODOIST_API_TOKEN"]
+
+# Service-specific configuration
+services:
+  spotify:
+    base_path: "src/connectors/spotify"
+    fetch_script: "spotify_fetch.py"
+    default_limit: 20  # Smaller limits for DEV
+    supported_data_types: ["recently_played", "saved_tracks", "saved_albums", "playlists", "top_tracks", "top_artists"]
+  
+  strava:
+    base_path: "src/connectors/strava"
+    fetch_script: "strava.py"
+    supported_data_types: ["activities", "athlete"]
+  
+  garmin:
+    base_path: "src/connectors/garmin"
+    fetch_script: "garmin_fetch.py"
+    supported_data_types: ["activities", "sleep", "heart_rate"]
+  
+  todoist:
+    base_path: "src/connectors/todoist"
+    fetch_script: "todoist.py"
+    supported_data_types: ["tasks", "projects"]

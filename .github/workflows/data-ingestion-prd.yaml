@@ -1,0 +1,425 @@
+name: "Data Ingestion PRD"
+
+on:
+  # Automatic execution every hour to check for scheduled jobs
+  schedule:
+    - cron: "0 * * * *"  # Every hour at minute 0
+  
+  # Manual trigger with options for specific jobs or groups
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "Specific job ID to run (e.g., spotify_recently_played)"
+        required: false
+        type: string
+      job_group:
+        description: "Job group to run"
+        required: false
+        type: choice
+        options:
+          - ""
+          - "spotify_all"
+          - "fitness_all"
+          - "productivity_all"
+          - "daily_jobs"
+          - "weekly_jobs"
+          - "monthly_jobs"
+      force_run:
+        description: "Force run all jobs regardless of schedule"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  # Spotify credentials
+  SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+  SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+  SPOTIFY_REDIRECT_URI: ${{ secrets.SPOTIFY_REDIRECT_URI }}
+  SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
+  
+  # Strava credentials
+  STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+  STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+  STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+  
+  # Todoist credentials
+  TODOIST_API_TOKEN: ${{ secrets.TODOIST_API_TOKEN }}
+  
+  # Garmin credentials
+  GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
+  GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+
+jobs:
+  # Job determination phase - decides which jobs should run
+  determine-jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      jobs_to_run: ${{ steps.job-scheduler.outputs.jobs_to_run }}
+      execution_summary: ${{ steps.job-scheduler.outputs.execution_summary }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python and dependencies
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install scheduling dependencies
+        run: |
+          pip install pyyaml croniter pytz
+
+      - name: Determine jobs to execute
+        id: job-scheduler
+        run: |
+          python << 'EOF'
+          import yaml
+          import json
+          import os
+          from datetime import datetime, timezone
+          from croniter import croniter
+          import pytz
+
+          # Load PRD configuration
+          with open('ingestion-config-prd.yaml', 'r') as f:
+              config = yaml.safe_load(f)
+
+          # Get inputs
+          job_id = "${{ github.event.inputs.job_id }}"
+          job_group = "${{ github.event.inputs.job_group }}"
+          force_run = "${{ github.event.inputs.force_run }}" == "true"
+          target_env = "prd"  # Always PRD for this workflow
+          
+          # Setup timezone
+          tz = pytz.timezone(config['global']['timezone'])
+          now = datetime.now(tz)
+          
+          jobs_to_run = []
+          
+          def should_job_run(job_config, job_name):
+              """Check if a job should run based on its CRON schedule"""
+              if not job_config.get('enabled', True):
+                  print(f"⏸️  Job {job_name} is disabled")
+                  return False
+              
+              if job_config.get('environment', 'prd') != target_env:
+                  print(f"🔄 Job {job_name} environment mismatch: {job_config.get('environment')} != {target_env}")
+                  return False
+              
+              if force_run:
+                  print(f"🚀 Force running job {job_name}")
+                  return True
+              
+              cron_expr = job_config.get('cron')
+              if not cron_expr:
+                  print(f"❌ No CRON expression for job {job_name}")
+                  return False
+              
+              try:
+                  # Get the previous scheduled time
+                  cron = croniter(cron_expr, now)
+                  prev_run = cron.get_prev(datetime)
+                  
+                  # Check if the job should have run within the last hour
+                  time_diff = (now - prev_run).total_seconds()
+                  should_run = time_diff <= 3600  # 1 hour tolerance
+                  
+                  if should_run:
+                      print(f"✅ Job {job_name} should run (last scheduled: {prev_run}, diff: {time_diff}s)")
+                  else:
+                      print(f"⏭️  Job {job_name} not scheduled (last scheduled: {prev_run}, diff: {time_diff}s)")
+                  
+                  return should_run
+              except Exception as e:
+                  print(f"❌ Error checking schedule for {job_name}: {e}")
+                  return False
+
+          # Determine which jobs to run
+          if job_id:
+              # Run specific job
+              if job_id in config['jobs']:
+                  if should_job_run(config['jobs'][job_id], job_id):
+                      jobs_to_run.append({
+                          'job_id': job_id,
+                          'command': config['jobs'][job_id]['command'],
+                          'description': config['jobs'][job_id]['description'],
+                          'service': config['jobs'][job_id]['service'],
+                          'dependencies': config['jobs'][job_id].get('dependencies', [])
+                      })
+                  else:
+                      print(f"❌ Job {job_id} should not run at this time")
+              else:
+                  print(f"❌ Job {job_id} not found in configuration")
+          
+          elif job_group:
+              # Run job group
+              if job_group in config['job_groups']:
+                  group_jobs = config['job_groups'][job_group]['jobs']
+                  print(f"📦 Processing job group '{job_group}' with {len(group_jobs)} jobs")
+                  
+                  for group_job_id in group_jobs:
+                      if group_job_id in config['jobs']:
+                          if should_job_run(config['jobs'][group_job_id], group_job_id):
+                              jobs_to_run.append({
+                                  'job_id': group_job_id,
+                                  'command': config['jobs'][group_job_id]['command'],
+                                  'description': config['jobs'][group_job_id]['description'],
+                                  'service': config['jobs'][group_job_id]['service'],
+                                  'dependencies': config['jobs'][group_job_id].get('dependencies', [])
+                              })
+                      else:
+                          print(f"❌ Job {group_job_id} from group {job_group} not found")
+              else:
+                  print(f"❌ Job group {job_group} not found")
+          
+          else:
+              # Auto-scheduled execution - check all jobs
+              print(f"🕐 Checking all jobs for scheduled execution at {now}")
+              
+              for job_name, job_config in config['jobs'].items():
+                  if should_job_run(job_config, job_name):
+                      jobs_to_run.append({
+                          'job_id': job_name,
+                          'command': job_config['command'],
+                          'description': job_config['description'],
+                          'service': job_config['service'],
+                          'dependencies': job_config.get('dependencies', [])
+                      })
+
+          # Output results
+          print(f"\n📊 Execution Summary (PRD):")
+          print(f"   • Environment: {target_env}")
+          print(f"   • Trigger: {'Manual' if job_id or job_group or force_run else 'Scheduled'}")
+          print(f"   • Jobs to run: {len(jobs_to_run)}")
+          
+          if jobs_to_run:
+              print(f"   • Job list:")
+              for job in jobs_to_run:
+                  print(f"     - {job['job_id']} ({job['service']})")
+          
+          # Set outputs
+          jobs_json = json.dumps(jobs_to_run)
+          
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"jobs_to_run={jobs_json}\n")
+              f.write(f"execution_summary=Environment: PRD, Jobs: {len(jobs_to_run)}\n")
+          
+          EOF
+
+  # Execution phase - runs the determined jobs in parallel
+  execute-jobs:
+    needs: determine-jobs
+    if: fromJson(needs.determine-jobs.outputs.jobs_to_run)[0] != null
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        job: ${{ fromJson(needs.determine-jobs.outputs.jobs_to_run) }}
+      max-parallel: 5  # Higher parallelism for PRD
+      fail-fast: false
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python with uv
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      
+      - name: Install dependencies with uv
+        run: |
+          uv pip install --system -e .
+
+      - name: Validate job dependencies
+        env:
+          JOB_DATA: ${{ toJson(matrix.job) }}
+        run: |
+          python << 'EOF'
+          import os
+          import json
+          
+          job = json.loads(os.environ['JOB_DATA'])
+          missing_deps = []
+          
+          for dep in job['dependencies']:
+              if not os.getenv(dep):
+                  missing_deps.append(dep)
+          
+          if missing_deps:
+              print(f"❌ Missing dependencies for {job['job_id']}: {missing_deps}")
+              exit(1)
+          else:
+              print(f"✅ All dependencies available for {job['job_id']}")
+          EOF
+
+      - name: Execute job
+        id: execute
+        run: |
+          echo "🚀 Executing PRD job: ${{ matrix.job.job_id }}"
+          echo "📝 Description: ${{ matrix.job.description }}"
+          echo "🔧 Command: ${{ matrix.job.command }}"
+          echo "⏰ Started at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          
+          # Execute the command with timeout (longer for PRD)
+          timeout 45m ${{ matrix.job.command }}
+          
+          echo "✅ PRD job completed successfully at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+      - name: Check GCS credentials and authenticate
+        if: success()
+        run: |
+          if [ -n "$GCP_KEY" ]; then
+            echo "✅ GCP credentials available (length: ${#GCP_KEY})"
+            echo "🔐 Proceeding with Google Cloud authentication"
+          else
+            echo "❌ GCP_SERVICE_ACCOUNT_KEY secret appears to be empty"
+            echo "⚠️ Skipping GCS upload - please check your GitHub secrets configuration"
+            echo "SKIP_GCS=true" >> $GITHUB_ENV
+            exit 0
+          fi
+        env:
+          GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Authenticate to Google Cloud
+        if: success() && env.SKIP_GCS != 'true'
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Google Cloud SDK
+        if: success() && env.SKIP_GCS != 'true'
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          install_components: gsutil
+
+      - name: Upload generated files to GCS
+        if: success() && env.SKIP_GCS != 'true'
+        run: |
+          # Find and upload any generated .jsonl files
+          JSONL_FILES=$(find . -name "*.jsonl" -type f -newer /proc/self 2>/dev/null | head -10)
+          
+          if [ -n "$JSONL_FILES" ]; then
+            echo "📁 Found JSONL files to upload:"
+            echo "$JSONL_FILES"
+            
+            for file in $JSONL_FILES; do
+              echo "⬆️  Uploading: $file"
+              gsutil cp "$file" "gs://ela-dp-prd/${{ matrix.job.service }}/landing/" \
+                || echo "❌ Upload failed for $file"
+            done
+            
+            echo "✅ Upload completed for PRD job: ${{ matrix.job.job_id }}"
+          else
+            echo "ℹ️  No JSONL files found to upload for PRD job: ${{ matrix.job.job_id }}"
+          fi
+
+      - name: Show generated files (GCS upload skipped)
+        if: success() && env.SKIP_GCS == 'true'
+        run: |
+          echo "📁 Generated files (GCS upload was skipped):"
+          find . -name "*.jsonl" -type f 2>/dev/null | head -10 || echo "No JSONL files found"
+          echo ""
+          echo "💡 To enable GCS upload:"
+          echo "   1. Verify GCP_SERVICE_ACCOUNT_KEY secret contains valid JSON"
+          echo "   2. Verify GCP_PROJECT_ID secret is set"
+          echo "   3. Ensure service account has Storage Admin permissions"
+
+      - name: Capture job logs on failure
+        if: failure()
+        env:
+          JOB_DATA: ${{ toJson(matrix.job) }}
+        run: |
+          echo "❌ PRD Job ${{ matrix.job.job_id }} failed"
+          echo "📋 Capturing logs and environment info"
+          
+          # Create failure report
+          cat > job_failure_report.txt << EOF
+          Job Failure Report (PRD)
+          =========================
+          Job ID: ${{ matrix.job.job_id }}
+          Service: ${{ matrix.job.service }}
+          Command: ${{ matrix.job.command }}
+          Description: ${{ matrix.job.description }}
+          Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Environment: PRD
+          Workflow Run: ${{ github.run_id }}
+          
+          Dependencies Status:
+          $(python -c "
+          import os, json
+          job = json.loads(os.environ['JOB_DATA'])
+          for dep in job['dependencies']:
+              status = '✅' if os.getenv(dep) else '❌'
+              print(f'{status} {dep}')
+          ")
+          
+          Recent Logs:
+          $(tail -50 /var/log/syslog 2>/dev/null || echo 'System logs not available')
+          EOF
+
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prd-job-failure-logs-${{ matrix.job.job_id }}
+          path: job_failure_report.txt
+          retention-days: 14  # Longer retention for PRD
+
+  # Summary phase - generates execution report
+  execution-summary:
+    needs: [determine-jobs, execute-jobs]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate execution summary
+        run: |
+          echo "# 🏭 Data Ingestion PRD Environment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Execution Details:**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** 🏭 **PRODUCTION**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **${{ needs.determine-jobs.outputs.execution_summary }}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Job results summary
+          if [ "${{ needs.execute-jobs.result }}" = "success" ]; then
+            echo "✅ **Status:** All PRD jobs completed successfully" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.execute-jobs.result }}" = "failure" ]; then
+            echo "❌ **Status:** Some PRD jobs failed (check individual job logs)" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.execute-jobs.result }}" = "skipped" ]; then
+            echo "⏭️ **Status:** No PRD jobs were scheduled to run" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Status:** PRD jobs execution was cancelled or had other issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Jobs Matrix:**" >> $GITHUB_STEP_SUMMARY
+          
+          # Parse and display job results
+          jobs_json='${{ needs.determine-jobs.outputs.jobs_to_run }}'
+          if [ "$jobs_json" != "[]" ] && [ "$jobs_json" != "" ]; then
+            echo "$jobs_json" | python3 -c "
+          import json, sys
+          jobs = json.load(sys.stdin)
+          for job in jobs:
+              status = '✅' if '${{ needs.execute-jobs.result }}' == 'success' else '❌' if '${{ needs.execute-jobs.result }}' == 'failure' else '⏭️'
+              print(f'- **{job[\"job_id\"]}** ({job[\"service\"]}) {status}')
+              print(f'  - _{job[\"description\"]}_')
+          " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- No jobs were executed in this PRD run" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "_PRD Workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})_" >> $GITHUB_STEP_SUMMARY
