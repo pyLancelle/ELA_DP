@@ -42,9 +42,13 @@ job_groups:
     description: "Complete Strava pipeline (fetch + ingest)"
     jobs: ["strava_activities", "strava_athlete", "strava_ingest"]
   
+  spotify_pipeline:
+    description: "Complete Spotify pipeline (fetch + ingest)"
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_ingest"]
+  
   ingestion_only:
     description: "Run only ingestion jobs (GCS → BigQuery)"
-    jobs: ["garmin_ingest", "strava_ingest"]
+    jobs: ["garmin_ingest", "strava_ingest", "spotify_ingest"]
 
 # Individual Jobs Configuration - DEV Environment
 jobs:
@@ -188,7 +192,7 @@ jobs:
     data_type: "ingest"
     description: "Ingest Garmin data from GCS to BigQuery (DEV)"
     cron: "30 */2 * * *"  # 30 minutes after data fetch
-    command: "python -m src.connectors.garmin.garmin_ingest --env dev --project ela-dp"
+    command: "python -m src.connectors.garmin.garmin_ingest --env dev --project ${{ secrets.GCP_PROJECT_ID }}"
     environment: "dev"
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
@@ -198,7 +202,17 @@ jobs:
     data_type: "ingest"
     description: "Ingest Strava data from GCS to BigQuery (DEV)"
     cron: "30 */2 * * *"  # 30 minutes after data fetch
-    command: "python -m src.connectors.strava.strava_ingest --env dev --project ela-dp"
+    command: "python -m src.connectors.strava.strava_ingest --env dev --project ${{ secrets.GCP_PROJECT_ID }}"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  spotify_ingest:
+    service: "spotify"
+    data_type: "ingest"
+    description: "Ingest Spotify data from GCS to BigQuery (DEV)"
+    cron: "30 * * * *"  # 30 minutes after hourly fetch
+    command: "python -m src.connectors.spotify.spotify_ingest --env dev --project ${{ secrets.GCP_PROJECT_ID }}"
     environment: "dev"
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
