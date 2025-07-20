@@ -213,12 +213,12 @@ jobs:
   # Execution phase - runs the determined jobs in parallel
   execute-jobs:
     needs: determine-jobs
-    if: needs.determine-jobs.outputs.jobs_to_run != '[]'
+    if: needs.determine-jobs.outputs.jobs_to_run != '[]' && needs.determine-jobs.outputs.jobs_to_run != ''
     runs-on: ubuntu-latest
     
     strategy:
       matrix:
-        job: ${{ fromJson(needs.determine-jobs.outputs.jobs_to_run) }}
+        job: ${{ fromJson(needs.determine-jobs.outputs.jobs_to_run || '[]') }}
       max-parallel: 3
       fail-fast: false
     
