@@ -247,12 +247,14 @@ jobs:
           uv pip install --system -e .
 
       - name: Validate job dependencies
+        env:
+          JOB_DATA: ${{ toJson(matrix.job) }}
         run: |
           python << 'EOF'
           import os
           import json
           
-          job = json.loads('${{ toJson(matrix.job) }}')
+          job = json.loads(os.environ['JOB_DATA'])
           missing_deps = []
           
           for dep in job['dependencies']:
@@ -315,6 +317,8 @@ jobs:
 
       - name: Capture job logs on failure
         if: failure()
+        env:
+          JOB_DATA: ${{ toJson(matrix.job) }}
         run: |
           echo "❌ Job ${{ matrix.job.job_id }} failed"
           echo "📋 Capturing logs and environment info"
@@ -334,7 +338,7 @@ jobs:
           Dependencies Status:
           $(python -c "
           import os, json
-          job = json.loads('${{ toJson(matrix.job) }}')
+          job = json.loads(os.environ['JOB_DATA'])
           for dep in job['dependencies']:
               status = '✅' if os.getenv(dep) else '❌'
               print(f'{status} {dep}')
@@ -394,7 +398,7 @@ jobs:
               status = '✅' if '${{ needs.execute-jobs.result }}' == 'success' else '❌' if '${{ needs.execute-jobs.result }}' == 'failure' else '⏭️'
               print(f'- **{job[\"job_id\"]}** ({job[\"service\"]}) {status}')
               print(f'  - _{job[\"description\"]}_')
-          "
+          " >> $GITHUB_STEP_SUMMARY
           else
             echo "- No jobs were executed in this run" >> $GITHUB_STEP_SUMMARY
           fi
