@@ -281,21 +281,31 @@ jobs:
           
           echo "✅ Job completed successfully at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-      - name: Upload data to GCS
-        if: success()
+      - name: Check GCS credentials availability
+        run: |
+          if [ -z "${{ secrets.GCS_SERVICE_ACCOUNT_KEY }}" ]; then
+            echo "⚠️ GCS_SERVICE_ACCOUNT_KEY secret not configured - skipping GCS upload"
+            echo "SKIP_GCS_UPLOAD=true" >> $GITHUB_ENV
+          else
+            echo "✅ GCS credentials available"
+            echo "SKIP_GCS_UPLOAD=false" >> $GITHUB_ENV
+          fi
+
+      - name: Authenticate to Google Cloud
+        if: success() && env.SKIP_GCS_UPLOAD == 'false'
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCS_SERVICE_ACCOUNT_KEY }}
 
       - name: Set up Google Cloud SDK
-        if: success()
+        if: success() && env.SKIP_GCS_UPLOAD == 'false'
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           install_components: gsutil
 
       - name: Upload generated files to GCS
-        if: success()
+        if: success() && env.SKIP_GCS_UPLOAD == 'false'
         run: |
           # Find and upload any generated .jsonl files
           JSONL_FILES=$(find . -name "*.jsonl" -type f -newer /proc/self 2>/dev/null | head -10)
@@ -314,6 +324,13 @@ jobs:
           else
             echo "ℹ️  No JSONL files found to upload for job: ${{ matrix.job.job_id }}"
           fi
+
+      - name: Show generated files (when GCS upload skipped)
+        if: success() && env.SKIP_GCS_UPLOAD == 'true'
+        run: |
+          echo "📁 Generated files (GCS upload skipped):"
+          find . -name "*.jsonl" -type f -newer /proc/self 2>/dev/null | head -10 || echo "No JSONL files found"
+          echo "ℹ️  To enable GCS upload, configure GCS_SERVICE_ACCOUNT_KEY and GCP_PROJECT_ID secrets"
 
       - name: Capture job logs on failure
         if: failure()
