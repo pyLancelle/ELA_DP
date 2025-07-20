@@ -59,6 +59,7 @@ jobs:
     outputs:
       jobs_to_run: ${{ steps.job-scheduler.outputs.jobs_to_run }}
       execution_summary: ${{ steps.job-scheduler.outputs.execution_summary }}
+      has_jobs: ${{ steps.job-scheduler.outputs.has_jobs }}
     
     steps:
       - name: Checkout repository
@@ -200,17 +201,19 @@ jobs:
           
           # Set outputs
           jobs_json = json.dumps(jobs_to_run)
+          has_jobs = "true" if len(jobs_to_run) > 0 else "false"
           
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"jobs_to_run={jobs_json}\n")
               f.write(f"execution_summary=Environment: DEV, Jobs: {len(jobs_to_run)}\n")
+              f.write(f"has_jobs={has_jobs}\n")
           
           EOF
 
   # Execution phase - runs the determined jobs in parallel
   execute-jobs:
     needs: determine-jobs
-    if: needs.determine-jobs.outputs.jobs_to_run != '[]' && needs.determine-jobs.outputs.jobs_to_run != ''
+    if: needs.determine-jobs.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
     
     strategy:
