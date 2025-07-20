@@ -247,6 +247,33 @@ jobs:
         run: |
           uv pip install --system -e .
 
+      - name: Check GCS credentials and authenticate
+        run: |
+          if [ -n "$GCP_KEY" ]; then
+            echo "✅ GCP credentials available (length: ${#GCP_KEY})"
+            echo "🔐 Setting up Google Cloud authentication"
+          else
+            echo "❌ GCP_SERVICE_ACCOUNT_KEY secret appears to be empty"
+            echo "⚠️ Skipping GCS authentication - please check your GitHub secrets configuration"
+            echo "SKIP_GCS=true" >> $GITHUB_ENV
+            exit 0
+          fi
+        env:
+          GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Authenticate to Google Cloud
+        if: env.SKIP_GCS != 'true'
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Google Cloud SDK
+        if: env.SKIP_GCS != 'true'
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          install_components: gsutil
+
       - name: Decode job information and validate dependencies
         env:
           JOB_ID: ${{ matrix.job_id }}
@@ -325,34 +352,6 @@ jobs:
           timeout 15m $COMMAND
           
           echo "✅ DEV job completed successfully at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-
-      - name: Check GCS credentials and authenticate
-        if: success()
-        run: |
-          if [ -n "$GCP_KEY" ]; then
-            echo "✅ GCP credentials available (length: ${#GCP_KEY})"
-            echo "🔐 Proceeding with Google Cloud authentication"
-          else
-            echo "❌ GCP_SERVICE_ACCOUNT_KEY secret appears to be empty"
-            echo "⚠️ Skipping GCS upload - please check your GitHub secrets configuration"
-            echo "SKIP_GCS=true" >> $GITHUB_ENV
-            exit 0
-          fi
-        env:
-          GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-
-      - name: Authenticate to Google Cloud
-        if: success() && env.SKIP_GCS != 'true'
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-
-      - name: Set up Google Cloud SDK
-        if: success() && env.SKIP_GCS != 'true'
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          install_components: gsutil
 
       - name: Upload generated files to GCS
         if: success() && env.SKIP_GCS != 'true'
