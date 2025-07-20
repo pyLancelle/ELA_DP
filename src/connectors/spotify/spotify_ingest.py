@@ -664,6 +664,7 @@ def get_schema_for_type(file_type: str):
     else:
         return spotify_schema
 
+
 def get_env_config(env: str):
     if env == "dev" or env == "prd":
         return {
@@ -749,7 +750,6 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
     # Get appropriate schema for file type
     schema = get_schema_for_type(file_type)
 
-
     bq_client = bigquery.Client()
     job = bq_client.load_table_from_json(
         rows,
@@ -767,8 +767,12 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", choices=["dev", "prd"], required=True)
-    parser.add_argument("--project", required=True)
     args = parser.parse_args()
+
+    # Get project ID from environment variable
+    project_id = os.getenv("GCP_PROJECT_ID")
+    if not project_id:
+        raise ValueError("GCP_PROJECT_ID environment variable is required")
 
     config = get_env_config(args.env)
     bucket = config["bucket"]
@@ -785,13 +789,13 @@ if __name__ == "__main__":
 
             # Choose table based on file type
             if file_type == "saved_tracks":
-                table_id = f"{args.project}.{dataset}.staging_spotify_saved_tracks"
+                table_id = f"{project_id}.{dataset}.staging_spotify_saved_tracks"
             elif file_type == "saved_albums":
-                table_id = f"{args.project}.{dataset}.staging_spotify_saved_albums"
+                table_id = f"{project_id}.{dataset}.staging_spotify_saved_albums"
             elif file_type == "followed_artists":
-                table_id = f"{args.project}.{dataset}.staging_spotify_followed_artists"
+                table_id = f"{project_id}.{dataset}.staging_spotify_followed_artists"
             else:
-                table_id = f"{args.project}.{dataset}.staging_spotify"
+                table_id = f"{project_id}.{dataset}.staging_spotify"
 
             print(f"📊 Processing {file_type} file: {filename}")
             load_jsonl_with_metadata(uri, table_id, inserted_at, file_type)

@@ -508,8 +508,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--env", choices=["dev", "prd"], required=True, help="Environment (dev or prd)"
     )
-    parser.add_argument("--project", required=True, help="GCP Project ID")
     args = parser.parse_args()
+
+    # Get project ID from environment variable
+    project_id = os.getenv("GCP_PROJECT_ID")
+    if not project_id:
+        raise ValueError("GCP_PROJECT_ID environment variable is required")
 
     config = get_env_config(args.env)
     bucket = config["bucket"]
@@ -526,7 +530,7 @@ if __name__ == "__main__":
             file_type = detect_file_type(filename)
 
             # Route to appropriate BigQuery table
-            table_id = f"{args.project}.{dataset}.staging_strava_{file_type}"
+            table_id = f"{project_id}.{dataset}.staging_strava_{file_type}"
 
             print(f"📊 Processing {file_type} file: {filename}")
             load_jsonl_with_metadata(uri, table_id, inserted_at, file_type)
