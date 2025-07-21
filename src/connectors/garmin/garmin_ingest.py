@@ -197,6 +197,7 @@ garmin_activities_schema = [
     ),
     # Complex nested data stored as JSON strings
     bigquery.SchemaField("splitSummaries", "JSON", "NULLABLE"),
+    bigquery.SchemaField("accessControlRuleList", "JSON", "NULLABLE"),
     # Boolean flags
     bigquery.SchemaField("favorite", "BOOLEAN", "NULLABLE"),
     bigquery.SchemaField("pr", "BOOLEAN", "NULLABLE"),
@@ -421,6 +422,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "FLOAT", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "FLOAT", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -597,6 +604,7 @@ garmin_stress_schema = [
     bigquery.SchemaField("stressValuesArray", "JSON", "NULLABLE"),
     bigquery.SchemaField("stressValueDescriptorsDTOList", "JSON", "NULLABLE"),
     bigquery.SchemaField("bodyBatteryValueDescriptorsDTOList", "JSON", "NULLABLE"),
+    bigquery.SchemaField("bodyBatteryValuesArray", "JSON", "NULLABLE"),
     # Additional flexible data storage
     bigquery.SchemaField("data", "JSON", "NULLABLE"),
     # Metadata fields
@@ -821,7 +829,7 @@ garmin_training_status_schema = [
     bigquery.SchemaField("trainingStatus", "STRING", "NULLABLE"),
     bigquery.SchemaField("trainingLoad", "FLOAT", "NULLABLE"),
     bigquery.SchemaField("fitnessLevel", "STRING", "NULLABLE"),
-    bigquery.SchemaField("mostRecentVO2Max", "FLOAT", "NULLABLE"),
+    bigquery.SchemaField("mostRecentVO2Max", "JSON", "NULLABLE"),
     # Flexible structure for various training metrics
     bigquery.SchemaField("data", "JSON", "NULLABLE"),
     # Metadata fields
