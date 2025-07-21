@@ -44,7 +44,7 @@ job_groups:
   
   spotify_pipeline:
     description: "Complete Spotify pipeline (fetch + ingest)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_ingest"]
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_ingest"]
   
   ingestion_only:
     description: "Run only ingestion jobs (GCS → BigQuery)"
