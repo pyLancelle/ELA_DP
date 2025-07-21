@@ -196,8 +196,20 @@ garmin_activities_schema = [
         (bigquery.SchemaField("summarizedDiveGases", "STRING", "REPEATED"),),
     ),
     # Complex nested data stored as JSON strings
-    bigquery.SchemaField("splitSummaries", "JSON", "NULLABLE"),
-    bigquery.SchemaField("accessControlRuleList", "JSON", "NULLABLE"),
+    bigquery.SchemaField("split_summaries", "JSON", "NULLABLE"),
+    bigquery.SchemaField("access_control_rule_list", "JSON", "NULLABLE"),
+    bigquery.SchemaField(
+        "activity_type_details", "JSON", "NULLABLE"
+    ),  # Store full activityType object
+    bigquery.SchemaField(
+        "event_type_details", "JSON", "NULLABLE"
+    ),  # Store full eventType object
+    bigquery.SchemaField(
+        "privacy_details", "JSON", "NULLABLE"
+    ),  # Store full privacy object
+    bigquery.SchemaField(
+        "dive_info", "JSON", "NULLABLE"
+    ),  # Store full dive info as JSON
     # Boolean flags
     bigquery.SchemaField("favorite", "BOOLEAN", "NULLABLE"),
     bigquery.SchemaField("pr", "BOOLEAN", "NULLABLE"),
@@ -215,291 +227,59 @@ garmin_activities_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-# Comprehensive Garmin Sleep Schema - Based on Real Data Analysis
+# Flexible Garmin Sleep Schema - Uses JSON for complex nested structures
 garmin_sleep_schema = [
+    # Store the entire dailySleepDTO as JSON to handle all possible fields
+    bigquery.SchemaField("dailySleepDTO", "JSON", "NULLABLE"),
+    # Extract only the most commonly used fields for easy querying
     bigquery.SchemaField(
-        "dailySleepDTO",
-        "RECORD",
-        "NULLABLE",
-        None,
-        None,
-        (
-            bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("userProfilePK", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("calendarDate", "STRING", "NULLABLE"),
-            # Sleep duration metrics
-            bigquery.SchemaField("sleepTimeSeconds", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("napTimeSeconds", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("unmeasurableSleepSeconds", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("deepSleepSeconds", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("lightSleepSeconds", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("remSleepSeconds", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("awakeSleepSeconds", "INTEGER", "NULLABLE"),
-            # Sleep timestamps (milliseconds since epoch)
-            bigquery.SchemaField("sleepStartTimestampGMT", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sleepEndTimestampGMT", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sleepStartTimestampLocal", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sleepEndTimestampLocal", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("autoSleepStartTimestampGMT", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("autoSleepEndTimestampGMT", "INTEGER", "NULLABLE"),
-            # Sleep quality and validation
-            bigquery.SchemaField("sleepWindowConfirmed", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("sleepWindowConfirmationType", "STRING", "NULLABLE"),
-            bigquery.SchemaField("sleepQualityTypePK", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sleepResultTypePK", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("retro", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("sleepFromDevice", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("deviceRemCapable", "BOOLEAN", "NULLABLE"),
-            # Blood oxygen (SpO2) metrics
-            bigquery.SchemaField("averageSpO2Value", "FLOAT", "NULLABLE"),
-            bigquery.SchemaField("lowestSpO2Value", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("highestSpO2Value", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("averageSpO2HRSleep", "FLOAT", "NULLABLE"),
-            # Respiration metrics
-            bigquery.SchemaField("averageRespirationValue", "FLOAT", "NULLABLE"),
-            bigquery.SchemaField("lowestRespirationValue", "FLOAT", "NULLABLE"),
-            bigquery.SchemaField("highestRespirationValue", "FLOAT", "NULLABLE"),
-            # Sleep disruption
-            bigquery.SchemaField("awakeCount", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("avgSleepStress", "FLOAT", "NULLABLE"),
-            # Sleep feedback and scoring
-            bigquery.SchemaField("ageGroup", "STRING", "NULLABLE"),
-            bigquery.SchemaField("sleepScoreFeedback", "STRING", "NULLABLE"),
-            bigquery.SchemaField("sleepScoreInsight", "STRING", "NULLABLE"),
-            bigquery.SchemaField("sleepScorePersonalizedInsight", "STRING", "NULLABLE"),
-            # Comprehensive sleep scores
-            bigquery.SchemaField(
-                "sleepScores",
-                "RECORD",
-                "NULLABLE",
-                None,
-                None,
-                (
-                    bigquery.SchemaField(
-                        "overall",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "totalDuration",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "stress",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "awakeCount",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "quality",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "recovery",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "restfulness",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    # Real sleep score fields found in actual data
-                    bigquery.SchemaField(
-                        "remPercentage",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "deepPercentage",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "lightPercentage",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                    bigquery.SchemaField(
-                        "restlessness",
-                        "RECORD",
-                        "NULLABLE",
-                        None,
-                        None,
-                        (
-                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
-                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
-                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
-                            bigquery.SchemaField(
-                                "idealStartInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                            bigquery.SchemaField(
-                                "idealEndInSeconds", "FLOAT", "NULLABLE"
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ),
+        "sleep_date", "STRING", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.calendarDate
+    bigquery.SchemaField(
+        "user_profile_pk", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.userProfilePK
+    bigquery.SchemaField(
+        "sleep_time_seconds", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.sleepTimeSeconds
+    bigquery.SchemaField(
+        "deep_sleep_seconds", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.deepSleepSeconds
+    bigquery.SchemaField(
+        "light_sleep_seconds", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.lightSleepSeconds
+    bigquery.SchemaField(
+        "rem_sleep_seconds", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.remSleepSeconds
+    bigquery.SchemaField(
+        "awake_sleep_seconds", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.awakeSleepSeconds
+    bigquery.SchemaField(
+        "sleep_start_timestamp_gmt", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.sleepStartTimestampGMT
+    bigquery.SchemaField(
+        "sleep_end_timestamp_gmt", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.sleepEndTimestampGMT
+    bigquery.SchemaField(
+        "average_spo2_value", "FLOAT", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.averageSpO2Value
+    bigquery.SchemaField(
+        "average_respiration_value", "FLOAT", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.averageRespirationValue
+    bigquery.SchemaField(
+        "awake_count", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.awakeCount
+    # Sleep scores stored as JSON for maximum flexibility
+    bigquery.SchemaField(
+        "sleep_scores", "JSON", "NULLABLE"
+    ),  # Full sleep scores object
+    bigquery.SchemaField(
+        "overall_sleep_score", "INTEGER", "NULLABLE"
+    ),  # Extracted from dailySleepDTO.sleepScores.overall.value
     # Complex time-series data stored as JSON
-    bigquery.SchemaField("sleepMovement", "JSON", "NULLABLE"),
-    bigquery.SchemaField("wellnessSpO2SleepSummaryDTO", "JSON", "NULLABLE"),
-    bigquery.SchemaField("sleepStress", "JSON", "NULLABLE"),
-    bigquery.SchemaField("sleepLevels", "JSON", "NULLABLE"),
+    bigquery.SchemaField("sleep_movement", "JSON", "NULLABLE"),
+    bigquery.SchemaField("wellness_spo2_sleep_summary", "JSON", "NULLABLE"),
+    bigquery.SchemaField("sleep_stress", "JSON", "NULLABLE"),
+    bigquery.SchemaField("sleep_levels", "JSON", "NULLABLE"),
     # Metadata fields
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
@@ -830,22 +610,40 @@ garmin_race_predictions_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-# Training Status Schema - Fixed field names
+# Flexible Garmin Training Status Schema - Uses JSON for complex structures
 garmin_training_status_schema = [
-    # Core identifiers (flexible to handle various field name formats)
-    bigquery.SchemaField("userProfilePK", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("userId", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("date", "STRING", "NULLABLE"),
-    bigquery.SchemaField("calendarDate", "STRING", "NULLABLE"),
-    # Training status metrics that might be present
-    bigquery.SchemaField("trainingStatus", "STRING", "NULLABLE"),
-    bigquery.SchemaField("trainingLoad", "FLOAT", "NULLABLE"),
-    bigquery.SchemaField("fitnessLevel", "STRING", "NULLABLE"),
-    bigquery.SchemaField("mostRecentVO2Max", "JSON", "NULLABLE"),
-    bigquery.SchemaField("mostRecentTrainingLoadBalance", "JSON", "NULLABLE"),
-    bigquery.SchemaField("mostRecentTrainingStatus", "JSON", "NULLABLE"),
-    # Flexible structure for various training metrics
-    bigquery.SchemaField("data", "JSON", "NULLABLE"),
+    # Store the entire record as JSON to handle all possible fields
+    bigquery.SchemaField("raw_data", "JSON", "NULLABLE"),
+    # Extract commonly used fields for easy querying
+    bigquery.SchemaField(
+        "user_profile_pk", "INTEGER", "NULLABLE"
+    ),  # Extracted from userProfilePK or userId
+    bigquery.SchemaField(
+        "calendar_date", "STRING", "NULLABLE"
+    ),  # Extracted from calendarDate or date
+    bigquery.SchemaField(
+        "training_status", "STRING", "NULLABLE"
+    ),  # Extracted from trainingStatus
+    bigquery.SchemaField(
+        "training_load", "FLOAT", "NULLABLE"
+    ),  # Extracted from trainingLoad
+    bigquery.SchemaField(
+        "fitness_level", "STRING", "NULLABLE"
+    ),  # Extracted from fitnessLevel
+    # Complex training metrics stored as JSON for maximum flexibility
+    bigquery.SchemaField("vo2_max_data", "JSON", "NULLABLE"),  # All VO2Max related data
+    bigquery.SchemaField(
+        "training_load_balance", "JSON", "NULLABLE"
+    ),  # Training load balance metrics
+    bigquery.SchemaField(
+        "training_status_details", "JSON", "NULLABLE"
+    ),  # Detailed training status
+    bigquery.SchemaField(
+        "heat_altitude_acclimation", "JSON", "NULLABLE"
+    ),  # Environmental adaptation data
+    bigquery.SchemaField(
+        "additional_metrics", "JSON", "NULLABLE"
+    ),  # Any other training metrics
     # Metadata fields
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
@@ -1029,31 +827,62 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
                 if "activityId" not in data or data["activityId"] is None:
                     continue  # Skip invalid activities
 
-                # Ensure activityType is properly structured
-                if "activityType" not in data or data["activityType"] is None:
-                    data["activityType"] = {}
-
-                # Handle accessControlRuleList properly
-                if "accessControlRuleList" not in data:
-                    data["accessControlRuleList"] = []
-                elif not isinstance(data["accessControlRuleList"], list):
-                    data["accessControlRuleList"] = []
+                # Store complex objects as JSON
+                if "activityType" in data:
+                    data["activity_type_details"] = data["activityType"]
+                if "eventType" in data:
+                    data["event_type_details"] = data["eventType"]
+                if "privacy" in data:
+                    data["privacy_details"] = data["privacy"]
+                if "summarizedDiveInfo" in data:
+                    data["dive_info"] = data["summarizedDiveInfo"]
+                if "splitSummaries" in data:
+                    data["split_summaries"] = data["splitSummaries"]
+                if "accessControlRuleList" in data:
+                    data["access_control_rule_list"] = data["accessControlRuleList"]
 
             elif file_type == "sleep":
-                # Validate sleep data structure
-                if "dailySleepDTO" not in data:
-                    data["dailySleepDTO"] = {}
+                # Extract key fields from dailySleepDTO for easy querying
+                daily_sleep = data.get("dailySleepDTO", {})
+                if daily_sleep:
+                    data["sleep_date"] = daily_sleep.get("calendarDate")
+                    data["user_profile_pk"] = daily_sleep.get("userProfilePK")
+                    data["sleep_time_seconds"] = daily_sleep.get("sleepTimeSeconds")
+                    data["deep_sleep_seconds"] = daily_sleep.get("deepSleepSeconds")
+                    data["light_sleep_seconds"] = daily_sleep.get("lightSleepSeconds")
+                    data["rem_sleep_seconds"] = daily_sleep.get("remSleepSeconds")
+                    data["awake_sleep_seconds"] = daily_sleep.get("awakeSleepSeconds")
+                    data["sleep_start_timestamp_gmt"] = daily_sleep.get(
+                        "sleepStartTimestampGMT"
+                    )
+                    data["sleep_end_timestamp_gmt"] = daily_sleep.get(
+                        "sleepEndTimestampGMT"
+                    )
+                    data["average_spo2_value"] = daily_sleep.get("averageSpO2Value")
+                    data["average_respiration_value"] = daily_sleep.get(
+                        "averageRespirationValue"
+                    )
+                    data["awake_count"] = daily_sleep.get("awakeCount")
 
-                # Ensure sleepLevels and sleepMovement are lists
-                if "sleepLevels" not in data:
-                    data["sleepLevels"] = []
-                elif not isinstance(data["sleepLevels"], list):
-                    data["sleepLevels"] = []
+                    # Extract overall sleep score
+                    sleep_scores = daily_sleep.get("sleepScores", {})
+                    if sleep_scores and "overall" in sleep_scores:
+                        data["overall_sleep_score"] = sleep_scores["overall"].get(
+                            "value"
+                        )
+                    data["sleep_scores"] = sleep_scores
 
-                if "sleepMovement" not in data:
-                    data["sleepMovement"] = []
-                elif not isinstance(data["sleepMovement"], list):
-                    data["sleepMovement"] = []
+                # Store time-series data as JSON
+                if "sleepMovement" in data:
+                    data["sleep_movement"] = data["sleepMovement"]
+                if "wellnessSpO2SleepSummaryDTO" in data:
+                    data["wellness_spo2_sleep_summary"] = data[
+                        "wellnessSpO2SleepSummaryDTO"
+                    ]
+                if "sleepStress" in data:
+                    data["sleep_stress"] = data["sleepStress"]
+                if "sleepLevels" in data:
+                    data["sleep_levels"] = data["sleepLevels"]
 
             elif file_type == "heart_rate":
                 # Convert heart rate data to JSON format to avoid nested array issues
@@ -1146,17 +975,53 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
                     continue  # Skip entries without user ID
 
             elif file_type == "training_status":
-                # Training status can have various structures and field names
-                # Ensure at least one date field exists
-                if "date" not in data and "calendarDate" not in data:
-                    continue  # Skip entries without date
-                # Ensure at least one user identifier exists
-                if (
-                    "userProfilePk" not in data
-                    and "userProfilePK" not in data
-                    and "userId" not in data
-                ):
-                    continue  # Skip entries without user identifier
+                # Store entire record as raw data
+                data["raw_data"] = data.copy()
+
+                # Extract commonly used fields for easy querying
+                data["user_profile_pk"] = (
+                    data.get("userProfilePK")
+                    or data.get("userProfilePk")
+                    or data.get("userId")
+                )
+                data["calendar_date"] = data.get("calendarDate") or data.get("date")
+                data["training_status"] = data.get("trainingStatus")
+                data["training_load"] = data.get("trainingLoad")
+                data["fitness_level"] = data.get("fitnessLevel")
+
+                # Store complex metrics as JSON
+                if "mostRecentVO2Max" in data:
+                    data["vo2_max_data"] = data["mostRecentVO2Max"]
+                if "mostRecentTrainingLoadBalance" in data:
+                    data["training_load_balance"] = data[
+                        "mostRecentTrainingLoadBalance"
+                    ]
+                if "mostRecentTrainingStatus" in data:
+                    data["training_status_details"] = data["mostRecentTrainingStatus"]
+                if "heatAltitudeAcclimationDTO" in data:
+                    data["heat_altitude_acclimation"] = data[
+                        "heatAltitudeAcclimationDTO"
+                    ]
+
+                # Store any remaining complex data
+                additional_metrics = {}
+                for key, value in data.items():
+                    if isinstance(value, (dict, list)) and key not in [
+                        "raw_data",
+                        "vo2_max_data",
+                        "training_load_balance",
+                        "training_status_details",
+                        "heat_altitude_acclimation",
+                        "dp_inserted_at",
+                        "source_file",
+                    ]:
+                        additional_metrics[key] = value
+                if additional_metrics:
+                    data["additional_metrics"] = additional_metrics
+
+                # Ensure at least one identifier exists
+                if not data["user_profile_pk"] or not data["calendar_date"]:
+                    continue  # Skip entries without required identifiers
 
             elif file_type == "weight":
                 # Weight data validation
