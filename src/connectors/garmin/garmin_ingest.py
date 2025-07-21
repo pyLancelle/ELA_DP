@@ -97,8 +97,12 @@ garmin_activities_schema = [
     # Health metrics
     bigquery.SchemaField("calories", "FLOAT", "NULLABLE"),
     bigquery.SchemaField("bmrCalories", "FLOAT", "NULLABLE"),
-    bigquery.SchemaField("averageHR", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("maxHR", "INTEGER", "NULLABLE"),
+    bigquery.SchemaField(
+        "averageHR", "FLOAT", "NULLABLE"
+    ),  # Changed to FLOAT to handle decimal values
+    bigquery.SchemaField(
+        "maxHR", "FLOAT", "NULLABLE"
+    ),  # Changed to FLOAT to handle decimal values
     # Running metrics
     bigquery.SchemaField("steps", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("averageRunningCadenceInStepsPerMinute", "FLOAT", "NULLABLE"),
@@ -361,6 +365,65 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
                         ),
                     ),
+                    # Real sleep score fields found in actual data
+                    bigquery.SchemaField(
+                        "remPercentage",
+                        "RECORD",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
+                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
+                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
+                        ),
+                    ),
+                    bigquery.SchemaField(
+                        "deepPercentage",
+                        "RECORD",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
+                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
+                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
+                        ),
+                    ),
+                    bigquery.SchemaField(
+                        "lightPercentage",
+                        "RECORD",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
+                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
+                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
+                        ),
+                    ),
+                    bigquery.SchemaField(
+                        "restlessness",
+                        "RECORD",
+                        "NULLABLE",
+                        None,
+                        None,
+                        (
+                            bigquery.SchemaField("value", "INTEGER", "NULLABLE"),
+                            bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
+                            bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                        ),
+                    ),
                 ),
             ),
         ),
@@ -375,41 +438,28 @@ garmin_sleep_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-# Garmin Heart Rate Schema
+# Simplified Garmin Heart Rate Schema - Fixed for BigQuery compatibility
 garmin_heart_rate_schema = [
-    bigquery.SchemaField("userProfilePK", "STRING", "NULLABLE"),
+    # Basic identifiers
+    bigquery.SchemaField("userProfilePK", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("calendarDate", "STRING", "NULLABLE"),
+    bigquery.SchemaField("date", "STRING", "NULLABLE"),
+    # Timestamps
     bigquery.SchemaField("startTimestampGMT", "STRING", "NULLABLE"),
     bigquery.SchemaField("endTimestampGMT", "STRING", "NULLABLE"),
     bigquery.SchemaField("startTimestampLocal", "STRING", "NULLABLE"),
     bigquery.SchemaField("endTimestampLocal", "STRING", "NULLABLE"),
+    # Summary heart rate metrics
     bigquery.SchemaField("maxHeartRate", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("minHeartRate", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("restingHeartRate", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("lastSevenDaysAvgRestingHeartRate", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField(
-        "heartRateValueDescriptors",
-        "RECORD",
-        "REPEATED",
-        None,
-        None,
-        (
-            bigquery.SchemaField("key", "STRING", "NULLABLE"),
-            bigquery.SchemaField("index", "INTEGER", "NULLABLE"),
-        ),
-    ),
-    # Heart rate values (time series)
-    bigquery.SchemaField(
-        "heartRateValues",
-        "RECORD",
-        "REPEATED",
-        None,
-        None,
-        (
-            bigquery.SchemaField("timestamp", "STRING", "NULLABLE"),
-            bigquery.SchemaField("heartRate", "INTEGER", "NULLABLE"),
-        ),
-    ),
+    # Store complex time-series data as JSON to avoid nested array issues
+    bigquery.SchemaField("heartRateValueDescriptors", "JSON", "NULLABLE"),
+    bigquery.SchemaField("heartRateValues", "JSON", "NULLABLE"),
+    bigquery.SchemaField("heartRateValuesArray", "JSON", "NULLABLE"),
+    # Additional fields that might be present
+    bigquery.SchemaField("data", "JSON", "NULLABLE"),
     # Metadata fields
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
@@ -426,7 +476,19 @@ garmin_body_battery_schema = [
     # Daily body battery summary
     bigquery.SchemaField("charged", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("drained", "INTEGER", "NULLABLE"),
-    # Time-series data (stored as JSON arrays)
+    # Time-series data - convert nested arrays to RECORD arrays for BigQuery compatibility
+    bigquery.SchemaField(
+        "bodyBatteryValues",
+        "RECORD",
+        "REPEATED",
+        None,
+        None,
+        (
+            bigquery.SchemaField("timestamp", "INTEGER", "NULLABLE"),
+            bigquery.SchemaField("level", "INTEGER", "NULLABLE"),
+        ),
+    ),
+    # Original nested arrays stored as JSON for reference
     bigquery.SchemaField("bodyBatteryValuesArray", "JSON", "NULLABLE"),
     bigquery.SchemaField("bodyBatteryValueDescriptorDTOList", "JSON", "NULLABLE"),
     # Dynamic feedback events
@@ -464,39 +526,29 @@ garmin_body_battery_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-# Stress Schema
+# Simplified Garmin Stress Schema - Fixed for BigQuery compatibility
 garmin_stress_schema = [
-    bigquery.SchemaField("userProfilePK", "STRING", "NULLABLE"),
+    # Basic identifiers
+    bigquery.SchemaField("userProfilePK", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("calendarDate", "STRING", "NULLABLE"),
+    bigquery.SchemaField("date", "STRING", "NULLABLE"),
+    # Timestamps
     bigquery.SchemaField("startTimestampGMT", "STRING", "NULLABLE"),
     bigquery.SchemaField("endTimestampGMT", "STRING", "NULLABLE"),
     bigquery.SchemaField("startTimestampLocal", "STRING", "NULLABLE"),
     bigquery.SchemaField("endTimestampLocal", "STRING", "NULLABLE"),
+    # Stress summary metrics
     bigquery.SchemaField("maxStressLevel", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("avgStressLevel", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField(
-        "stressValueDescriptors",
-        "RECORD",
-        "REPEATED",
-        None,
-        None,
-        (
-            bigquery.SchemaField("key", "STRING", "NULLABLE"),
-            bigquery.SchemaField("index", "INTEGER", "NULLABLE"),
-        ),
-    ),
-    # Stress values (time series)
-    bigquery.SchemaField(
-        "stressValues",
-        "RECORD",
-        "REPEATED",
-        None,
-        None,
-        (
-            bigquery.SchemaField("timestamp", "STRING", "NULLABLE"),
-            bigquery.SchemaField("stress", "INTEGER", "NULLABLE"),
-        ),
-    ),
+    # Fields that appear in real data
+    bigquery.SchemaField("stressChartValueOffset", "INTEGER", "NULLABLE"),
+    bigquery.SchemaField("stressChartYAxisOrigin", "INTEGER", "NULLABLE"),
+    # Store complex time-series data as JSON to avoid nested array issues
+    bigquery.SchemaField("stressValueDescriptors", "JSON", "NULLABLE"),
+    bigquery.SchemaField("stressValues", "JSON", "NULLABLE"),
+    bigquery.SchemaField("stressValuesArray", "JSON", "NULLABLE"),
+    # Additional flexible data storage
+    bigquery.SchemaField("data", "JSON", "NULLABLE"),
     # Metadata fields
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
@@ -664,15 +716,30 @@ garmin_steps_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-# Floors Schema - Elevation/stairs climbed data
+# Floors Schema - Fixed for BigQuery nested array compatibility
 garmin_floors_schema = [
     bigquery.SchemaField("startTimestampGMT", "STRING", "NULLABLE"),
     bigquery.SchemaField("endTimestampGMT", "STRING", "NULLABLE"),
     bigquery.SchemaField("startTimestampLocal", "STRING", "NULLABLE"),
     bigquery.SchemaField("endTimestampLocal", "STRING", "NULLABLE"),
+    bigquery.SchemaField("date", "STRING", "NULLABLE"),
+    # Convert nested array to RECORD array for BigQuery compatibility
+    bigquery.SchemaField(
+        "floorValues",
+        "RECORD",
+        "REPEATED",
+        None,
+        None,
+        (
+            bigquery.SchemaField("startTimeGMT", "STRING", "NULLABLE"),
+            bigquery.SchemaField("endTimeGMT", "STRING", "NULLABLE"),
+            bigquery.SchemaField("floorsAscended", "INTEGER", "NULLABLE"),
+            bigquery.SchemaField("floorsDescended", "INTEGER", "NULLABLE"),
+        ),
+    ),
+    # Original nested arrays stored as JSON for reference
     bigquery.SchemaField("floorsValueDescriptorDTOList", "JSON", "NULLABLE"),
     bigquery.SchemaField("floorValuesArray", "JSON", "NULLABLE"),
-    bigquery.SchemaField("date", "STRING", "NULLABLE"),
     # Metadata fields
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
@@ -693,13 +760,20 @@ garmin_race_predictions_schema = [
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
 ]
 
-# Training Status Schema
+# Training Status Schema - Fixed field names
 garmin_training_status_schema = [
+    # Core identifiers (flexible to handle various field name formats)
     bigquery.SchemaField("userProfilePk", "INTEGER", "NULLABLE"),
+    bigquery.SchemaField("userProfilePK", "INTEGER", "NULLABLE"),
+    bigquery.SchemaField("userId", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("date", "STRING", "NULLABLE"),
-    bigquery.SchemaField(
-        "data", "JSON", "NULLABLE"
-    ),  # Flexible structure for various training metrics
+    bigquery.SchemaField("calendarDate", "STRING", "NULLABLE"),
+    # Training status metrics that might be present
+    bigquery.SchemaField("trainingStatus", "STRING", "NULLABLE"),
+    bigquery.SchemaField("trainingLoad", "FLOAT", "NULLABLE"),
+    bigquery.SchemaField("fitnessLevel", "STRING", "NULLABLE"),
+    # Flexible structure for various training metrics
+    bigquery.SchemaField("data", "JSON", "NULLABLE"),
     # Metadata fields
     bigquery.SchemaField("dp_inserted_at", "TIMESTAMP", "NULLABLE"),
     bigquery.SchemaField("source_file", "STRING", "NULLABLE"),
@@ -910,40 +984,33 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
                     data["sleepMovement"] = []
 
             elif file_type == "heart_rate":
-                # Ensure heart rate values are properly structured
-                if "heartRateValues" not in data:
-                    data["heartRateValues"] = []
-                elif not isinstance(data["heartRateValues"], list):
-                    data["heartRateValues"] = []
-
-                if "heartRateValueDescriptors" not in data:
-                    data["heartRateValueDescriptors"] = []
-                elif not isinstance(data["heartRateValueDescriptors"], list):
-                    data["heartRateValueDescriptors"] = []
+                # Convert heart rate data to JSON format to avoid nested array issues
+                # Keep original data structure in JSON fields for compatibility
+                pass  # Heart rate data will be stored as-is with JSON fields
 
             elif file_type == "body_battery":
-                # Ensure body battery values are properly structured
-                if "bodyBatteryValues" not in data:
-                    data["bodyBatteryValues"] = []
-                elif not isinstance(data["bodyBatteryValues"], list):
-                    data["bodyBatteryValues"] = []
+                # Convert nested arrays to RECORD arrays for BigQuery compatibility
+                if "bodyBatteryValuesArray" in data and isinstance(
+                    data["bodyBatteryValuesArray"], list
+                ):
+                    # Convert [[timestamp, level], ...] to [{timestamp: x, level: y}, ...]
+                    converted_values = []
+                    for item in data["bodyBatteryValuesArray"]:
+                        if isinstance(item, list) and len(item) >= 2:
+                            converted_values.append(
+                                {"timestamp": item[0], "level": item[1]}
+                            )
+                    data["bodyBatteryValues"] = converted_values
 
-                if "bodyBatteryValueDescriptors" not in data:
-                    data["bodyBatteryValueDescriptors"] = []
-                elif not isinstance(data["bodyBatteryValueDescriptors"], list):
-                    data["bodyBatteryValueDescriptors"] = []
+                # Ensure required fields exist for basic validation
+                if "date" not in data:
+                    continue  # Skip entries without date
 
             elif file_type == "stress":
-                # Ensure stress values are properly structured
-                if "stressValues" not in data:
-                    data["stressValues"] = []
-                elif not isinstance(data["stressValues"], list):
-                    data["stressValues"] = []
-
-                if "stressValueDescriptors" not in data:
-                    data["stressValueDescriptors"] = []
-                elif not isinstance(data["stressValueDescriptors"], list):
-                    data["stressValueDescriptors"] = []
+                # Stress data will use JSON fields for complex structures
+                # Basic validation for required fields
+                if "date" not in data and "calendarDate" not in data:
+                    continue  # Skip entries without date
 
             elif file_type == "race_predictor":
                 # Ensure race distances are properly structured
@@ -979,11 +1046,27 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
                     continue  # Skip entries without date
 
             elif file_type == "floors":
-                # Ensure floors data arrays are properly structured
-                if "floorValuesArray" not in data:
-                    data["floorValuesArray"] = []
-                if "floorsValueDescriptorDTOList" not in data:
-                    data["floorsValueDescriptorDTOList"] = []
+                # Convert nested arrays to RECORD arrays for BigQuery compatibility
+                if "floorValuesArray" in data and isinstance(
+                    data["floorValuesArray"], list
+                ):
+                    # Convert [[startTime, endTime, ascended, descended], ...] to RECORD array
+                    converted_values = []
+                    for item in data["floorValuesArray"]:
+                        if isinstance(item, list) and len(item) >= 4:
+                            converted_values.append(
+                                {
+                                    "startTimeGMT": item[0],
+                                    "endTimeGMT": item[1],
+                                    "floorsAscended": item[2],
+                                    "floorsDescended": item[3],
+                                }
+                            )
+                    data["floorValues"] = converted_values
+
+                # Ensure required fields exist
+                if "date" not in data:
+                    continue  # Skip entries without date
 
             elif file_type == "race_predictions":
                 # Race predictions are typically simple structured data
@@ -991,9 +1074,17 @@ def load_jsonl_with_metadata(uri: str, table_id: str, inserted_at: str, file_typ
                     continue  # Skip entries without user ID
 
             elif file_type == "training_status":
-                # Training status can have various structures, wrap in data field if needed
-                if "date" not in data:
+                # Training status can have various structures and field names
+                # Ensure at least one date field exists
+                if "date" not in data and "calendarDate" not in data:
                     continue  # Skip entries without date
+                # Ensure at least one user identifier exists
+                if (
+                    "userProfilePk" not in data
+                    and "userProfilePK" not in data
+                    and "userId" not in data
+                ):
+                    continue  # Skip entries without user identifier
 
             elif file_type == "weight":
                 # Weight data validation
