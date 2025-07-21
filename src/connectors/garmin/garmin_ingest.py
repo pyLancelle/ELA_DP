@@ -114,9 +114,9 @@ garmin_activities_schema = [
     bigquery.SchemaField("avgStrideLength", "FLOAT", "NULLABLE"),
     bigquery.SchemaField("avgVerticalRatio", "FLOAT", "NULLABLE"),
     # Power metrics
-    bigquery.SchemaField("avgPower", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("maxPower", "INTEGER", "NULLABLE"),
-    bigquery.SchemaField("normPower", "INTEGER", "NULLABLE"),
+    bigquery.SchemaField("avgPower", "FLOAT", "NULLABLE"),
+    bigquery.SchemaField("maxPower", "FLOAT", "NULLABLE"),
+    bigquery.SchemaField("normPower", "FLOAT", "NULLABLE"),
     # Training metrics
     bigquery.SchemaField("aerobicTrainingEffect", "FLOAT", "NULLABLE"),
     bigquery.SchemaField("anaerobicTrainingEffect", "FLOAT", "NULLABLE"),
@@ -285,6 +285,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -298,6 +304,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -311,6 +323,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -324,6 +342,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -337,6 +361,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -350,6 +380,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -363,6 +399,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                     # Real sleep score fields found in actual data
@@ -422,6 +464,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("qualifierKey", "STRING", "NULLABLE"),
                             bigquery.SchemaField("optimalStart", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "INTEGER", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "INTEGER", "NULLABLE"
+                            ),
                         ),
                     ),
                 ),
@@ -547,6 +595,7 @@ garmin_stress_schema = [
     bigquery.SchemaField("stressValueDescriptors", "JSON", "NULLABLE"),
     bigquery.SchemaField("stressValues", "JSON", "NULLABLE"),
     bigquery.SchemaField("stressValuesArray", "JSON", "NULLABLE"),
+    bigquery.SchemaField("stressValueDescriptorsDTOList", "JSON", "NULLABLE"),
     # Additional flexible data storage
     bigquery.SchemaField("data", "JSON", "NULLABLE"),
     # Metadata fields
@@ -763,7 +812,6 @@ garmin_race_predictions_schema = [
 # Training Status Schema - Fixed field names
 garmin_training_status_schema = [
     # Core identifiers (flexible to handle various field name formats)
-    bigquery.SchemaField("userProfilePk", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("userProfilePK", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("userId", "INTEGER", "NULLABLE"),
     bigquery.SchemaField("date", "STRING", "NULLABLE"),
