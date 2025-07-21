@@ -1,41 +1,37 @@
-# ELA Data Platform - PRD Environment Ingestion Configuration
-# This file defines all data ingestion jobs for PRODUCTION environment
-# PRD environment uses optimized schedules for production workloads
+# ELA Data Platform - prd Environment Ingestion Configuration
+# This file defines all data ingestion jobs for prdELOPMENT environment
+# prd environment uses more frequent schedules for testing and prdelopment
 
 # Global Configuration
 global:
   timezone: "Europe/Paris"
-  retry_attempts: 3
-  max_parallel_jobs: 5
+  retry_attempts: 2
+  max_parallel_jobs: 3
   gcs_bucket: "ela-dp-prd"
-  timeout_minutes: 45
+  timeout_minutes: 15
   environment: "prd"
 
 # Job Groups for manual execution
 job_groups:
   spotify_all:
-    description: "All Spotify data sources (PRD)"
+    description: "All Spotify data sources (prd)"
     jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_playlists", "spotify_top_tracks", "spotify_top_artists"]
   
   fitness_all:
-    description: "All fitness data sources (PRD)"
+    description: "All fitness data sources (prd)"
     jobs: ["strava_activities", "strava_athlete", "garmin_activities", "garmin_sleep", "garmin_heart_rate"]
   
   productivity_all:
-    description: "All productivity data sources (PRD)"
+    description: "All productivity data sources (prd)"
     jobs: ["todoist_tasks", "todoist_projects"]
   
+  frequent_jobs:
+    description: "Frequently running jobs for prdelopment testing"
+    jobs: ["spotify_recently_played", "strava_activities", "garmin_activities", "todoist_tasks"]
+  
   daily_jobs:
-    description: "Jobs that run daily (PRD)"
-    jobs: ["garmin_sleep", "todoist_projects"]
-  
-  weekly_jobs:
-    description: "Jobs that run weekly (PRD)"
-    jobs: ["spotify_saved_tracks", "spotify_saved_albums", "strava_athlete"]
-  
-  monthly_jobs:
-    description: "Jobs that run monthly (PRD)"
-    jobs: ["spotify_playlists", "spotify_top_tracks", "spotify_top_artists"]
+    description: "Jobs that run daily (prd)"
+    jobs: ["spotify_saved_tracks", "garmin_sleep", "todoist_projects"]
 
   # New pipeline groups
   garmin_pipeline:
@@ -46,18 +42,22 @@ job_groups:
     description: "Complete Strava pipeline (fetch + ingest)"
     jobs: ["strava_activities", "strava_athlete", "strava_ingest"]
   
+  spotify_pipeline:
+    description: "Complete Spotify pipeline (fetch + ingest)"
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_ingest"]
+  
   ingestion_only:
     description: "Run only ingestion jobs (GCS → BigQuery)"
-    jobs: ["garmin_ingest", "strava_ingest"]
+    jobs: ["garmin_ingest", "strava_ingest", "spotify_ingest"]
 
-# Individual Jobs Configuration - PRD Environment
+# Individual Jobs Configuration - prd Environment
 jobs:
-  # =================== SPOTIFY JOBS (PRD) ===================
+  # =================== SPOTIFY JOBS (prd) ===================
   spotify_recently_played:
     service: "spotify"
     data_type: "recently_played"
-    description: "Fetch recently played tracks from Spotify (PRD)"
-    cron: "0 */3 * * *"  # Every 3 hours for production
+    description: "Fetch recently played tracks from Spotify every 3 hours (9am-midnight Paris)"
+    cron: "0 8,11,14,17,20,23 * * *"  # Every 3 hours from 9am to midnight Paris time (8am-11pm UTC)
     command: "python -m src.connectors.spotify.spotify_fetch recently_played --limit 50"
     environment: "prd"
     enabled: true
@@ -66,9 +66,9 @@ jobs:
   spotify_saved_tracks:
     service: "spotify"
     data_type: "saved_tracks"
-    description: "Fetch saved tracks from Spotify (PRD)"
-    cron: "0 6 * * 0"  # Weekly on Sundays at 6:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch saved_tracks --limit 1000"
+    description: "Fetch last 20 saved tracks from Spotify daily at midday Paris time"
+    cron: "0 11,23 * * *"  # Daily at 11:00 UTC (12:00 Paris time)
+    command: "python -m src.connectors.spotify.spotify_fetch saved_tracks --limit 50"
     environment: "prd"
     enabled: true
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
@@ -76,9 +76,9 @@ jobs:
   spotify_saved_albums:
     service: "spotify"
     data_type: "saved_albums"
-    description: "Fetch saved albums from Spotify (PRD)"
-    cron: "0 7 * * 0"  # Weekly on Sundays at 7:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch saved_albums --limit 200"
+    description: "Fetch last 10 saved albums from Spotify daily at midday Paris time"
+    cron: "0 11,23 * * *"  # Daily at 11:00 UTC (12:00 Paris time)
+    command: "python -m src.connectors.spotify.spotify_fetch saved_albums --limit 50"
     environment: "prd"
     enabled: true
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
@@ -86,39 +86,39 @@ jobs:
   spotify_playlists:
     service: "spotify"
     data_type: "playlists"
-    description: "Fetch user playlists from Spotify (PRD)"
-    cron: "0 8 1 * *"  # Monthly on 1st day at 8:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch playlists --limit 100"
+    description: "Fetch user playlists from Spotify (prd - weekly testing)"
+    cron: "0 14 * * 1"  # Weekly on Mondays at 14:00 UTC
+    command: "python -m src.connectors.spotify.spotify_fetch playlists --limit 25"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
 
   spotify_top_tracks:
     service: "spotify"
     data_type: "top_tracks"
-    description: "Fetch top tracks from Spotify (PRD)"
-    cron: "0 9 1 * *"  # Monthly on 1st day at 9:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch top_tracks --limit 50 --time-range medium_term"
+    description: "Fetch top tracks from Spotify (DISABLED - not useful)"
+    cron: "0 15 * * 1"  # Weekly on Mondays at 15:00 UTC
+    command: "python -m src.connectors.spotify.spotify_fetch top_tracks --limit 25 --time-range medium_term"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
 
   spotify_top_artists:
     service: "spotify"
     data_type: "top_artists"
-    description: "Fetch top artists from Spotify (PRD)"
-    cron: "0 10 1 * *"  # Monthly on 1st day at 10:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch top_artists --limit 50 --time-range medium_term"
+    description: "Fetch top artists from Spotify (DISABLED - not useful)"
+    cron: "0 16 * * 1"  # Weekly on Mondays at 16:00 UTC
+    command: "python -m src.connectors.spotify.spotify_fetch top_artists --limit 25 --time-range medium_term"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
 
-  # =================== STRAVA JOBS (PRD) ===================
+  # =================== STRAVA JOBS (prd) ===================
   strava_activities:
     service: "strava"
     data_type: "activities"
-    description: "Fetch activities from Strava (PRD)"
-    cron: "0 */6 * * *"  # Every 6 hours for production
+    description: "Fetch activities from Strava (prd - frequent testing)"
+    cron: "0 */2 * * *"  # Every 2 hours for testing
     command: "python -m src.connectors.strava.strava"
     environment: "prd"
     enabled: false
@@ -127,50 +127,120 @@ jobs:
   strava_athlete:
     service: "strava"
     data_type: "athlete"
-    description: "Fetch athlete profile from Strava (PRD)"
-    cron: "0 6 * * 1"  # Weekly on Mondays at 6:00 UTC
+    description: "Fetch athlete profile from Strava (prd - daily testing)"
+    cron: "0 12 * * *"  # Daily at 12:00 UTC for testing
     command: "python -m src.connectors.strava.strava --athlete"
     environment: "prd"
     enabled: false
     dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
 
-  # =================== GARMIN JOBS (PRD) ===================
+  # =================== GARMIN JOBS (prd) ===================
   garmin_activities:
     service: "garmin"
     data_type: "activities"
-    description: "Fetch activities from Garmin (PRD)"
-    cron: "0 */4 * * *"  # Every 4 hours for production
-    command: "python -m src.connectors.garmin.garmin_fetch activities --days 7"
+    description: "Fetch activities from Garmin (prd - frequent testing)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types activities --days 2"
     environment: "prd"
-    enabled: false
+    enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   garmin_sleep:
     service: "garmin"
     data_type: "sleep"
-    description: "Fetch sleep data from Garmin (PRD)"
-    cron: "0 8 * * *"  # Daily at 8:00 UTC
-    command: "python -m src.connectors.garmin.garmin_fetch sleep --days 2"
+    description: "Fetch sleep data from Garmin (prd - daily testing)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types sleep --days 1"
     environment: "prd"
-    enabled: false
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_steps:
+    service: "garmin"
+    data_type: "steps"
+    description: "Fetch steps data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types steps --days 1"
+    environment: "prd"
+    enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   garmin_heart_rate:
     service: "garmin"
     data_type: "heart_rate"
-    description: "Fetch heart rate data from Garmin (PRD)"
-    cron: "0 */8 * * *"  # Every 8 hours for production
-    command: "python -m src.connectors.garmin.garmin_fetch heart_rate --days 1"
+    description: "Fetch heart rate data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types heart_rate --days 1"
     environment: "prd"
-    enabled: false
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_body_battery:
+    service: "garmin"
+    data_type: "body_battery"
+    description: "Fetch body battery data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types body_battery --days 1"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_stress:
+    service: "garmin"
+    data_type: "stress"
+    description: "Fetch stress data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types stress --days 1"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_training_status:
+    service: "garmin"
+    data_type: "training_status"
+    description: "Fetch training status data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types training_status --days 1"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_hrv:
+    service: "garmin"
+    data_type: "hrv"
+    description: "Fetch hrv data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types hrv --days 1"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_race_predictions:
+    service: "garmin"
+    data_type: "race_predictions"
+    description: "Fetch race predictions data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types race_predictions --days 1"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_floors:
+    service: "garmin"
+    data_type: "floors"
+    description: "Fetch floors data from Garmin (PRD - every 4 hours)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types floors --days 1"
+    environment: "prd"
+    enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   # =================== TODOIST JOBS (PRD) ===================
   todoist_tasks:
     service: "todoist"
     data_type: "tasks"
-    description: "Fetch tasks from Todoist (PRD)"
-    cron: "0 */4 * * *"  # Every 4 hours for production
+    description: "Fetch tasks from Todoist (PRD - frequent testing)"
+    cron: "0 */2 * * *"  # Every 2 hours for testing
     command: "python -m src.connectors.todoist.todoist tasks"
     environment: "prd"
     enabled: false
@@ -179,8 +249,8 @@ jobs:
   todoist_projects:
     service: "todoist"
     data_type: "projects"
-    description: "Fetch projects from Todoist (PRD)"
-    cron: "0 7 * * *"  # Daily at 7:00 UTC
+    description: "Fetch projects from Todoist (PRD - daily testing)"
+    cron: "0 9 * * *"  # Daily at 9:00 UTC for testing
     command: "python -m src.connectors.todoist.todoist projects"
     environment: "prd"
     enabled: false
@@ -191,20 +261,30 @@ jobs:
     service: "garmin"
     data_type: "ingest"
     description: "Ingest Garmin data from GCS to BigQuery (PRD)"
-    cron: "30 */4 * * *"  # 30 minutes after data fetch
-    command: "python -m src.connectors.garmin.garmin_ingest --env prd --project ela-dp"
+    cron: "30 */2 * * *"  # 30 minutes after data fetch
+    command: "python -m src.connectors.garmin.garmin_ingest --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   strava_ingest:
     service: "strava"
     data_type: "ingest"
     description: "Ingest Strava data from GCS to BigQuery (PRD)"
-    cron: "30 */6 * * *"  # 30 minutes after data fetch
-    command: "python -m src.connectors.strava.strava_ingest --env prd --project ela-dp"
+    cron: "30 */2 * * *"  # 30 minutes after data fetch
+    command: "python -m src.connectors.strava.strava_ingest --env prd"
     environment: "prd"
-    enabled: false  # Disabled until Strava OAuth is configured
+    enabled: false
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  spotify_ingest:
+    service: "spotify"
+    data_type: "ingest"
+    description: "Ingest Spotify data from GCS to BigQuery (PRD)"
+    cron: "30 * * * *"  # 30 minutes after hourly fetch
+    command: "python -m src.connectors.spotify.spotify_ingest --env prd"
+    environment: "prd"
+    enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
 # Service-specific configuration
@@ -212,7 +292,7 @@ services:
   spotify:
     base_path: "src/connectors/spotify"
     fetch_script: "spotify_fetch.py"
-    default_limit: 50  # Full limits for PRD
+    default_limit: 20  # Smaller limits for PRD
     supported_data_types: ["recently_played", "saved_tracks", "saved_albums", "playlists", "top_tracks", "top_artists"]
   
   strava:

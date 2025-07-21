@@ -140,7 +140,7 @@ jobs:
     data_type: "activities"
     description: "Fetch activities from Garmin (DEV - frequent testing)"
     cron: "0 11 * * *"  # Every 2 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch activities --days 2"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types activities --days 2"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
