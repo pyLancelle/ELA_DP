@@ -443,6 +443,12 @@ garmin_sleep_schema = [
                             bigquery.SchemaField("optimalEnd", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("ideal", "FLOAT", "NULLABLE"),
                             bigquery.SchemaField("userDayAverage", "FLOAT", "NULLABLE"),
+                            bigquery.SchemaField(
+                                "idealStartInSeconds", "FLOAT", "NULLABLE"
+                            ),
+                            bigquery.SchemaField(
+                                "idealEndInSeconds", "FLOAT", "NULLABLE"
+                            ),
                         ),
                     ),
                     bigquery.SchemaField(
@@ -837,6 +843,7 @@ garmin_training_status_schema = [
     bigquery.SchemaField("fitnessLevel", "STRING", "NULLABLE"),
     bigquery.SchemaField("mostRecentVO2Max", "JSON", "NULLABLE"),
     bigquery.SchemaField("mostRecentTrainingLoadBalance", "JSON", "NULLABLE"),
+    bigquery.SchemaField("mostRecentTrainingStatus", "JSON", "NULLABLE"),
     # Flexible structure for various training metrics
     bigquery.SchemaField("data", "JSON", "NULLABLE"),
     # Metadata fields
