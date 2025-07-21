@@ -264,7 +264,7 @@ jobs:
     cron: "30 */2 * * *"  # 30 minutes after data fetch
     command: "python -m src.connectors.garmin.garmin_ingest --env dev"
     environment: "dev"
-    enabled: false
+    enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   strava_ingest:
