@@ -1,9 +1,16 @@
-{{ config(dataset=get_schema('lake')) }}
+{{ config(
+    dataset=get_schema('lake'),
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key='training_status_date'
+) }}
 
 -- Pure training status data extraction from staging_garmin_raw
 -- Source: training_status data type from Garmin Connect API
+-- Deduplicates by keeping most recent record per date
 
-SELECT
+WITH training_status_data_with_rank AS (
+  SELECT
     -- User and date identifiers  
     SAFE_CAST(JSON_EXTRACT_SCALAR(raw_data, '$.userId') AS INT64) AS user_id,
     DATE(SAFE.PARSE_TIMESTAMP('%Y-%m-%d', JSON_EXTRACT_SCALAR(raw_data, '$.date'))) AS training_status_date,
@@ -54,8 +61,60 @@ SELECT
     
     -- Source metadata
     dp_inserted_at,
-    source_file
+    source_file,
+    
+    -- Add row number to deduplicate by most recent dp_inserted_at
+    ROW_NUMBER() OVER (
+      PARTITION BY DATE(SAFE.PARSE_TIMESTAMP('%Y-%m-%d', JSON_EXTRACT_SCALAR(raw_data, '$.date')))
+      ORDER BY dp_inserted_at DESC
+    ) AS row_rank
 
-FROM {{ source('garmin', 'staging_garmin_raw') }}
-WHERE data_type = 'training_status'
-  AND JSON_EXTRACT_SCALAR(raw_data, '$.userId') IS NOT NULL
+  FROM {{ source('garmin', 'lake_garmin__stg_garmin_raw') }}
+  WHERE data_type = 'training_status'
+    AND JSON_EXTRACT_SCALAR(raw_data, '$.userId') IS NOT NULL
+    
+  {% if is_incremental() %}
+    AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+  {% endif %}
+)
+
+SELECT
+  user_id,
+  training_status_date,
+  last_primary_sync_date,
+  vo2_max_date,
+  vo2_max_value,
+  vo2_max_precise_value,
+  fitness_age,
+  fitness_age_description,
+  acclimatization_date,
+  heat_acclimation_percentage,
+  altitude_acclimation,
+  current_altitude,
+  heat_trend,
+  altitude_trend,
+  monthly_load_aerobic_low,
+  monthly_load_aerobic_high,
+  monthly_load_anaerobic,
+  training_balance_feedback,
+  training_status_calendar_date,
+  training_status_code,
+  fitness_trend_code,
+  training_status_feedback,
+  training_sport,
+  training_sub_sport,
+  training_paused,
+  acwr_percent,
+  acwr_status,
+  daily_training_load_acute,
+  daily_training_load_chronic,
+  daily_acwr,
+  vo2_max_full_json,
+  training_load_balance_full_json,
+  training_status_full_json,
+  recorded_devices_json,
+  dp_inserted_at,
+  source_file
+
+FROM training_status_data_with_rank
+WHERE row_rank = 1

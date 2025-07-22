@@ -1,4 +1,9 @@
-{{ config(dataset=get_schema('lake')) }}
+{{ config(
+    dataset=get_schema('lake'),
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key='prediction_date'
+) }}
 
 -- Pure race predictions data extraction from staging_garmin_raw
 -- Source: race_predictions data type from Garmin Connect API
@@ -22,6 +27,10 @@ SELECT
     dp_inserted_at,
     source_file
 
-FROM {{ source('garmin', 'staging_garmin_raw') }}
+FROM {{ source('garmin', 'lake_garmin__stg_garmin_raw') }}
 WHERE data_type = 'race_predictions'
   AND JSON_EXTRACT_SCALAR(raw_data, '$.userId') IS NOT NULL
+
+{% if is_incremental() %}
+  AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

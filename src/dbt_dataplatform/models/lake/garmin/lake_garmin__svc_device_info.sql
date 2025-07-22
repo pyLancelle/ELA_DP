@@ -1,4 +1,9 @@
-{{ config(dataset=get_schema('lake')) }}
+{{ config(
+    dataset=get_schema('lake'),
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key='device_id'
+) }}
 
 -- Pure device info data extraction from staging_garmin_raw
 -- Source: device_info data type from Garmin Connect API
@@ -33,6 +38,10 @@ SELECT
     dp_inserted_at,
     source_file
 
-FROM {{ source('garmin', 'staging_garmin_raw') }}
+FROM {{ source('garmin', 'lake_garmin__stg_garmin_raw') }}
 WHERE data_type = 'device_info'
   AND JSON_EXTRACT_SCALAR(raw_data, '$.deviceId') IS NOT NULL
+
+{% if is_incremental() %}
+  AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

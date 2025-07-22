@@ -9,6 +9,10 @@ model-paths: ["models"]
 models:
   dbt_dataplatform:
     lake:
+      garmin:
+        +materialized: incremental
+        +incremental_strategy: merge
+        +on_schema_change: sync_all_columns
       +materialized: table
     hub:
       +materialized: view

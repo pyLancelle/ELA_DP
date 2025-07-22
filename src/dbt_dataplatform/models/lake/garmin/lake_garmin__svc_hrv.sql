@@ -1,9 +1,16 @@
-{{ config(dataset=get_schema('lake')) }}
+{{ config(
+    dataset=get_schema('lake'),
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key=['hrv_date', 'sleep_start_gmt']
+) }}
 
 -- Pure heart rate variability data extraction from staging_garmin_raw
 -- Source: hrv data type from Garmin Connect API
+-- Deduplicates by keeping most recent record per date/timestamp combination
 
-SELECT
+WITH hrv_data_with_rank AS (
+  SELECT
     -- User and date identifiers
     SAFE_CAST(JSON_EXTRACT_SCALAR(raw_data, '$.userProfilePk') AS INT64) AS user_profile_pk,
     DATE(SAFE.PARSE_TIMESTAMP('%Y-%m-%d', JSON_EXTRACT_SCALAR(raw_data, '$.hrvSummary.calendarDate'))) AS hrv_date,
@@ -41,8 +48,49 @@ SELECT
     
     -- Source metadata
     dp_inserted_at,
-    source_file
+    source_file,
+    
+    -- Add row number to deduplicate by most recent dp_inserted_at
+    ROW_NUMBER() OVER (
+      PARTITION BY 
+        DATE(SAFE.PARSE_TIMESTAMP('%Y-%m-%d', JSON_EXTRACT_SCALAR(raw_data, '$.hrvSummary.calendarDate'))),
+        SAFE.PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E1S', JSON_EXTRACT_SCALAR(raw_data, '$.sleepStartTimestampGMT'))
+      ORDER BY dp_inserted_at DESC
+    ) AS row_rank
 
-FROM {{ source('garmin', 'staging_garmin_raw') }}
-WHERE data_type = 'hrv'
-  AND JSON_EXTRACT_SCALAR(raw_data, '$.hrvSummary.calendarDate') IS NOT NULL
+  FROM {{ source('garmin', 'lake_garmin__stg_garmin_raw') }}
+  WHERE data_type = 'hrv'
+    AND JSON_EXTRACT_SCALAR(raw_data, '$.hrvSummary.calendarDate') IS NOT NULL
+    
+  {% if is_incremental() %}
+    AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+  {% endif %}
+)
+
+SELECT
+  user_profile_pk,
+  hrv_date,
+  weekly_avg_hrv,
+  last_night_avg_hrv,
+  last_night_5min_high_hrv,
+  baseline_low_upper,
+  baseline_balanced_low,
+  baseline_balanced_upper,
+  baseline_marker_value,
+  hrv_status,
+  feedback_phrase,
+  summary_created_at,
+  sleep_start_gmt,
+  sleep_end_gmt,
+  sleep_start_local,
+  sleep_end_local,
+  measurement_start_gmt,
+  measurement_end_gmt,
+  measurement_start_local,
+  measurement_end_local,
+  hrv_readings_timeseries_json,
+  dp_inserted_at,
+  source_file
+
+FROM hrv_data_with_rank
+WHERE row_rank = 1
