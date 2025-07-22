@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: garmin
+    database: polar-scene-465223-f7
+    schema: "{{ 'dp_lake_' ~ target.name }}"
+    tables:
+      - name: staging_garmin_raw
+        description: "Universal Garmin raw data table storing all data types as JSON"
+        columns:
+          - name: raw_data
+            description: "Complete original record as JSON from Garmin Connect API"
+          - name: data_type
+            description: "Type of Garmin data (activities, sleep, steps, body_battery, etc.)"
+          - name: dp_inserted_at
+            description: "Timestamp when record was ingested into data platform"
+          - name: source_file
+            description: "Original JSONL filename from connector"
