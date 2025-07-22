@@ -222,7 +222,7 @@ if __name__ == "__main__":
             file_type = detect_file_type(filename)
 
             # Single table approach - all Garmin data types in one raw table
-            table_id = f"{project_id}.{dataset}.staging_garmin_raw"
+            table_id = f"{project_id}.{dataset}.lake_garmin__stg_garmin_raw"
 
             print(f"📊 Processing {file_type} file: {filename}")
             load_jsonl_as_raw_json(uri, table_id, inserted_at, file_type)
@@ -245,6 +245,6 @@ if __name__ == "__main__":
 
     if success_count > 0:
         print(f"\n🎯 Next Steps:")
-        print(f"1. Data is now in: {project_id}.{dataset}.staging_garmin_raw")
+        print(f"1. Data is now in: {project_id}.{dataset}.lake_garmin__stg_garmin_raw")
         print(f"2. Run dbt models to transform JSON into structured tables")
         print(f"3. Use JSON functions in dbt to extract any field you need")
