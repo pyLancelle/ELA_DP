@@ -25,6 +25,7 @@ data/
 
 # IDE files
 .vscode/
+.vscode
 .git/
 .github/instructions/
 
