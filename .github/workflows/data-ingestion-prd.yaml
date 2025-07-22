@@ -357,7 +357,7 @@ jobs:
         if: success() && env.SKIP_GCS != 'true'
         run: |
           # Find and upload any generated .jsonl files
-          JSONL_FILES=$(find . -name "*.jsonl" -type f -newer /proc/self 2>/prd/null | head -10)
+          JSONL_FILES=$(find . -name "*.jsonl" -type f -newer /proc/self 2>/dev/null | head -10)
           
           if [ -n "$JSONL_FILES" ]; then
             echo "📁 Found JSONL files to upload:"
@@ -383,7 +383,7 @@ jobs:
         if: success() && env.SKIP_GCS == 'true'
         run: |
           echo "📁 Generated files (GCS upload was skipped):"
-          find . -name "*.jsonl" -type f 2>/prd/null | head -10 || echo "No JSONL files found"
+          find . -name "*.jsonl" -type f 2>/dev/null | head -10 || echo "No JSONL files found"
           echo ""
           echo "💡 To enable GCS upload:"
           echo "   1. Verify GCP_SERVICE_ACCOUNT_KEY secret contains valid JSON"
