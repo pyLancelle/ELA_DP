@@ -18,15 +18,11 @@ on:
         type: choice
         options:
           - ""
-          - "spotify_all"
-          - "fitness_all"
-          - "productivity_all"
-          - "frequent_jobs"
-          - "daily_jobs"
-          - "garmin_pipeline"
-          - "strava_pipeline"
-          - "spotify_pipeline"
+          - "garmin_fetch_all"
+          - "strava_fetch_all"
+          - "spotify_fetch_all"
           - "ingestion_only"
+          - "garmin_ingest_only"
       force_run:
         description: "Force run all jobs regardless of schedule"
         required: false

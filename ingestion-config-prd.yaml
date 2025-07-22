@@ -17,21 +17,40 @@ job_groups:
     description: "All Spotify data sources (prd)"
     jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_playlists", "spotify_top_tracks", "spotify_top_artists"]
 
+  # Data Fetching Groups (Step 1)
+  garmin_fetch_all:
+    description: "Fetch all Garmin data (Step 1/2)"
+    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors"]
+  
+  strava_fetch_all:
+    description: "Fetch all Strava data (Step 1/2)"
+    jobs: ["strava_activities", "strava_athlete"]
+  
+  spotify_fetch_all:
+    description: "Fetch all Spotify data (Step 1/2)"
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums"]
+  
+  # Data Ingestion Groups (Step 2)
+  ingestion_only:
+    description: "Run only ingestion jobs - GCS → BigQuery (Step 2/2)"
+    jobs: ["garmin_ingest", "strava_ingest", "spotify_ingest"]
+  
+  garmin_ingest_only:
+    description: "Ingest Garmin data only - GCS → BigQuery"
+    jobs: ["garmin_ingest"]
+  
+  # Legacy Combined Pipelines (runs in parallel - use with caution)
   garmin_pipeline:
-    description: "Complete Garmin pipeline (fetch + ingest)"
+    description: "Complete Garmin pipeline (parallel execution - may have timing issues)"
     jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_ingest"]
   
   strava_pipeline:
-    description: "Complete Strava pipeline (fetch + ingest)"
+    description: "Complete Strava pipeline (parallel execution - may have timing issues)"
     jobs: ["strava_activities", "strava_athlete", "strava_ingest"]
   
   spotify_pipeline:
-    description: "Complete Spotify pipeline (fetch + ingest)"
+    description: "Complete Spotify pipeline (parallel execution - may have timing issues)"
     jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_ingest"]
-  
-  ingestion_only:
-    description: "Run only ingestion jobs (GCS → BigQuery)"
-    jobs: ["garmin_ingest", "strava_ingest", "spotify_ingest"]
 
 # Individual Jobs Configuration - prd Environment
 jobs:
