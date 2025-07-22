@@ -36,7 +36,7 @@ job_groups:
   # New pipeline groups
   garmin_pipeline:
     description: "Complete Garmin pipeline (fetch + ingest)"
-    jobs: ["garmin_activities", "garmin_sleep", "garmin_heart_rate", "garmin_ingest"]
+    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_ingest"]
   
   strava_pipeline:
     description: "Complete Strava pipeline (fetch + ingest)"
@@ -303,7 +303,7 @@ services:
   garmin:
     base_path: "src/connectors/garmin"
     fetch_script: "garmin_fetch.py"
-    supported_data_types: ["activities", "sleep", "heart_rate"]
+    supported_data_types: ["activities", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors"]
   
   todoist:
     base_path: "src/connectors/todoist"

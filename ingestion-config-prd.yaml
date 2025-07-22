@@ -16,27 +16,10 @@ job_groups:
   spotify_all:
     description: "All Spotify data sources (prd)"
     jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_playlists", "spotify_top_tracks", "spotify_top_artists"]
-  
-  fitness_all:
-    description: "All fitness data sources (prd)"
-    jobs: ["strava_activities", "strava_athlete", "garmin_activities", "garmin_sleep", "garmin_heart_rate"]
-  
-  productivity_all:
-    description: "All productivity data sources (prd)"
-    jobs: ["todoist_tasks", "todoist_projects"]
-  
-  frequent_jobs:
-    description: "Frequently running jobs for prdelopment testing"
-    jobs: ["spotify_recently_played", "strava_activities", "garmin_activities", "todoist_tasks"]
-  
-  daily_jobs:
-    description: "Jobs that run daily (prd)"
-    jobs: ["spotify_saved_tracks", "garmin_sleep", "todoist_projects"]
 
-  # New pipeline groups
   garmin_pipeline:
     description: "Complete Garmin pipeline (fetch + ingest)"
-    jobs: ["garmin_activities", "garmin_sleep", "garmin_heart_rate", "garmin_ingest"]
+    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_ingest"]
   
   strava_pipeline:
     description: "Complete Strava pipeline (fetch + ingest)"
@@ -303,7 +286,7 @@ services:
   garmin:
     base_path: "src/connectors/garmin"
     fetch_script: "garmin_fetch.py"
-    supported_data_types: ["activities", "sleep", "heart_rate"]
+    supported_data_types: ["activities", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors"]
   
   todoist:
     base_path: "src/connectors/todoist"

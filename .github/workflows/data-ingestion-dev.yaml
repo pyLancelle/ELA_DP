@@ -23,6 +23,10 @@ on:
           - "productivity_all"
           - "frequent_jobs"
           - "daily_jobs"
+          - "garmin_pipeline"
+          - "strava_pipeline"
+          - "spotify_pipeline"
+          - "ingestion_only"
       force_run:
         description: "Force run all jobs regardless of schedule"
         required: false
