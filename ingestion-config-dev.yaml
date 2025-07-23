@@ -36,7 +36,7 @@ job_groups:
   # Data Fetching Groups (Step 1)
   garmin_fetch_all:
     description: "Fetch all Garmin data (Step 1/2)"
-    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors"]
+    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight"]
   
   garmin_backfill_1year:
     description: "Backfill 1 year of Garmin data"
@@ -162,7 +162,7 @@ jobs:
     data_type: "activities"
     description: "Fetch activities from Garmin (DEV - frequent testing)"
     cron: "0 11 * * *"  # Every 2 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types activities --days 2"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types activities --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -172,7 +172,7 @@ jobs:
     data_type: "sleep"
     description: "Fetch sleep data from Garmin (DEV - daily testing)"
     cron: "0 11 * * *"  # Daily at 13:00 UTC for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types sleep --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types sleep --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -182,7 +182,7 @@ jobs:
     data_type: "steps"
     description: "Fetch steps data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Daily at 12:00 UTC for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types steps --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types steps --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -192,7 +192,7 @@ jobs:
     data_type: "heart_rate"
     description: "Fetch heart rate data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types heart_rate --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types heart_rate --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -202,7 +202,7 @@ jobs:
     data_type: "body_battery"
     description: "Fetch body battery data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types body_battery --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types body_battery --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -212,7 +212,7 @@ jobs:
     data_type: "stress"
     description: "Fetch stress data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types stress --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types stress --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -222,7 +222,7 @@ jobs:
     data_type: "training_status"
     description: "Fetch training status data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types training_status --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types training_status --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -232,7 +232,7 @@ jobs:
     data_type: "hrv"
     description: "Fetch hrv data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types hrv --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types hrv --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -242,7 +242,7 @@ jobs:
     data_type: "race_predictions"
     description: "Fetch race predictions data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types race_predictions --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types race_predictions --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -252,7 +252,17 @@ jobs:
     data_type: "floors"
     description: "Fetch floors data from Garmin (DEV - every 4 hours)"
     cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types floors --days 1"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types floors --days 2 --no-withings-sync"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_weight:
+    service: "garmin"
+    data_type: "weight"
+    description: "Fetch weight data from Garmin (DEV - every 4 hours)"
+    cron: "0 11 * * *"  # Every 4 hours for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 2"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -263,7 +273,7 @@ jobs:
     data_type: "all"
     description: "Backfill 1 year of Garmin data (manual trigger only)"
     cron: ""  # No automatic schedule - manual only
-    command: "python -m src.connectors.garmin.garmin_fetch --days 365 --no-withings-sync"
+    command: "python -m src.connectors.garmin.garmin_fetch --days 10 --no-withings-sync"
     environment: "dev"
     enabled: false  # Manual trigger only
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -336,7 +346,7 @@ services:
   garmin:
     base_path: "src/connectors/garmin"
     fetch_script: "garmin_fetch.py"
-    supported_data_types: ["activities", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors"]
+    supported_data_types: ["activities", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors", "weight"]
   
   todoist:
     base_path: "src/connectors/todoist"

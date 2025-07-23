@@ -76,21 +76,34 @@ def sync_withings_data(username: str, password: str, days: int = 30) -> bool:
     Returns:
         True if sync successful or skipped, False if failed
     """
+    # Quick check: is withings-sync even installed?
     try:
-        # Check if withings-sync is available
         result = subprocess.run(
-            ["withings-sync", "--help"], capture_output=True, text=True, timeout=10
+            ["withings-sync", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=5,  # Reduced timeout for quick check
         )
-
         if result.returncode != 0:
-            logging.warning("withings-sync not available, skipping Withings sync")
-            return True  # Not a failure, just skip
-
+            logging.info("ℹ️ withings-sync not available, skipping Withings sync")
+            return True
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        logging.warning("withings-sync not installed, skipping Withings sync")
-        logging.info("💡 Install with: pip install withings-sync")
-        return True  # Not a failure, just skip
+        logging.info("ℹ️ withings-sync not installed, skipping Withings sync")
+        logging.debug("💡 Install with: pip install withings-sync")
+        return True
 
+    # Check if Withings credentials are available
+    withings_client_id = os.getenv("WITHINGS_CLIENT_ID")
+    withings_client_secret = os.getenv("WITHINGS_CLIENT_SECRET")
+
+    if not withings_client_id or not withings_client_secret:
+        logging.info("ℹ️ No Withings credentials found, skipping automatic sync")
+        logging.debug(
+            "💡 Set WITHINGS_CLIENT_ID and WITHINGS_CLIENT_SECRET to enable sync"
+        )
+        return True
+
+    # All checks passed, proceed with sync
     try:
         logging.info("🔄 Starting automatic Withings to Garmin sync...")
 
@@ -106,19 +119,11 @@ def sync_withings_data(username: str, password: str, days: int = 30) -> bool:
             "--verbose",
         ]
 
-        # Set environment variables for Withings credentials if available
+        # Set environment variables for Withings credentials
         env = os.environ.copy()
-        withings_client_id = os.getenv("WITHINGS_CLIENT_ID")
-        withings_client_secret = os.getenv("WITHINGS_CLIENT_SECRET")
-
-        if withings_client_id and withings_client_secret:
-            env["WITHINGS_CLIENT_ID"] = withings_client_id
-            env["WITHINGS_CLIENT_SECRET"] = withings_client_secret
-            logging.info("✅ Using Withings credentials from environment")
-        else:
-            logging.warning(
-                "⚠️ No Withings credentials found - sync may require manual authorization"
-            )
+        env["WITHINGS_CLIENT_ID"] = withings_client_id
+        env["WITHINGS_CLIENT_SECRET"] = withings_client_secret
+        logging.info("✅ Using Withings credentials from environment")
 
         # Run withings-sync with timeout
         logging.info(

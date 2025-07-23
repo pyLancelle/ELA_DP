@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key=['weight_date', 'timestamp_gmt']
+    unique_key=['weight_date', 'timestamp_gmt'],
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin weight data
@@ -37,6 +38,7 @@ WITH weight_data_with_rank AS (
   WHERE data_type = 'weight'
     AND JSON_EXTRACT_SCALAR(raw_data, '$.date') IS NOT NULL
     AND JSON_EXTRACT_SCALAR(raw_data, '$.timestampGMT') IS NOT NULL
+    AND JSON_VALUE(raw_data, '$.sourceType') = 'INDEX_SCALE'
     
   {% if is_incremental() %}
     AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})

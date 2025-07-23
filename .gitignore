@@ -33,3 +33,6 @@ data/
 .ipynb_checkpoints
 *.ipynb 
 playground/
+
+# Claude working notes and temporary files
+.claude_notes/

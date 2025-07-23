@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key='device_id'
+    unique_key='device_id',
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin device info data

@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key='training_status_date'
+    unique_key='training_status_date',
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin training status data

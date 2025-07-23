@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key='sleep_session_id'
+    unique_key='sleep_session_id',
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin sleep data

@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key=['hrv_date', 'sleep_start_gmt']
+    unique_key=['hrv_date', 'sleep_start_gmt'],
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin HRV data

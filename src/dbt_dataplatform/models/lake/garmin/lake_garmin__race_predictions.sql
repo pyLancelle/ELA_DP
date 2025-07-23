@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key='prediction_date'
+    unique_key='prediction_date',
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin race predictions data

@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key=['interval_start_gmt', 'interval_end_gmt']
+    unique_key=['interval_start_gmt', 'interval_end_gmt'],
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin steps data
@@ -12,8 +13,8 @@
 WITH steps_data_with_rank AS (
   SELECT
     -- Unique identifiers for deduplication
-    TIMESTAMP_MILLIS(SAFE_CAST(JSON_EXTRACT_SCALAR(raw_data, '$.startGMT') AS INT64)) AS interval_start_gmt,
-    TIMESTAMP_MILLIS(SAFE_CAST(JSON_EXTRACT_SCALAR(raw_data, '$.endGMT') AS INT64)) AS interval_end_gmt,
+    TIMESTAMP(JSON_VALUE(raw_data, '$.startGMT')) AS interval_start_gmt,
+    TIMESTAMP(JSON_VALUE(raw_data, '$.endGMT')) AS interval_end_gmt,
     
     -- Complete raw JSON data (to be parsed in Hub layer)
     raw_data,
@@ -28,15 +29,16 @@ WITH steps_data_with_rank AS (
     -- Add row number to deduplicate by most recent dp_inserted_at
     ROW_NUMBER() OVER (
       PARTITION BY 
-        TIMESTAMP_MILLIS(SAFE_CAST(JSON_EXTRACT_SCALAR(raw_data, '$.startGMT') AS INT64)),
-        TIMESTAMP_MILLIS(SAFE_CAST(JSON_EXTRACT_SCALAR(raw_data, '$.endGMT') AS INT64))
+        TIMESTAMP(JSON_VALUE(raw_data, '$.startGMT')),
+        TIMESTAMP(JSON_VALUE(raw_data, '$.endGMT'))
       ORDER BY dp_inserted_at DESC
     ) AS row_rank
 
   FROM {{ source('garmin', 'lake_garmin__stg_garmin_raw') }}
   WHERE data_type = 'steps'
-    AND JSON_EXTRACT_SCALAR(raw_data, '$.startGMT') IS NOT NULL
-    AND JSON_EXTRACT_SCALAR(raw_data, '$.endGMT') IS NOT NULL
+    AND JSON_VALUE(raw_data, '$.startGMT') IS NOT NULL
+    AND JSON_VALUE(raw_data, '$.endGMT') IS NOT NULL
+    AND DATE(JSON_VALUE(raw_data, '$.date')) >= '2025-03-01'
     
   {% if is_incremental() %}
     AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})

@@ -2,7 +2,8 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key=['body_battery_date', 'start_timestamp_gmt']
+    unique_key=['body_battery_date', 'start_timestamp_gmt'],
+    tags=["lake", "garmin"]
 ) }}
 
 -- Pure Lake model for Garmin body battery data
