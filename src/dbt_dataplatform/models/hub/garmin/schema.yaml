@@ -1,0 +1,190 @@
+version: 2
+
+models:
+  - name: hub_garmin__activities
+    description: Hub model parsing Garmin activities data with comprehensive metrics
+    columns:
+      - name: activity_id
+        description: Unique identifier for the activity
+        tests:
+          - unique
+          - not_null
+      - name: activity_name
+        description: Name/title of the activity
+      - name: activity_type
+        description: Type of activity (running, cycling, swimming, etc.)
+      - name: start_time_local
+        description: Activity start time in local timezone
+      - name: duration_seconds
+        description: Total activity duration in seconds
+      - name: distance_meters
+        description: Total distance covered in meters
+      - name: calories
+        description: Calories burned during activity
+      - name: average_heart_rate
+        description: Average heart rate during activity (bpm)
+      - name: elevation_gain_meters
+        description: Total elevation gain in meters
+
+  - name: hub_garmin__sleep
+    description: Hub model parsing Garmin sleep data with detailed sleep metrics
+    columns:
+      - name: sleep_session_id
+        description: Unique identifier for the sleep session
+        tests:
+          - unique
+          - not_null
+      - name: calendar_date
+        description: Date of the sleep session
+      - name: sleep_time_seconds
+        description: Total sleep time in seconds
+      - name: light_sleep_duration_seconds
+        description: Light sleep duration in seconds
+      - name: deep_sleep_duration_seconds
+        description: Deep sleep duration in seconds
+      - name: rem_sleep_duration_seconds
+        description: REM sleep duration in seconds
+      - name: sleep_efficiency_percent
+        description: Sleep efficiency percentage
+      - name: overall_sleep_score
+        description: Overall sleep quality score
+
+  - name: hub_garmin__weight
+    description: Hub model parsing Garmin weight data including Withings synced data
+    columns:
+      - name: weight_date
+        description: Date of weight measurement
+      - name: timestamp_gmt
+        description: Timestamp of measurement in GMT
+      - name: weight_kg
+        description: Weight measurement in kilograms
+      - name: bmi
+        description: Body Mass Index
+      - name: body_fat_percent
+        description: Body fat percentage
+      - name: muscle_mass_kg
+        description: Muscle mass in kilograms
+      - name: is_withings_data
+        description: Flag indicating if data originated from Withings sync
+
+  - name: hub_garmin__steps
+    description: Hub model parsing Garmin steps data with activity intervals
+    columns:
+      - name: interval_start_gmt
+        description: Start timestamp of the step interval
+      - name: interval_end_gmt
+        description: End timestamp of the step interval
+      - name: activity_date
+        description: Date of the activity
+      - name: steps
+        description: Number of steps in the interval
+      - name: distance_meters
+        description: Distance covered in meters
+      - name: calories
+        description: Calories burned in the interval
+      - name: average_heart_rate_bpm
+        description: Average heart rate during interval
+
+  - name: hub_garmin__body_battery
+    description: Hub model parsing Garmin body battery energy data
+    columns:
+      - name: body_battery_date
+        description: Date of body battery measurement
+      - name: start_timestamp_gmt
+        description: Start timestamp of the measurement period
+      - name: start_level
+        description: Body battery level at start of period
+      - name: end_level
+        description: Body battery level at end of period
+      - name: level_change
+        description: Change in body battery level
+      - name: total_charge
+        description: Total charge gained during period
+      - name: total_drain
+        description: Total drain during period
+      - name: energy_trend
+        description: Whether battery was charging, draining, or stable
+
+  - name: hub_garmin__hrv
+    description: Hub model parsing Garmin HRV (Heart Rate Variability) data
+    columns:
+      - name: hrv_date
+        description: Date of HRV measurement
+      - name: weekly_average_hrv
+        description: Weekly average HRV value
+      - name: last_night_average_hrv
+        description: Last night's average HRV
+      - name: hrv_status
+        description: HRV status (BALANCED, UNBALANCED, LOW)
+      - name: training_readiness
+        description: Training readiness based on HRV status
+      - name: baseline_comparison
+        description: How current HRV compares to baseline range
+
+  - name: hub_garmin__floors
+    description: Hub model parsing Garmin floors climbed data
+    columns:
+      - name: floors_date
+        description: Date of floors measurement
+      - name: floors_up
+        description: Number of floors climbed up
+      - name: floors_down
+        description: Number of floors climbed down
+      - name: floors_goal
+        description: Daily floors goal
+      - name: goal_achieved
+        description: Whether daily floors goal was achieved
+
+  - name: hub_garmin__training_status
+    description: Hub model parsing Garmin training status and performance data
+    columns:
+      - name: training_date
+        description: Date of training status assessment
+      - name: training_load
+        description: Current training load value
+      - name: training_status
+        description: Training status (PRODUCTIVE, MAINTAINING, etc.)
+      - name: vo2_max_value
+        description: VO2 Max fitness level
+      - name: recovery_time_hours
+        description: Recommended recovery time in hours
+      - name: training_recommendation
+        description: Training recommendation based on status
+
+  - name: hub_garmin__race_predictions
+    description: Hub model parsing Garmin race time predictions
+    columns:
+      - name: race_distance_meters
+        description: Race distance in meters
+      - name: race_distance_name
+        description: Common race distance name (5K, 10K, Marathon, etc.)
+      - name: predicted_time_seconds
+        description: Predicted race time in seconds
+      - name: predicted_time_formatted
+        description: Predicted time in HH:MM:SS format
+      - name: predicted_pace_formatted
+        description: Predicted pace per kilometer in MM:SS format
+      - name: confidence_level
+        description: Confidence level of the prediction
+      - name: performance_category
+        description: Performance category (elite, competitive, recreational)
+
+  - name: hub_garmin__device_info
+    description: Hub model parsing Garmin device information and status
+    columns:
+      - name: device_id
+        description: Unique device identifier
+      - name: device_name
+        description: Display name of the device
+      - name: product_type_name
+        description: Product type (watch, scale, sensor, etc.)
+      - name: software_version
+        description: Current software version
+      - name: battery_level_percent
+        description: Current battery level percentage
+      - name: last_sync_date
+        description: Date of last sync with Garmin Connect
+      - name: device_category
+        description: Category of device (smartwatch, scale, etc.)
+      - name: activity_status
+        description: Device activity status (active, recent, inactive, dormant)

@@ -13,8 +13,15 @@ models:
         +materialized: incremental
         +incremental_strategy: merge
         +on_schema_change: sync_all_columns
+        +tags: ["garmin", "lake"]
       +materialized: table
     hub:
+      garmin:
+        +materialized: view
+        +tags: ["garmin", "hub"]
       +materialized: view
     product:
+      garmin:
+        +materialized: view
+        +tags: ["garmin", "product"]
       +materialized: view
