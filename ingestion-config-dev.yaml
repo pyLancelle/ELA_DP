@@ -38,6 +38,10 @@ job_groups:
     description: "Fetch all Garmin data (Step 1/2)"
     jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors"]
   
+  garmin_backfill_1year:
+    description: "Backfill 1 year of Garmin data"
+    jobs: ["garmin_backfill_1year"]
+  
   strava_fetch_all:
     description: "Fetch all Strava data (Step 1/2)"
     jobs: ["strava_activities", "strava_athlete"]
@@ -251,6 +255,17 @@ jobs:
     command: "python -m src.connectors.garmin.garmin_fetch --data-types floors --days 1"
     environment: "dev"
     enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  # Special backfill job for 1 year of data
+  garmin_backfill_1year:
+    service: "garmin"
+    data_type: "all"
+    description: "Backfill 1 year of Garmin data (manual trigger only)"
+    cron: ""  # No automatic schedule - manual only
+    command: "python -m src.connectors.garmin.garmin_fetch --days 365 --no-withings-sync"
+    environment: "dev"
+    enabled: false  # Manual trigger only
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   # =================== TODOIST JOBS (DEV) ===================

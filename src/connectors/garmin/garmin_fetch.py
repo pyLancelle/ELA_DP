@@ -5,6 +5,7 @@ Garmin Connect Data Connector
 This script fetches comprehensive data from Garmin Connect and dumps it into JSONL files.
 Features:
  - Environment variables for credentials
+ - Automatic Withings to Garmin sync before fetching (requires withings-sync package)
  - Automatic token refresh and session management
  - Configurable output directory, date range and logging
  - Comprehensive data extraction: activities, health metrics, sleep, body battery
@@ -14,6 +15,7 @@ import os
 import sys
 import argparse
 import logging
+import subprocess
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -31,6 +33,8 @@ import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
 from utils import to_jsonl
+
+# Withings sync is now automatic (requires: pip install withings-sync)
 
 # Constants
 DEFAULT_DAYS_BACK = 30
@@ -58,6 +62,102 @@ class GarminConnectorError(Exception):
     """Custom exception for Garmin connector errors."""
 
     pass
+
+
+def sync_withings_data(username: str, password: str, days: int = 30) -> bool:
+    """
+    Automatically sync Withings data to Garmin Connect before fetching.
+
+    Args:
+        username: Garmin username
+        password: Garmin password
+        days: Number of days to sync (for historical data)
+
+    Returns:
+        True if sync successful or skipped, False if failed
+    """
+    try:
+        # Check if withings-sync is available
+        result = subprocess.run(
+            ["withings-sync", "--help"], capture_output=True, text=True, timeout=10
+        )
+
+        if result.returncode != 0:
+            logging.warning("withings-sync not available, skipping Withings sync")
+            return True  # Not a failure, just skip
+
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        logging.warning("withings-sync not installed, skipping Withings sync")
+        logging.info("💡 Install with: pip install withings-sync")
+        return True  # Not a failure, just skip
+
+    try:
+        logging.info("🔄 Starting automatic Withings to Garmin sync...")
+
+        # Calculate from date for historical sync
+        from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        # Build withings-sync command
+        cmd = [
+            "withings-sync",
+            f"--garmin-username={username}",
+            f"--garmin-password={password}",
+            f"--fromdate={from_date}",
+            "--verbose",
+        ]
+
+        # Set environment variables for Withings credentials if available
+        env = os.environ.copy()
+        withings_client_id = os.getenv("WITHINGS_CLIENT_ID")
+        withings_client_secret = os.getenv("WITHINGS_CLIENT_SECRET")
+
+        if withings_client_id and withings_client_secret:
+            env["WITHINGS_CLIENT_ID"] = withings_client_id
+            env["WITHINGS_CLIENT_SECRET"] = withings_client_secret
+            logging.info("✅ Using Withings credentials from environment")
+        else:
+            logging.warning(
+                "⚠️ No Withings credentials found - sync may require manual authorization"
+            )
+
+        # Run withings-sync with timeout
+        logging.info(
+            f"🔧 Running: withings-sync --garmin-username=XXX --garmin-password=XXX --fromdate={from_date}"
+        )
+
+        result = subprocess.run(
+            cmd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes timeout
+        )
+
+        if result.returncode == 0:
+            logging.info("✅ Withings sync completed successfully")
+            logging.info(
+                "⏳ Waiting 30 seconds for Garmin to process data and reset rate limits..."
+            )
+            import time
+
+            time.sleep(30)  # Give Garmin time to process data and reset rate limits
+            return True
+        else:
+            logging.warning(f"⚠️ Withings sync failed (exit code {result.returncode})")
+            if result.stderr:
+                logging.warning(f"   Error: {result.stderr.strip()}")
+            if result.stdout:
+                logging.info(f"   Output: {result.stdout.strip()}")
+            logging.info("🔄 Continuing with Garmin fetch anyway...")
+            return True  # Don't fail the entire process
+
+    except subprocess.TimeoutExpired:
+        logging.warning("⏰ Withings sync timed out - continuing with Garmin fetch")
+        return True
+    except Exception as e:
+        logging.warning(f"⚠️ Withings sync error: {e}")
+        logging.info("🔄 Continuing with Garmin fetch anyway...")
+        return True
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -277,8 +377,27 @@ def fetch_weight_data(
         weight_data = client.get_weigh_ins(
             start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
         )
-        logging.info(f"Fetched {len(weight_data)} weight entries")
-        return weight_data
+
+        # Extract individual weight entries from the nested structure
+        weight_entries = []
+        if isinstance(weight_data, dict) and "dailyWeightSummaries" in weight_data:
+            for daily_summary in weight_data["dailyWeightSummaries"]:
+                # Add each weight measurement from allWeightMetrics
+                if "allWeightMetrics" in daily_summary:
+                    for metric in daily_summary["allWeightMetrics"]:
+                        # Add the summary date for context
+                        metric["summaryDate"] = daily_summary["summaryDate"]
+                        weight_entries.append(metric)
+
+            logging.info(
+                f"Fetched {len(weight_entries)} weight entries from {len(weight_data.get('dailyWeightSummaries', []))} days"
+            )
+            return weight_entries
+        else:
+            # Fallback: return the raw data if it's already in the expected format
+            logging.info(f"Fetched weight data (raw format): {type(weight_data)}")
+            return weight_data if isinstance(weight_data, list) else [weight_data]
+
     except Exception as e:
         logging.warning(f"No weight data available: {e}")
         return []
@@ -503,6 +622,11 @@ def parse_args() -> argparse.Namespace:
         default=DATA_TYPES,
         help="Data types to fetch",
     )
+    parser.add_argument(
+        "--no-withings-sync",
+        action="store_true",
+        help="Skip automatic Withings to Garmin synchronization before fetching data",
+    )
 
     return parser.parse_args()
 
@@ -516,6 +640,16 @@ def main() -> None:
         # Load environment variables
         load_env(args.env)
         env_vars = validate_env_vars()
+
+        # Automatic Withings to Garmin sync (if enabled)
+        if not args.no_withings_sync:
+            sync_withings_data(
+                username=env_vars["GARMIN_USERNAME"],
+                password=env_vars["GARMIN_PASSWORD"],
+                days=args.days,
+            )
+        else:
+            logging.info("ℹ️ Withings sync disabled via --no-withings-sync flag")
 
         # Setup Garmin client
         client = get_garmin_client(env_vars)
