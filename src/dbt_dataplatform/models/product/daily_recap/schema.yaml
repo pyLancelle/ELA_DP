@@ -1,0 +1,118 @@
+version: 2
+
+models:
+  - name: daily_recap__sleep
+    description: Vue récapitulative des données de sommeil de la veille, optimisée pour les graphiques frontend
+    columns:
+      - name: sleep_id
+        description: Identifiant unique de la session de sommeil
+        tests:
+          - unique
+          - not_null
+      - name: sleep_date
+        description: Date de la nuit de sommeil
+        tests:
+          - not_null
+      - name: user_profile_pk
+        description: Identifiant du profil utilisateur
+        tests:
+          - not_null
+      - name: bedtime
+        description: Heure de coucher (timestamp local)
+      - name: wake_time
+        description: Heure de réveil (timestamp local)
+      - name: bedtime_hour
+        description: Heure de coucher (format 24h pour graphiques)
+      - name: wake_time_hour
+        description: Heure de réveil (format 24h pour graphiques)
+      - name: total_sleep_hours
+        description: Durée totale de sommeil en heures
+        tests:
+          - not_null
+      - name: nap_time_hours
+        description: Durée des siestes en heures
+      - name: deep_sleep_hours
+        description: Durée de sommeil profond en heures
+      - name: light_sleep_hours
+        description: Durée de sommeil léger en heures
+      - name: rem_sleep_hours
+        description: Durée de sommeil REM en heures
+      - name: awake_hours
+        description: Durée d'éveil nocturne en heures
+      - name: deep_sleep_percentage
+        description: Pourcentage de sommeil profond (pour graphiques circulaires)
+      - name: light_sleep_percentage
+        description: Pourcentage de sommeil léger (pour graphiques circulaires)
+      - name: rem_sleep_percentage
+        description: Pourcentage de sommeil REM (pour graphiques circulaires)
+      - name: overall_sleep_score
+        description: Score global de qualité du sommeil (0-100)
+      - name: sleep_quality
+        description: Qualificateur de qualité du sommeil (EXCELLENT, GOOD, FAIR, POOR)
+      - name: awake_count
+        description: Nombre de réveils nocturnes
+      - name: avg_spo2
+        description: Saturation en oxygène moyenne pendant le sommeil
+      - name: avg_respiration
+        description: Fréquence respiratoire moyenne
+      - name: avg_sleep_stress
+        description: Niveau de stress moyen pendant le sommeil
+      - name: resting_heart_rate
+        description: Fréquence cardiaque au repos
+      - name: avg_overnight_hrv
+        description: Variabilité cardiaque moyenne nocturne
+      - name: body_battery_change
+        description: Variation de la batterie corporelle pendant le sommeil
+      - name: baseline_sleep_need_hours
+        description: Besoin de sommeil de référence en heures
+      - name: actual_sleep_need_hours
+        description: Besoin de sommeil réel en heures
+      - name: sleep_deficit_surplus_hours
+        description: Déficit ou surplus de sommeil en heures (+ = surplus, - = déficit)
+      - name: sleep_need_feedback
+        description: Retour sur le besoin de sommeil
+      - name: measured_by_device
+        description: Indique si les données proviennent directement de l'appareil
+      - name: sleep_window_confirmed
+        description: Indique si la fenêtre de sommeil est confirmée
+      - name: device_rem_capable
+        description: Indique si l'appareil peut mesurer le sommeil REM
+      - name: score_feedback
+        description: Retour détaillé sur le score de sommeil
+      - name: score_insight
+        description: Analyse du score de sommeil
+      - name: personalized_insight
+        description: Analyse personnalisée du sommeil
+      - name: data_inserted_at
+        description: Timestamp d'insertion des données dans la plateforme
+      
+      # TIMESERIES DATA FOR FRONTEND CHARTS
+      - name: heart_rate_timeseries
+        description: Données temporelles de fréquence cardiaque pendant le sommeil (JSON array pour graphiques)
+        
+      - name: hrv_timeseries
+        description: Données temporelles de variabilité cardiaque (HRV) pendant le sommeil (JSON array)
+        
+      - name: stress_timeseries
+        description: Évolution du niveau de stress pendant le sommeil (JSON array pour graphiques temporels)
+        
+      - name: body_battery_timeseries
+        description: Évolution de la batterie corporelle pendant le sommeil (JSON array)
+        
+      - name: spo2_timeseries
+        description: Données temporelles de saturation en oxygène (SpO2) pendant le sommeil (JSON array)
+        
+      - name: respiration_timeseries
+        description: Données temporelles de fréquence respiratoire pendant le sommeil (JSON array)
+        
+      - name: movement_timeseries
+        description: Données de mouvement pendant le sommeil (JSON array pour analyse d'agitation)
+        
+      - name: sleep_levels_timeseries
+        description: Évolution des phases de sommeil dans le temps (JSON array pour graphiques empilés)
+        
+      - name: restless_moments_timeseries
+        description: Moments d'agitation pendant le sommeil (JSON array pour marqueurs sur graphiques)
+        
+      - name: breathing_disruptions
+        description: Données sur les perturbations respiratoires (JSON array pour événements)

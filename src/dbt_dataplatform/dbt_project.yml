@@ -35,4 +35,7 @@ models:
       spotify:
         +materialized: view
         +tags: ["spotify", "product"]
+      daily_recap:
+        +materialized: view
+        +tags: ["product", "daily_recap"]
       +materialized: view
