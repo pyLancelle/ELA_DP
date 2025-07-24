@@ -1,4 +1,4 @@
-{{ config(dataset=get_schema('hub'), materialized='view') }}
+{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "spotify"]) }}
 
 SELECT
     played_at,

@@ -29,4 +29,5 @@ SELECT
     STRING_AGG(DISTINCT source_file) as source_files
     
 FROM {{ ref('lake_garmin__steps') }}
+WHERE DATE(JSON_VALUE(raw_data, '$.date')) >= '2025-03-01'
 GROUP BY DATE(JSON_VALUE(raw_data, '$.date'))
