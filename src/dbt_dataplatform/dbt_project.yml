@@ -14,14 +14,25 @@ models:
         +incremental_strategy: merge
         +on_schema_change: sync_all_columns
         +tags: ["garmin", "lake"]
+      spotify:
+        +materialized: incremental
+        +incremental_strategy: merge
+        +on_schema_change: sync_all_columns
+        +tags: ["spotify", "lake"]
       +materialized: table
     hub:
       garmin:
         +materialized: view
         +tags: ["garmin", "hub"]
+      spotify:
+        +materialized: view
+        +tags: ["spotify", "hub"]
       +materialized: view
     product:
       garmin:
         +materialized: view
         +tags: ["garmin", "product"]
+      spotify:
+        +materialized: view
+        +tags: ["spotify", "product"]
       +materialized: view
