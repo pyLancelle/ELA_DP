@@ -50,4 +50,4 @@ SELECT
     dp_inserted_at,
     source_file
     
-FROM {{ ref('lake_garmin__hrv') }}
+FROM {{ ref('lake_garmin__svc_hrv') }}

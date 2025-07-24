@@ -22,4 +22,4 @@ SELECT
     dp_inserted_at,
     source_file
     
-FROM {{ ref('lake_garmin__body_battery') }}
+FROM {{ ref('lake_garmin__svc_body_battery') }}

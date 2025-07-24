@@ -33,4 +33,4 @@ SELECT
     dp_inserted_at,
     source_file
 
-FROM {{ ref('lake_garmin__heart_rate') }}
+FROM {{ ref('lake_garmin__svc_heart_rate') }}

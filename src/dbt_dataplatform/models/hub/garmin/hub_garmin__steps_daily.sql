@@ -28,6 +28,6 @@ SELECT
     MIN(dp_inserted_at) as dp_inserted_at,
     STRING_AGG(DISTINCT source_file) as source_files
     
-FROM {{ ref('lake_garmin__steps') }}
+FROM {{ ref('lake_garmin__svc_steps') }}
 WHERE DATE(JSON_VALUE(raw_data, '$.date')) >= '2025-03-01'
 GROUP BY DATE(JSON_VALUE(raw_data, '$.date'))

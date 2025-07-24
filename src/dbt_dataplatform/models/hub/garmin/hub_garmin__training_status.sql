@@ -56,4 +56,4 @@ SELECT
     dp_inserted_at,
     source_file
     
-FROM {{ ref('lake_garmin__training_status') }}
+FROM {{ ref('lake_garmin__svc_training_status') }}

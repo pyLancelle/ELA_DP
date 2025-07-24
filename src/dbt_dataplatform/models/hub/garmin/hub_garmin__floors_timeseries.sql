@@ -20,4 +20,4 @@ SELECT
     dp_inserted_at,
     source_file
     
-FROM {{ ref('lake_garmin__floors') }}
+FROM {{ ref('lake_garmin__svc_floors') }}

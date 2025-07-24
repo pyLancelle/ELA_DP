@@ -24,4 +24,4 @@ SELECT
     dp_inserted_at,
     source_file
 
-FROM {{ ref('lake_garmin__stress') }}
+FROM {{ ref('lake_garmin__svc_stress') }}
