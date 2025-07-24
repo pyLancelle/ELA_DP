@@ -20,71 +20,61 @@ sources:
 
 models:
   - name: lake_spotify__svc_recently_played
-    description: "Service layer - Recently played tracks with extracted key fields and JSON structures"
+    description: "Service layer - Recently played tracks with raw JSON data and deduplication only (like Garmin)"
     columns:
-      - name: played_at
-        description: "Timestamp when track was played"
-      - name: track_id
-        description: "Spotify track ID"
-      - name: track
-        description: "Complete track information as JSON"
-      - name: context
-        description: "Playback context as JSON (playlist, album, etc.)"
+      - name: play_id
+        description: "Unique identifier for deduplication (played_at + track_id)"
+      - name: raw_data
+        description: "Complete original record as JSON"
+      - name: data_type
+        description: "Data type identifier"
         
   - name: lake_spotify__svc_saved_tracks
-    description: "Service layer - Saved tracks with extracted key fields"
+    description: "Service layer - Saved tracks with raw JSON data and deduplication only (like Garmin)"
     columns:
-      - name: added_at
-        description: "Timestamp when track was saved"
-      - name: track_id
-        description: "Spotify track ID"
-      - name: track
-        description: "Complete track information as JSON"
+      - name: saved_track_id
+        description: "Unique identifier for deduplication (added_at + track_id)"
+      - name: raw_data
+        description: "Complete original record as JSON"
+      - name: data_type
+        description: "Data type identifier"
         
   - name: lake_spotify__svc_saved_albums
-    description: "Service layer - Saved albums with extracted key fields"
+    description: "Service layer - Saved albums with raw JSON data and deduplication only (like Garmin)"
     columns:
-      - name: added_at
-        description: "Timestamp when album was saved"
-      - name: album_id
-        description: "Spotify album ID"
-      - name: album
-        description: "Complete album information as JSON"
+      - name: saved_album_id
+        description: "Unique identifier for deduplication (added_at + album_id)"
+      - name: raw_data
+        description: "Complete original record as JSON"
+      - name: data_type
+        description: "Data type identifier"
         
   - name: lake_spotify__svc_playlists
-    description: "Service layer - User playlists with extracted key fields"
+    description: "Service layer - User playlists with raw JSON data and deduplication only (like Garmin)"
     columns:
       - name: playlist_id
         description: "Spotify playlist ID"
-      - name: playlist_name
-        description: "Playlist name"
-      - name: is_public
-        description: "Whether playlist is public"
-      - name: is_collaborative
-        description: "Whether playlist is collaborative"
+      - name: raw_data
+        description: "Complete original record as JSON"
+      - name: data_type
+        description: "Data type identifier"
         
   - name: lake_spotify__svc_top_artists
-    description: "Service layer - Top artists with extracted key fields"
+    description: "Service layer - Top artists with raw JSON data and deduplication only (like Garmin)"
     columns:
       - name: artist_id
         description: "Spotify artist ID"
-      - name: artist_name
-        description: "Artist name"
-      - name: popularity
-        description: "Artist popularity score"
-      - name: genres
-        description: "Artist genres as array"
+      - name: raw_data
+        description: "Complete original record as JSON"
+      - name: data_type
+        description: "Data type identifier"
         
   - name: lake_spotify__svc_top_tracks
-    description: "Service layer - Top tracks with extracted key fields"
+    description: "Service layer - Top tracks with raw JSON data and deduplication only (like Garmin)"
     columns:
       - name: track_id
         description: "Spotify track ID"
-      - name: track_name
-        description: "Track name"
-      - name: popularity
-        description: "Track popularity score"
-      - name: duration_ms
-        description: "Track duration in milliseconds"
-      - name: explicit
-        description: "Whether track has explicit content"
+      - name: raw_data
+        description: "Complete original record as JSON"
+      - name: data_type
+        description: "Data type identifier"
