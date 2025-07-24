@@ -1,48 +1,51 @@
-{{ config(dataset=get_schema('lake'), materialized='incremental', unique_key=['artist_id']) }}
+{{ config(
+    dataset=get_schema('lake'),
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key='artist_id',
+    tags=["lake", "spotify"]
+) }}
 
--- Spotify top artists service layer
--- Extracts and transforms top artists data from raw JSON
+-- Pure Lake model for Spotify top artists data
+-- Stores raw JSON data with basic metadata and deduplication only
+-- All field extraction logic will be moved to Hub layer
 
-WITH raw_data AS (
-    SELECT
-        raw_data,
-        dp_inserted_at,
-        source_file
-    FROM {{ source('spotify', 'lake_spotify__stg_spotify_raw') }}
-    WHERE data_type = 'top_artists'
-    {% if is_incremental() %}
-        AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
-    {% endif %}
-),
+WITH top_artists_data_with_rank AS (
+  SELECT
+    -- Unique identifier for deduplication
+    JSON_VALUE(raw_data, '$.id') AS artist_id,
+    
+    -- Complete raw JSON data (to be parsed in Hub layer)
+    raw_data,
+    
+    -- Data type for consistency
+    data_type,
+    
+    -- Source metadata
+    dp_inserted_at,
+    source_file,
+    
+    -- Add row number to deduplicate by most recent dp_inserted_at
+    ROW_NUMBER() OVER (
+      PARTITION BY JSON_VALUE(raw_data, '$.id')
+      ORDER BY dp_inserted_at DESC
+    ) AS row_rank
 
-transformed AS (
-    SELECT
-        -- Extract core fields from JSON
-        JSON_VALUE(raw_data, '$.id') AS artist_id,
-        JSON_VALUE(raw_data, '$.name') AS artist_name,
-        CAST(JSON_VALUE(raw_data, '$.popularity') AS INT64) AS popularity,
-        JSON_QUERY_ARRAY(raw_data, '$.genres') AS genres,
-        
-        -- Store complete artist data as JSON for detailed analysis
-        raw_data AS artist_data,
-        
-        -- Metadata
-        dp_inserted_at,
-        source_file
-    FROM raw_data
-    WHERE JSON_VALUE(raw_data, '$.id') IS NOT NULL
-),
-
-deduplicated AS (
-    SELECT
-        *,
-        ROW_NUMBER() OVER (
-            PARTITION BY artist_id
-            ORDER BY dp_inserted_at DESC
-        ) AS row_num
-    FROM transformed
+  FROM {{ source('spotify', 'lake_spotify__stg_spotify_raw') }}
+  WHERE data_type = 'top_artists'
+    AND JSON_VALUE(raw_data, '$.id') IS NOT NULL
+    
+  {% if is_incremental() %}
+    AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+  {% endif %}
 )
 
-SELECT * EXCEPT(row_num)
-FROM deduplicated
-WHERE row_num = 1
+SELECT
+  artist_id,
+  raw_data,
+  data_type,
+  dp_inserted_at,
+  source_file
+
+FROM top_artists_data_with_rank
+WHERE row_rank = 1

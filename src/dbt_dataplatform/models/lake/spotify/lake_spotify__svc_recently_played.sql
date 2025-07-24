@@ -1,48 +1,52 @@
-{{ config(dataset=get_schema('lake'), materialized='incremental', unique_key=['played_at', 'track_id']) }}
+{{ config(
+    dataset=get_schema('lake'),
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key='play_id',
+    tags=["lake", "spotify"]
+) }}
 
--- Spotify recently played tracks service layer
--- Extracts and transforms recently played data from raw JSON
+-- Pure Lake model for Spotify recently played data
+-- Stores raw JSON data with basic metadata and deduplication only
+-- All field extraction logic will be moved to Hub layer
 
-WITH raw_data AS (
-    SELECT
-        raw_data,
-        dp_inserted_at,
-        source_file
-    FROM {{ source('spotify', 'lake_spotify__stg_spotify_raw') }}
-    WHERE data_type = 'recently_played'
-    {% if is_incremental() %}
-        AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
-    {% endif %}
-),
+WITH recently_played_data_with_rank AS (
+  SELECT
+    -- Unique identifier for deduplication (played_at + track_id)
+    CONCAT(JSON_VALUE(raw_data, '$.played_at'), '_', JSON_VALUE(raw_data, '$.track.id')) AS play_id,
+    
+    -- Complete raw JSON data (to be parsed in Hub layer)
+    raw_data,
+    
+    -- Data type for consistency
+    data_type,
+    
+    -- Source metadata
+    dp_inserted_at,
+    source_file,
+    
+    -- Add row number to deduplicate by most recent dp_inserted_at
+    ROW_NUMBER() OVER (
+      PARTITION BY CONCAT(JSON_VALUE(raw_data, '$.played_at'), '_', JSON_VALUE(raw_data, '$.track.id'))
+      ORDER BY dp_inserted_at DESC
+    ) AS row_rank
 
-transformed AS (
-    SELECT
-        -- Extract core fields from JSON
-        TIMESTAMP(JSON_VALUE(raw_data, '$.played_at')) AS played_at,
-        JSON_VALUE(raw_data, '$.track.id') AS track_id,
-        
-        -- Store complete structures as JSON for flexibility
-        JSON_QUERY(raw_data, '$.track') AS track,
-        JSON_QUERY(raw_data, '$.context') AS context,
-        
-        -- Metadata
-        dp_inserted_at,
-        source_file
-    FROM raw_data
-    WHERE JSON_VALUE(raw_data, '$.played_at') IS NOT NULL
-      AND JSON_VALUE(raw_data, '$.track.id') IS NOT NULL
-),
-
-deduplicated AS (
-    SELECT
-        *,
-        ROW_NUMBER() OVER (
-            PARTITION BY played_at, track_id
-            ORDER BY dp_inserted_at DESC
-        ) AS row_num
-    FROM transformed
+  FROM {{ source('spotify', 'lake_spotify__stg_spotify_raw') }}
+  WHERE data_type = 'recently_played'
+    AND JSON_VALUE(raw_data, '$.played_at') IS NOT NULL
+    AND JSON_VALUE(raw_data, '$.track.id') IS NOT NULL
+    
+  {% if is_incremental() %}
+    AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+  {% endif %}
 )
 
-SELECT * EXCEPT(row_num)
-FROM deduplicated
-WHERE row_num = 1
+SELECT
+  play_id,
+  raw_data,
+  data_type,
+  dp_inserted_at,
+  source_file
+
+FROM recently_played_data_with_rank
+WHERE row_rank = 1
