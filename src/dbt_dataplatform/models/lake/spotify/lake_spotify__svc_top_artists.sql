@@ -8,7 +8,7 @@ WITH raw_data AS (
         raw_data,
         dp_inserted_at,
         source_file
-    FROM {{ ref('lake_spotify__stg_spotify_raw') }}
+    FROM {{ source('spotify', 'lake_spotify__stg_spotify_raw') }}
     WHERE data_type = 'top_artists'
     {% if is_incremental() %}
         AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})

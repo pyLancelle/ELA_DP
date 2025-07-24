@@ -19,9 +19,6 @@ sources:
             description: "Original source file name"
 
 models:
-  - name: lake_spotify__stg_spotify_raw
-    description: "Staging layer - direct passthrough of raw Spotify data with universal JSON schema"
-    
   - name: lake_spotify__svc_recently_played
     description: "Service layer - Recently played tracks with extracted key fields and JSON structures"
     columns:
