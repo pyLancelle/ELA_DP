@@ -8,7 +8,7 @@ global:
   retry_attempts: 2
   max_parallel_jobs: 3
   gcs_bucket: "ela-dp-dev"
-  timeout_minutes: 15
+  timeout_minutes: 20
   environment: "dev"
 
 # Job Groups for manual execution
