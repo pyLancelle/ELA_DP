@@ -11,6 +11,7 @@ all data for flexible transformation in dbt.
 Supported data types:
 - Activities, Sleep, Heart Rate, Body Battery, Stress, Steps
 - Weight, Device Info, Training Status, HRV, Race Predictions, Floors
+- Endurance Score, Hill Score
 
 Usage:
     python -m src.connectors.garmin.garmin_ingest --env dev
@@ -68,7 +69,7 @@ def detect_file_type(filename: str) -> str:
     """
     Detect the type of Garmin data file based on filename patterns.
 
-    Supports all 12 Garmin data types from the connector.
+    Supports all 14 Garmin data types from the connector.
     """
     filename_lower = filename.lower()
 
@@ -85,6 +86,8 @@ def detect_file_type(filename: str) -> str:
         "hrv": ["hrv"],
         "race_predictions": ["race_predictions", "race_predictor"],
         "floors": ["floors"],
+        "endurance_score": ["endurance_score", "endurance"],
+        "hill_score": ["hill_score", "hill"],
     }
 
     for data_type, keywords in type_mapping.items():

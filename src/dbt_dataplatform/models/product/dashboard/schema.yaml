@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: dashboard__sleep_latest
+    description: "Vue dashboard pour les données de sommeil de la nuit dernière, formatées pour l'API frontend"
+    columns:
+      - name: date
+        description: "Date de la nuit de sommeil"
+        tests:
+          - not_null
+      - name: sleep_score
+        description: "Score de sommeil global Garmin (0-100)"
+      - name: duration_hours
+        description: "Durée totale de sommeil en heures (décimales)"
+        tests:
+          - not_null
+      - name: bedtime
+        description: "Heure de coucher (format TIME)"
+      - name: wake_time
+        description: "Heure de réveil (format TIME)"
+      - name: body_battery_start
+        description: "Niveau Body Battery estimé au coucher (0-100)"
+      - name: body_battery_end
+        description: "Niveau Body Battery estimé au réveil (0-100)"
+      - name: body_battery_gain
+        description: "Gain de Body Battery pendant la nuit (peut être négatif)"
+      - name: deep_sleep_minutes
+        description: "Minutes de sommeil profond"
+      - name: light_sleep_minutes
+        description: "Minutes de sommeil léger"
+      - name: rem_sleep_minutes
+        description: "Minutes de sommeil REM"
+      - name: awake_minutes
+        description: "Minutes d'éveil pendant la nuit"
+      - name: hrv_average
+        description: "HRV moyen pendant la nuit"
+      - name: spo2_average
+        description: "SpO2 moyen pendant la nuit (%)"
+      - name: sleep_quality
+        description: "Qualificatif de qualité du sommeil Garmin"
+      - name: awake_count
+        description: "Nombre de réveils détectés"
+      - name: resting_heart_rate
+        description: "Fréquence cardiaque de repos"
+      - name: last_updated
+        description: "Timestamp de dernière mise à jour des données"
+
+  - name: dashboard__sleep_1d
+    description: "Données de sommeil pour les dernières 24h"
+    
+  - name: dashboard__sleep_1w
+    description: "Données de sommeil pour la dernière semaine"

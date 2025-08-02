@@ -20,7 +20,7 @@ job_groups:
   # Data Fetching Groups (Step 1)
   garmin_fetch_all:
     description: "Fetch all Garmin data (Step 1/2)"
-    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors"]
+    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_endurance_score", "garmin_hill_score"]
   
   strava_fetch_all:
     description: "Fetch all Strava data (Step 1/2)"
@@ -42,7 +42,7 @@ job_groups:
   # Legacy Combined Pipelines (runs in parallel - use with caution)
   garmin_pipeline:
     description: "Complete Garmin pipeline (parallel execution - may have timing issues)"
-    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_ingest"]
+    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_endurance_score", "garmin_hill_score", "garmin_ingest"]
   
   strava_pipeline:
     description: "Complete Strava pipeline (parallel execution - may have timing issues)"
@@ -247,6 +247,26 @@ jobs:
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
+  garmin_endurance_score:
+    service: "garmin"
+    data_type: "endurance_score"
+    description: "Fetch endurance score data from Garmin (PRD - daily)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types endurance_score --days 2 --no-withings-sync"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_hill_score:
+    service: "garmin"
+    data_type: "hill_score"
+    description: "Fetch hill score data from Garmin (PRD - daily)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types hill_score --days 2 --no-withings-sync"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
   # =================== TODOIST JOBS (PRD) ===================
   todoist_tasks:
     service: "todoist"
@@ -315,7 +335,7 @@ services:
   garmin:
     base_path: "src/connectors/garmin"
     fetch_script: "garmin_fetch.py"
-    supported_data_types: ["activities", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors"]
+    supported_data_types: ["activities", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors", "endurance_score", "hill_score"]
   
   todoist:
     base_path: "src/connectors/todoist"

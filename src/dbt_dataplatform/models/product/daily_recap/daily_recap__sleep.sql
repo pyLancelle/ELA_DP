@@ -94,7 +94,7 @@ LEFT JOIN {{ ref('hub_garmin__sleep_timeseries') }} ts
     AND main.sleep_date = ts.sleep_date
 WHERE 
     -- Filter for yesterday's sleep data
-    main.sleep_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+    main.sleep_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
     -- Only include complete sleep sessions (exclude naps or incomplete data)
     AND main.total_sleep_seconds >= 3600  -- At least 1 hour of sleep
     AND main.sleep_window.confirmed = true  -- Only confirmed sleep windows

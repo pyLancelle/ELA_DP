@@ -63,6 +63,8 @@ DATA_TYPES = [
     "hrv",
     "race_predictions",
     "floors",
+    "endurance_score",
+    "hill_score",
 ]
 
 
@@ -530,6 +532,52 @@ def fetch_floors_data(
     return floors_data
 
 
+def fetch_endurance_score_data(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch endurance score data within date range."""
+    try:
+        start_str = start_date.strftime("%Y-%m-%d")
+        end_str = end_date.strftime("%Y-%m-%d")
+        endurance_data = client.get_endurance_score(start_str, end_str)
+
+        if endurance_data:
+            logging.info(
+                f"Fetched endurance score data: {len(endurance_data) if isinstance(endurance_data, list) else 1} entries"
+            )
+            return (
+                endurance_data if isinstance(endurance_data, list) else [endurance_data]
+            )
+        else:
+            logging.info("No endurance score data available")
+            return []
+    except Exception as e:
+        logging.warning(f"No endurance score data available: {e}")
+        return []
+
+
+def fetch_hill_score_data(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch hill score data within date range."""
+    try:
+        start_str = start_date.strftime("%Y-%m-%d")
+        end_str = end_date.strftime("%Y-%m-%d")
+        hill_data = client.get_hill_score(start_str, end_str)
+
+        if hill_data:
+            logging.info(
+                f"Fetched hill score data: {len(hill_data) if isinstance(hill_data, list) else 1} entries"
+            )
+            return hill_data if isinstance(hill_data, list) else [hill_data]
+        else:
+            logging.info("No hill score data available")
+            return []
+    except Exception as e:
+        logging.warning(f"No hill score data available: {e}")
+        return []
+
+
 def process_batch(
     client: Garmin,
     batch_start: date,
@@ -561,6 +609,8 @@ def process_batch(
             client, start_dt, end_dt
         ),
         "floors": lambda: fetch_floors_data(client, start_dt, end_dt),
+        "endurance_score": lambda: fetch_endurance_score_data(client, start_dt, end_dt),
+        "hill_score": lambda: fetch_hill_score_data(client, start_dt, end_dt),
     }
 
     for data_type in data_types:
