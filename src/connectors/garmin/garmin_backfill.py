@@ -52,6 +52,10 @@ BATCH_DELAY = 10  # seconds between monthly batches
 # Data types to fetch (same as regular fetch)
 DATA_TYPES = [
     "activities",
+    "activity_details",
+    "activity_splits",
+    "activity_weather",
+    "activity_hr_zones",
     "sleep",
     "steps",
     "heart_rate",
@@ -578,6 +582,203 @@ def fetch_hill_score_data(
         return []
 
 
+def fetch_activity_details(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch detailed activity data with GPS tracking."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        detailed_activities = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    logging.warning(f"Activity missing activityId: {activity}")
+                    continue
+
+                # Get detailed activity data with GPS coordinates
+                details = client.get_activity_details(
+                    activity_id, maxchart=2000, maxpoly=4000
+                )
+
+                # Combine basic info with detailed data
+                enriched_activity = {
+                    **activity,  # Basic activity info
+                    "detailed_data": details,  # GPS and detailed metrics
+                    "data_type": "activity_details",
+                }
+                detailed_activities.append(enriched_activity)
+
+                # Rate limiting to avoid overwhelming the API
+                time.sleep(RATE_LIMIT_DELAY)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch details for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched detailed data for {len(detailed_activities)} activities")
+        return detailed_activities
+
+    except Exception as e:
+        logging.error(f"Error fetching activity details: {e}")
+        return []
+
+
+def fetch_activity_splits(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch activity splits/laps data."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        all_splits = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    logging.warning(f"Activity missing activityId: {activity}")
+                    continue
+
+                # Get both regular splits and typed splits
+                splits = client.get_activity_splits(activity_id)
+                typed_splits = client.get_activity_typed_splits(activity_id)
+                split_summaries = client.get_activity_split_summaries(activity_id)
+
+                # Combine all splits data
+                activity_splits = {
+                    "activityId": activity_id,
+                    "activityName": activity.get("activityName", ""),
+                    "activityType": activity.get("activityType", ""),
+                    "startTimeLocal": activity.get("startTimeLocal", ""),
+                    "splits": splits,
+                    "typed_splits": typed_splits,
+                    "split_summaries": split_summaries,
+                    "data_type": "activity_splits",
+                }
+                all_splits.append(activity_splits)
+
+                # Rate limiting
+                time.sleep(RATE_LIMIT_DELAY)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch splits for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched splits data for {len(all_splits)} activities")
+        return all_splits
+
+    except Exception as e:
+        logging.error(f"Error fetching activity splits: {e}")
+        return []
+
+
+def fetch_activity_weather(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch weather data for activities."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        all_weather = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    continue
+
+                # Get weather data for this activity
+                weather_data = client.get_activity_weather(activity_id)
+
+                if weather_data:
+                    activity_weather = {
+                        "activityId": activity_id,
+                        "activityName": activity.get("activityName", ""),
+                        "activityType": activity.get("activityType", ""),
+                        "startTimeLocal": activity.get("startTimeLocal", ""),
+                        "weather_data": weather_data,
+                        "data_type": "activity_weather",
+                    }
+                    all_weather.append(activity_weather)
+
+                # Rate limiting
+                time.sleep(RATE_LIMIT_DELAY)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch weather for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched weather data for {len(all_weather)} activities")
+        return all_weather
+
+    except Exception as e:
+        logging.error(f"Error fetching activity weather: {e}")
+        return []
+
+
+def fetch_activity_hr_zones(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch heart rate zones data for activities."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        all_hr_zones = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    continue
+
+                # Get heart rate zones data
+                hr_zones = client.get_activity_hr_in_timezones(activity_id)
+
+                if hr_zones:
+                    activity_hr_zones = {
+                        "activityId": activity_id,
+                        "activityName": activity.get("activityName", ""),
+                        "activityType": activity.get("activityType", ""),
+                        "startTimeLocal": activity.get("startTimeLocal", ""),
+                        "hr_zones_data": hr_zones,
+                        "data_type": "activity_hr_zones",
+                    }
+                    all_hr_zones.append(activity_hr_zones)
+
+                # Rate limiting
+                time.sleep(RATE_LIMIT_DELAY)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch HR zones for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched HR zones data for {len(all_hr_zones)} activities")
+        return all_hr_zones
+
+    except Exception as e:
+        logging.error(f"Error fetching activity HR zones: {e}")
+        return []
+
+
 def process_batch(
     client: Garmin,
     batch_start: date,
@@ -596,6 +797,10 @@ def process_batch(
     # Data fetchers mapping
     data_fetchers = {
         "activities": lambda: fetch_activities(client, start_dt, end_dt),
+        "activity_details": lambda: fetch_activity_details(client, start_dt, end_dt),
+        "activity_splits": lambda: fetch_activity_splits(client, start_dt, end_dt),
+        "activity_weather": lambda: fetch_activity_weather(client, start_dt, end_dt),
+        "activity_hr_zones": lambda: fetch_activity_hr_zones(client, start_dt, end_dt),
         "sleep": lambda: fetch_sleep_data(client, start_dt, end_dt),
         "steps": lambda: fetch_steps_data(client, start_dt, end_dt),
         "heart_rate": lambda: fetch_heart_rate_data(client, start_dt, end_dt),
