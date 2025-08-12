@@ -151,7 +151,7 @@ jobs:
     service: "garmin"
     data_type: "activity_details"
     description: "Fetch detailed activity data with GPS from Garmin (PRD - daily)"
-    cron: "0 12 * * *"  # Daily at 12:00 UTC
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_details --days 2 --no-withings-sync"
     environment: "prd"
     enabled: true
@@ -161,7 +161,7 @@ jobs:
     service: "garmin"
     data_type: "activity_splits"
     description: "Fetch activity splits/laps data from Garmin (PRD - daily)"
-    cron: "0 13 * * *"  # Daily at 13:00 UTC
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_splits --days 2 --no-withings-sync"
     environment: "prd"
     enabled: true
@@ -171,7 +171,7 @@ jobs:
     service: "garmin"
     data_type: "activity_weather"
     description: "Fetch activity weather data from Garmin (PRD - daily)"
-    cron: "0 14 * * *"  # Daily at 14:00 UTC
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_weather --days 2 --no-withings-sync"
     environment: "prd"
     enabled: true
@@ -181,7 +181,7 @@ jobs:
     service: "garmin"
     data_type: "activity_hr_zones"
     description: "Fetch activity heart rate zones data from Garmin (PRD - daily)"
-    cron: "0 15 * * *"  # Daily at 15:00 UTC
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_hr_zones --days 2 --no-withings-sync"
     environment: "prd"
     enabled: true
