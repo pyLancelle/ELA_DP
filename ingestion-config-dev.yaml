@@ -36,7 +36,7 @@ job_groups:
   # Data Fetching Groups (Step 1)
   garmin_fetch_all:
     description: "Fetch all Garmin data (Step 1/2)"
-    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight", "garmin_endurance_score", "garmin_hill_score"]
+    jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight", "garmin_endurance_score", "garmin_hill_score"]
   
   garmin_backfill_1year:
     description: "Backfill 1 year of Garmin data"
@@ -62,7 +62,7 @@ job_groups:
   # Legacy Combined Pipelines (runs in parallel - use with caution)
   garmin_pipeline:
     description: "Complete Garmin pipeline (parallel execution - may have timing issues)"
-    jobs: ["garmin_activities", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_endurance_score", "garmin_hill_score", "garmin_ingest"]
+    jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_endurance_score", "garmin_hill_score", "garmin_ingest"]
   
   strava_pipeline:
     description: "Complete Strava pipeline (parallel execution - may have timing issues)"
@@ -163,6 +163,46 @@ jobs:
     description: "Fetch activities from Garmin (DEV - frequent testing)"
     cron: "0 11 * * *"  # Every 2 hours for testing
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activities --days 2 --no-withings-sync"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_activity_details:
+    service: "garmin"
+    data_type: "activity_details"
+    description: "Fetch detailed activity data with GPS from Garmin (DEV - daily)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_details --days 2 --no-withings-sync"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_activity_splits:
+    service: "garmin"
+    data_type: "activity_splits"
+    description: "Fetch activity splits/laps data from Garmin (DEV - daily)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_splits --days 2 --no-withings-sync"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_activity_weather:
+    service: "garmin"
+    data_type: "activity_weather"
+    description: "Fetch activity weather data from Garmin (DEV - daily)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_weather --days 2 --no-withings-sync"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
+  garmin_activity_hr_zones:
+    service: "garmin"
+    data_type: "activity_hr_zones"
+    description: "Fetch activity heart rate zones data from Garmin (DEV - daily)"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_hr_zones --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -366,7 +406,7 @@ services:
   garmin:
     base_path: "src/connectors/garmin"
     fetch_script: "garmin_fetch.py"
-    supported_data_types: ["activities", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors", "weight", "endurance_score", "hill_score"]
+    supported_data_types: ["activities", "activity_details", "activity_splits", "activity_weather", "activity_hr_zones", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors", "weight", "endurance_score", "hill_score"]
   
   todoist:
     base_path: "src/connectors/todoist"
