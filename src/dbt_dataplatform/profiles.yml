@@ -8,7 +8,7 @@ dbt_dataplatform:
       schema: dp  # Valeur placeholder
       location: US
       threads: 2
-      keyfile: ../../gcs_key.json
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '../../gcs_key.json') }}"
 
     prd:
       type: bigquery
@@ -17,4 +17,4 @@ dbt_dataplatform:
       schema: dp
       location: US
       threads: 2
-      keyfile: ../../gcs_key.json
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '../../gcs_key.json') }}"
