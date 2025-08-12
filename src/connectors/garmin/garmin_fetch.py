@@ -44,12 +44,28 @@ REQUIRED_ENV_VARS = ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 # Data types to fetch
 DATA_TYPES = [
     "activities",
+    "activity_details",
+    "activity_splits",
+    "activity_weather",
+    "activity_hr_zones",
+    "activity_exercise_sets",
     "sleep",
     "steps",
     "heart_rate",
     "body_battery",
     "stress",
     "weight",
+    "body_composition",
+    "user_summary",
+    "daily_summary",
+    "stats_and_body",
+    "training_readiness",
+    "rhr_daily",
+    "spo2",
+    "respiration",
+    "intensity_minutes",
+    "max_metrics",
+    "all_day_events",
     "device_info",
     "training_status",
     "hrv",
@@ -237,6 +253,56 @@ def fetch_activities(
         return activities
     except Exception as e:
         logging.error(f"Error fetching activities: {e}")
+        return []
+
+
+def fetch_activity_details(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch detailed activity data with GPS tracking."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        detailed_activities = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    logging.warning(f"Activity missing activityId: {activity}")
+                    continue
+
+                # Get detailed activity data with GPS coordinates
+                details = client.get_activity_details(
+                    activity_id, maxchart=2000, maxpoly=4000
+                )
+
+                # Combine basic info with detailed data
+                enriched_activity = {
+                    **activity,  # Basic activity info
+                    "detailed_data": details,  # GPS and detailed metrics
+                    "data_type": "activity_details",
+                }
+                detailed_activities.append(enriched_activity)
+
+                # Rate limiting to avoid overwhelming the API
+                import time
+
+                time.sleep(0.5)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch details for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched detailed data for {len(detailed_activities)} activities")
+        return detailed_activities
+
+    except Exception as e:
+        logging.error(f"Error fetching activity details: {e}")
         return []
 
 
@@ -609,6 +675,598 @@ def fetch_hill_score_data(
         return []
 
 
+def fetch_activity_splits(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch activity splits/laps data."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        all_splits = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    logging.warning(f"Activity missing activityId: {activity}")
+                    continue
+
+                # Get both regular splits and typed splits
+                splits = client.get_activity_splits(activity_id)
+                typed_splits = client.get_activity_typed_splits(activity_id)
+                split_summaries = client.get_activity_split_summaries(activity_id)
+
+                # Combine all splits data
+                activity_splits = {
+                    "activityId": activity_id,
+                    "activityName": activity.get("activityName", ""),
+                    "activityType": activity.get("activityType", ""),
+                    "startTimeLocal": activity.get("startTimeLocal", ""),
+                    "splits": splits,
+                    "typed_splits": typed_splits,
+                    "split_summaries": split_summaries,
+                    "data_type": "activity_splits",
+                }
+                all_splits.append(activity_splits)
+
+                # Rate limiting
+                import time
+
+                time.sleep(0.3)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch splits for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched splits data for {len(all_splits)} activities")
+        return all_splits
+
+    except Exception as e:
+        logging.error(f"Error fetching activity splits: {e}")
+        return []
+
+
+def fetch_activity_weather(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch weather data for activities."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        all_weather = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    continue
+
+                # Get weather data for this activity
+                weather_data = client.get_activity_weather(activity_id)
+
+                if weather_data:
+                    activity_weather = {
+                        "activityId": activity_id,
+                        "activityName": activity.get("activityName", ""),
+                        "activityType": activity.get("activityType", ""),
+                        "startTimeLocal": activity.get("startTimeLocal", ""),
+                        "weather_data": weather_data,
+                        "data_type": "activity_weather",
+                    }
+                    all_weather.append(activity_weather)
+
+                # Rate limiting
+                import time
+
+                time.sleep(0.3)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch weather for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched weather data for {len(all_weather)} activities")
+        return all_weather
+
+    except Exception as e:
+        logging.error(f"Error fetching activity weather: {e}")
+        return []
+
+
+def fetch_activity_hr_zones(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch heart rate zones data for activities."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        all_hr_zones = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    continue
+
+                # Get heart rate zones data
+                hr_zones = client.get_activity_hr_in_timezones(activity_id)
+
+                if hr_zones:
+                    activity_hr_zones = {
+                        "activityId": activity_id,
+                        "activityName": activity.get("activityName", ""),
+                        "activityType": activity.get("activityType", ""),
+                        "startTimeLocal": activity.get("startTimeLocal", ""),
+                        "hr_zones_data": hr_zones,
+                        "data_type": "activity_hr_zones",
+                    }
+                    all_hr_zones.append(activity_hr_zones)
+
+                # Rate limiting
+                import time
+
+                time.sleep(0.3)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch HR zones for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(f"Fetched HR zones data for {len(all_hr_zones)} activities")
+        return all_hr_zones
+
+    except Exception as e:
+        logging.error(f"Error fetching activity HR zones: {e}")
+        return []
+
+
+def fetch_activity_exercise_sets(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch exercise sets data for strength training activities."""
+    try:
+        # First get the basic activities list
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        )
+
+        all_exercise_sets = []
+        for activity in activities:
+            try:
+                activity_id = activity.get("activityId")
+                if not activity_id:
+                    continue
+
+                # Get exercise sets data (mainly for strength training)
+                exercise_sets = client.get_activity_exercise_sets(activity_id)
+
+                if exercise_sets:
+                    activity_sets = {
+                        "activityId": activity_id,
+                        "activityName": activity.get("activityName", ""),
+                        "activityType": activity.get("activityType", ""),
+                        "startTimeLocal": activity.get("startTimeLocal", ""),
+                        "exercise_sets_data": exercise_sets,
+                        "data_type": "activity_exercise_sets",
+                    }
+                    all_exercise_sets.append(activity_sets)
+
+                # Rate limiting
+                import time
+
+                time.sleep(0.3)
+
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch exercise sets for activity {activity.get('activityId', 'unknown')}: {e}"
+                )
+                continue
+
+        logging.info(
+            f"Fetched exercise sets data for {len(all_exercise_sets)} activities"
+        )
+        return all_exercise_sets
+
+    except Exception as e:
+        logging.error(f"Error fetching activity exercise sets: {e}")
+        return []
+
+
+def fetch_user_summary(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch user daily summary (morning recap) data."""
+    user_summaries = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            summary = client.get_user_summary(date_str)
+
+            if summary:
+                summary_data = {
+                    "date": date_str,
+                    "summary_data": summary,
+                    "data_type": "user_summary",
+                }
+                user_summaries.append(summary_data)
+
+            import time
+
+            time.sleep(0.5)  # Slightly longer delay for summary data
+
+        except Exception as e:
+            logging.warning(f"No user summary for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched user summary data for {len(user_summaries)} days")
+    return user_summaries
+
+
+def fetch_daily_summary(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch daily summary data."""
+    daily_summaries = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+
+            # Try different summary methods
+            summary_methods = [
+                ("daily_summary", lambda: client.get_daily_summary(date_str)),
+                ("stats", lambda: client.get_stats(date_str)),
+            ]
+
+            for method_name, fetch_func in summary_methods:
+                try:
+                    summary = fetch_func()
+                    if summary:
+                        summary_data = {
+                            "date": date_str,
+                            "summary_method": method_name,
+                            "summary_data": summary,
+                            "data_type": "daily_summary",
+                        }
+                        daily_summaries.append(summary_data)
+                except Exception as e:
+                    logging.debug(f"Could not fetch {method_name} for {date_str}: {e}")
+
+            import time
+
+            time.sleep(0.5)
+
+        except Exception as e:
+            logging.warning(f"No daily summary for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched daily summary data for {len(daily_summaries)} days")
+    return daily_summaries
+
+
+def fetch_stats_and_body(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch stats and body composition data."""
+    stats_data = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            stats_body = client.get_stats_and_body(date_str)
+
+            if stats_body:
+                stats_data.append(
+                    {
+                        "date": date_str,
+                        "stats_and_body_data": stats_body,
+                        "data_type": "stats_and_body",
+                    }
+                )
+
+            import time
+
+            time.sleep(0.5)
+
+        except Exception as e:
+            logging.warning(f"No stats and body data for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched stats and body data for {len(stats_data)} days")
+    return stats_data
+
+
+def fetch_body_composition(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch detailed body composition data (fat %, muscle mass, etc.)."""
+    try:
+        start_str = start_date.strftime("%Y-%m-%d")
+        end_str = end_date.strftime("%Y-%m-%d")
+        body_comp_data = client.get_body_composition(start_str, end_str)
+
+        if body_comp_data:
+            logging.info(
+                f"Fetched body composition data: {len(body_comp_data) if isinstance(body_comp_data, list) else 1} entries"
+            )
+
+            # Ensure it's a list and add metadata
+            if isinstance(body_comp_data, list):
+                for entry in body_comp_data:
+                    entry["data_type"] = "body_composition"
+                return body_comp_data
+            else:
+                body_comp_data["data_type"] = "body_composition"
+                return [body_comp_data]
+        else:
+            logging.info("No body composition data available")
+            return []
+
+    except Exception as e:
+        logging.warning(f"No body composition data available: {e}")
+        return []
+
+
+def fetch_training_readiness(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch training readiness data (recovery status)."""
+    readiness_data = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            readiness = client.get_training_readiness(date_str)
+
+            if readiness:
+                readiness_data.append(
+                    {
+                        "date": date_str,
+                        "training_readiness_data": readiness,
+                        "data_type": "training_readiness",
+                    }
+                )
+
+            import time
+
+            time.sleep(0.3)
+
+        except Exception as e:
+            logging.warning(f"No training readiness for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched training readiness data for {len(readiness_data)} days")
+    return readiness_data
+
+
+def fetch_rhr_daily(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch daily resting heart rate data."""
+    rhr_data = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            rhr = client.get_rhr_day(date_str)
+
+            if rhr:
+                rhr_data.append(
+                    {"date": date_str, "rhr_data": rhr, "data_type": "rhr_daily"}
+                )
+
+            import time
+
+            time.sleep(0.3)
+
+        except Exception as e:
+            logging.warning(f"No RHR data for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched RHR data for {len(rhr_data)} days")
+    return rhr_data
+
+
+def fetch_spo2(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch SpO2 (blood oxygen saturation) data."""
+    spo2_data = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            spo2 = client.get_spo2_data(date_str)
+
+            if spo2:
+                spo2_data.append(
+                    {"date": date_str, "spo2_data": spo2, "data_type": "spo2"}
+                )
+
+            import time
+
+            time.sleep(0.3)
+
+        except Exception as e:
+            logging.warning(f"No SpO2 data for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched SpO2 data for {len(spo2_data)} days")
+    return spo2_data
+
+
+def fetch_respiration(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch respiration data."""
+    respiration_data = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            respiration = client.get_respiration_data(date_str)
+
+            if respiration:
+                respiration_data.append(
+                    {
+                        "date": date_str,
+                        "respiration_data": respiration,
+                        "data_type": "respiration",
+                    }
+                )
+
+            import time
+
+            time.sleep(0.3)
+
+        except Exception as e:
+            logging.warning(f"No respiration data for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched respiration data for {len(respiration_data)} days")
+    return respiration_data
+
+
+def fetch_intensity_minutes(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch intensity minutes data."""
+    intensity_data = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            intensity = client.get_intensity_minutes_data(date_str)
+
+            if intensity:
+                intensity_data.append(
+                    {
+                        "date": date_str,
+                        "intensity_minutes_data": intensity,
+                        "data_type": "intensity_minutes",
+                    }
+                )
+
+            import time
+
+            time.sleep(0.3)
+
+        except Exception as e:
+            logging.warning(f"No intensity minutes data for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched intensity minutes data for {len(intensity_data)} days")
+    return intensity_data
+
+
+def fetch_max_metrics(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch max metrics data (VO2 max, etc.)."""
+    try:
+        start_str = start_date.strftime("%Y-%m-%d")
+        end_str = end_date.strftime("%Y-%m-%d")
+
+        # Try to get max metrics - this might be a single call or date-range based
+        max_metrics = client.get_max_metrics(start_str, end_str)
+
+        if max_metrics:
+            logging.info(
+                f"Fetched max metrics data: {len(max_metrics) if isinstance(max_metrics, list) else 1} entries"
+            )
+
+            if isinstance(max_metrics, list):
+                for entry in max_metrics:
+                    entry["data_type"] = "max_metrics"
+                return max_metrics
+            else:
+                max_metrics["data_type"] = "max_metrics"
+                return [max_metrics]
+        else:
+            logging.info("No max metrics data available")
+            return []
+
+    except Exception as e:
+        logging.warning(f"No max metrics data available: {e}")
+
+        # Fallback: try without date parameters
+        try:
+            max_metrics = client.get_max_metrics()
+            if max_metrics:
+                if isinstance(max_metrics, list):
+                    for entry in max_metrics:
+                        entry["data_type"] = "max_metrics"
+                    return max_metrics
+                else:
+                    max_metrics["data_type"] = "max_metrics"
+                    return [max_metrics]
+        except Exception as e2:
+            logging.warning(f"No max metrics data available (fallback): {e2}")
+
+        return []
+
+
+def fetch_all_day_events(
+    client: Garmin, start_date: datetime, end_date: datetime
+) -> List[Dict[str, Any]]:
+    """Fetch all-day wellness events."""
+    events_data = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            events = client.get_all_day_events(date_str)
+
+            if events:
+                events_data.append(
+                    {
+                        "date": date_str,
+                        "all_day_events_data": events,
+                        "data_type": "all_day_events",
+                    }
+                )
+
+            import time
+
+            time.sleep(0.3)
+
+        except Exception as e:
+            logging.warning(f"No all-day events for {date_str}: {e}")
+
+        current_date += timedelta(days=1)
+
+    logging.info(f"Fetched all-day events data for {len(events_data)} days")
+    return events_data
+
+
 def write_jsonl(data: List[Dict[str, Any]], output_path: Path) -> None:
     """Write a list of dicts to a JSONL file."""
     try:
@@ -718,6 +1376,21 @@ def main() -> None:
         # Fetch each data type
         data_fetchers = {
             "activities": lambda: fetch_activities(client, start_date, end_date),
+            "activity_details": lambda: fetch_activity_details(
+                client, start_date, end_date
+            ),
+            "activity_splits": lambda: fetch_activity_splits(
+                client, start_date, end_date
+            ),
+            "activity_weather": lambda: fetch_activity_weather(
+                client, start_date, end_date
+            ),
+            "activity_hr_zones": lambda: fetch_activity_hr_zones(
+                client, start_date, end_date
+            ),
+            "activity_exercise_sets": lambda: fetch_activity_exercise_sets(
+                client, start_date, end_date
+            ),
             "sleep": lambda: fetch_sleep_data(client, start_date, end_date),
             "steps": lambda: fetch_steps_data(client, start_date, end_date),
             "heart_rate": lambda: fetch_heart_rate_data(client, start_date, end_date),
@@ -726,6 +1399,27 @@ def main() -> None:
             ),
             "stress": lambda: fetch_stress_data(client, start_date, end_date),
             "weight": lambda: fetch_weight_data(client, start_date, end_date),
+            "body_composition": lambda: fetch_body_composition(
+                client, start_date, end_date
+            ),
+            "user_summary": lambda: fetch_user_summary(client, start_date, end_date),
+            "daily_summary": lambda: fetch_daily_summary(client, start_date, end_date),
+            "stats_and_body": lambda: fetch_stats_and_body(
+                client, start_date, end_date
+            ),
+            "training_readiness": lambda: fetch_training_readiness(
+                client, start_date, end_date
+            ),
+            "rhr_daily": lambda: fetch_rhr_daily(client, start_date, end_date),
+            "spo2": lambda: fetch_spo2(client, start_date, end_date),
+            "respiration": lambda: fetch_respiration(client, start_date, end_date),
+            "intensity_minutes": lambda: fetch_intensity_minutes(
+                client, start_date, end_date
+            ),
+            "max_metrics": lambda: fetch_max_metrics(client, start_date, end_date),
+            "all_day_events": lambda: fetch_all_day_events(
+                client, start_date, end_date
+            ),
             "device_info": lambda: fetch_device_info(client),
             "training_status": lambda: fetch_training_status_data(
                 client, start_date, end_date
