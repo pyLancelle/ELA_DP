@@ -2,46 +2,26 @@
     dataset=get_schema('lake'),
     materialized='incremental',
     incremental_strategy='merge',
-    unique_key=['user_profile_pk', 'week_date'],
+    unique_key=['user_profile_pk', 'period_start_date', 'period_end_date'],
     tags=["lake", "garmin"]
 ) }}
 
--- Pure Lake model for Garmin endurance score weekly data
--- Explodes groupMap to extract weekly endurance metrics
--- Monthly data is handled in separate lake_garmin__svc_endurance_score model
+-- Lake model for Garmin endurance score weekly groupMap data
+-- Stores the complete groupMap for hub layer to parse daily data
+-- Simplified approach due to BigQuery JSON path limitations with dynamic keys
 
-WITH endurance_weekly_exploded AS (
+WITH endurance_score_weekly_with_rank AS (
   SELECT
-    -- Extract user profile PK
     CAST(JSON_EXTRACT_SCALAR(raw_data, '$.userProfilePK') AS INT64) AS user_profile_pk,
     
-    -- Extract week date from groupMap keys
-    DATE(REPLACE(REPLACE(week_key, '"', ''), '\\', '')) AS week_date,
+    -- Extract period dates for unique key
+    DATE(JSON_EXTRACT_SCALAR(raw_data, '$.startDate')) AS period_start_date,
+    DATE(JSON_EXTRACT_SCALAR(raw_data, '$.endDate')) AS period_end_date,
     
-    -- Extract weekly metrics from groupMap values
-    JSON_EXTRACT(raw_data, CONCAT('$.groupMap.', week_key)) AS week_data,
+    -- Store complete groupMap for hub layer processing
+    JSON_EXTRACT(raw_data, '$.groupMap') AS group_map,
     
-    -- Source metadata
-    raw_data,
-    data_type,
-    dp_inserted_at,
-    source_file
-    
-  FROM {{ source('garmin', 'lake_garmin__stg_garmin_raw') }},
-  UNNEST(JSON_KEYS(JSON_EXTRACT(raw_data, '$.groupMap'))) AS week_key
-  WHERE data_type = 'endurance_score'
-    AND JSON_EXTRACT(raw_data, '$.groupMap') IS NOT NULL
-    
-  {% if is_incremental() %}
-    AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
-  {% endif %}
-),
-
-endurance_weekly_with_rank AS (
-  SELECT
-    user_profile_pk,
-    week_date,
-    week_data,
+    -- Metadata
     raw_data,
     data_type,
     dp_inserted_at,
@@ -49,25 +29,31 @@ endurance_weekly_with_rank AS (
     
     -- Add row number to deduplicate by most recent dp_inserted_at
     ROW_NUMBER() OVER (
-      PARTITION BY user_profile_pk, week_date
+      PARTITION BY CAST(JSON_EXTRACT_SCALAR(raw_data, '$.userProfilePK') AS INT64),
+                   DATE(JSON_EXTRACT_SCALAR(raw_data, '$.startDate')),
+                   DATE(JSON_EXTRACT_SCALAR(raw_data, '$.endDate'))
       ORDER BY dp_inserted_at DESC
     ) AS row_rank
     
-  FROM endurance_weekly_exploded
-  WHERE user_profile_pk IS NOT NULL
-    AND week_date IS NOT NULL
-    -- Filter out weeks with null/empty data
-    AND JSON_EXTRACT_SCALAR(week_data, '$.groupAverage') IS NOT NULL
+  FROM {{ source('garmin', 'lake_garmin__stg_garmin_raw') }}
+  WHERE data_type = 'endurance_score'
+    AND JSON_EXTRACT(raw_data, '$.groupMap') IS NOT NULL
+    AND JSON_EXTRACT_SCALAR(raw_data, '$.userProfilePK') IS NOT NULL
+    
+  {% if is_incremental() %}
+    AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+  {% endif %}
 )
 
 SELECT
   user_profile_pk,
-  week_date,
-  week_data,
+  period_start_date,
+  period_end_date,
+  group_map,
   raw_data,
   data_type,
   dp_inserted_at,
   source_file
 
-FROM endurance_weekly_with_rank
+FROM endurance_score_weekly_with_rank
 WHERE row_rank = 1
