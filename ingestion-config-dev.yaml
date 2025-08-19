@@ -25,6 +25,10 @@ job_groups:
     description: "All productivity data sources (DEV)"
     jobs: ["todoist_tasks", "todoist_projects"]
   
+  chess_all:
+    description: "All Chess.com data sources (DEV)"
+    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_clubs", "chess_tournaments"]
+  
   frequent_jobs:
     description: "Frequently running jobs for development testing"
     jobs: ["spotify_recently_played", "strava_activities", "garmin_activities", "todoist_tasks"]
@@ -50,10 +54,14 @@ job_groups:
     description: "Fetch all Spotify data (Step 1/2)"
     jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums"]
   
+  chess_fetch_all:
+    description: "Fetch all Chess.com data (Step 1/2)"
+    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_clubs", "chess_tournaments"]
+  
   # Data Ingestion Groups (Step 2)
   ingestion_only:
     description: "Run only ingestion jobs - GCS → BigQuery (Step 2/2)"
-    jobs: ["garmin_ingest", "strava_ingest", "spotify_ingest"]
+    jobs: ["garmin_ingest", "strava_ingest", "spotify_ingest", "chess_ingest"]
   
   garmin_ingest_only:
     description: "Ingest Garmin data only - GCS → BigQuery"
@@ -68,9 +76,17 @@ job_groups:
     description: "Run DBT transformations for Spotify lake models only"
     jobs: ["spotify_dbt_lake_run"]
   
+  chess_ingest_only:
+    description: "Ingest Chess.com data only - GCS → BigQuery"
+    jobs: ["chess_ingest"]
+  
+  chess_dbt_only:
+    description: "Run DBT transformations for Chess.com lake models only"
+    jobs: ["chess_dbt_lake_run"]
+  
   dbt_transformations:
     description: "Run all DBT transformations"
-    jobs: ["garmin_dbt_lake_run", "spotify_dbt_lake_run"]
+    jobs: ["garmin_dbt_lake_run", "spotify_dbt_lake_run", "chess_dbt_lake_run"]
   
   # Legacy Combined Pipelines (runs in parallel - use with caution)
   garmin_pipeline:
@@ -84,6 +100,10 @@ job_groups:
   spotify_pipeline:
     description: "Complete Spotify pipeline (parallel execution - may have timing issues)"
     jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_ingest", "spotify_dbt_lake_run"]
+  
+  chess_pipeline:
+    description: "Complete Chess.com pipeline (parallel execution - may have timing issues)"
+    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_clubs", "chess_tournaments", "chess_ingest", "chess_dbt_lake_run"]
 
 # Individual Jobs Configuration - DEV Environment
 jobs:
@@ -372,6 +392,57 @@ jobs:
     enabled: false
     dependencies: ["TODOIST_API_TOKEN"]
 
+  # =================== CHESS.COM JOBS (DEV) ===================
+  chess_player_profile:
+    service: "chess"
+    data_type: "player_profile"
+    description: "Fetch player profile from Chess.com (DEV - daily)"
+    cron: "0 10 * * *"  # Daily at 10:00 UTC
+    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_profile --days 1"
+    environment: "dev"
+    enabled: true
+    dependencies: []
+
+  chess_player_stats:
+    service: "chess"
+    data_type: "player_stats"
+    description: "Fetch player statistics from Chess.com (DEV - daily)"
+    cron: "0 10 * * *"  # Daily at 10:00 UTC
+    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_stats --days 1"
+    environment: "dev"
+    enabled: true
+    dependencies: []
+
+  chess_games:
+    service: "chess"
+    data_type: "games"
+    description: "Fetch recent games from Chess.com (DEV - every 6 hours)"
+    cron: "0 8,14,20 * * *"  # Every 6 hours
+    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types games --days 2"
+    environment: "dev"
+    enabled: true
+    dependencies: []
+
+  chess_clubs:
+    service: "chess"
+    data_type: "clubs"
+    description: "Fetch club memberships from Chess.com (DEV - weekly)"
+    cron: "0 11 * * 1"  # Weekly on Mondays at 11:00 UTC
+    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types clubs --days 1"
+    environment: "dev"
+    enabled: true
+    dependencies: []
+
+  chess_tournaments:
+    service: "chess"
+    data_type: "tournaments"
+    description: "Fetch tournament participation from Chess.com (DEV - weekly)"
+    cron: "0 11 * * 1"  # Weekly on Mondays at 11:00 UTC
+    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types tournaments --days 1"
+    environment: "dev"
+    enabled: true
+    dependencies: []
+
   # =================== INGESTION JOBS (DEV) ===================
   garmin_ingest:
     service: "garmin"
@@ -423,6 +494,26 @@ jobs:
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
+  chess_ingest:
+    service: "chess"
+    data_type: "ingest"
+    description: "Ingest Chess.com data from GCS to BigQuery (DEV)"
+    cron: "30 */6 * * *"  # 30 minutes after data fetch (every 6 hours)
+    command: "python -m src.connectors.chess.chess_ingest --env dev"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  chess_dbt_lake_run:
+    service: "chess"
+    data_type: "dbt_lake"
+    description: "Run DBT transformations for Chess.com lake models (DEV)"
+    cron: "0 7,12,16,20,23 * * *"  # 5 times per day at specific hours: 7h, 12h, 16h, 20h, 23h UTC
+    command: "python -m src.connectors.chess.chess_dbt_run --env dev"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
 # Service-specific configuration
 services:
   spotify:
@@ -445,3 +536,8 @@ services:
     base_path: "src/connectors/todoist"
     fetch_script: "todoist.py"
     supported_data_types: ["tasks", "projects"]
+  
+  chess:
+    base_path: "src/connectors/chess"
+    fetch_script: "chess_fetch.py"
+    supported_data_types: ["player_profile", "player_stats", "games", "clubs", "tournaments"]
