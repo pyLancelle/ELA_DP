@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: hub_chess__player_profile
+    description: "Structured Chess.com player profile data"
+    columns:
+      - name: username
+        description: "Chess.com username"
+        tests:
+          - unique
+          - not_null
+      - name: full_name
+        description: "Player's full name"
+      - name: chess_title
+        description: "Official chess title (GM, IM, etc.)"
+      - name: player_id
+        description: "Numeric Chess.com player ID"
+      - name: account_status
+        description: "Account type (premium, basic, etc.)"
+      - name: is_streamer
+        description: "Whether player is a streamer"
+      - name: is_verified
+        description: "Whether account is verified"
+
+  - name: hub_chess__player_stats
+    description: "Structured Chess.com player statistics by time control"
+    columns:
+      - name: username
+        description: "Chess.com username"
+        tests:
+          - unique
+          - not_null
+      - name: fide_rating
+        description: "Official FIDE rating"
+      - name: chess_daily
+        description: "Daily chess statistics"
+      - name: chess_rapid
+        description: "Rapid chess statistics"
+      - name: chess_bullet
+        description: "Bullet chess statistics"
+      - name: chess_blitz
+        description: "Blitz chess statistics"
+      - name: tactics
+        description: "Tactics puzzle statistics"
+      - name: puzzle_rush
+        description: "Puzzle Rush statistics"
+
+  - name: hub_chess__games
+    description: "Structured Chess.com game data"
+    columns:
+      - name: game_id
+        description: "Unique game identifier (UUID)"
+        tests:
+          - unique
+          - not_null
+      - name: username
+        description: "Chess.com username of data owner"
+      - name: game_url
+        description: "URL to the game on Chess.com"
+      - name: pgn
+        description: "Portable Game Notation"
+      - name: time_class
+        description: "Time control class (daily, rapid, blitz, bullet)"
+      - name: is_rated
+        description: "Whether game was rated"
+      - name: white_player
+        description: "White player information"
+      - name: black_player
+        description: "Black player information"
+      - name: opening
+        description: "Opening information (ECO code and name)"
+
+  - name: hub_chess__clubs
+    description: "Structured Chess.com club data"
+    columns:
+      - name: club_id
+        description: "Unique club identifier"
+        tests:
+          - unique
+          - not_null
+      - name: username
+        description: "Chess.com username of member"
+      - name: club_name
+        description: "Name of the club"
+      - name: description
+        description: "Club description"
+      - name: country
+        description: "Club's country"
+      - name: membership
+        description: "Membership information and metrics"
+
+  - name: hub_chess__tournaments
+    description: "Structured Chess.com tournament data"
+    columns:
+      - name: tournament_id
+        description: "Unique tournament identifier"
+        tests:
+          - unique
+          - not_null
+      - name: username
+        description: "Chess.com username of participant"
+      - name: tournament_name
+        description: "Name of the tournament"
+      - name: status
+        description: "Tournament status"
+      - name: time_class
+        description: "Time control class"
+      - name: settings
+        description: "Tournament settings and configuration"
+      - name: timing
+        description: "Tournament timing information"

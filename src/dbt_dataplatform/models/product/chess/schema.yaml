@@ -1,0 +1,77 @@
+version: 2
+
+models:
+  - name: product_chess__player_rating_evolution
+    description: "Player rating evolution and performance analysis across time controls"
+    columns:
+      - name: username
+        description: "Chess.com username"
+        tests:
+          - unique
+          - not_null
+      - name: daily_rating
+        description: "Current daily chess rating"
+      - name: rapid_rating
+        description: "Current rapid chess rating"
+      - name: bullet_rating
+        description: "Current bullet chess rating"
+      - name: blitz_rating
+        description: "Current blitz chess rating"
+      - name: fide_rating
+        description: "Official FIDE rating"
+      - name: primary_rating
+        description: "Primary rating (rapid > blitz > bullet > daily)"
+      - name: skill_category
+        description: "Playing strength category based on primary rating"
+        tests:
+          - accepted_values:
+              values: ['Novice', 'Beginner', 'Beginner+', 'Improving', 'Intermediate', 'Advanced', 'Expert', 'Master+']
+      - name: consistency_level
+        description: "Rating consistency across time controls"
+        tests:
+          - accepted_values:
+              values: ['Very Consistent', 'Consistent', 'Moderate Variation', 'High Variation']
+
+  - name: product_chess__game_analysis
+    description: "Detailed game analysis with performance metrics"
+    columns:
+      - name: game_id
+        description: "Unique game identifier"
+        tests:
+          - unique
+          - not_null
+      - name: username
+        description: "Chess.com username of data owner"
+      - name: time_class
+        description: "Time control class"
+        tests:
+          - accepted_values:
+              values: ['daily', 'rapid', 'blitz', 'bullet']
+      - name: user_color
+        description: "Color played by the user"
+        tests:
+          - accepted_values:
+              values: ['white', 'black']
+      - name: user_result
+        description: "Game result for the user"
+      - name: score_points
+        description: "Points scored (1 for win, 0.5 for draw, 0 for loss)"
+      - name: expected_score
+        description: "Expected score based on Elo rating difference"
+      - name: performance_vs_expected
+        description: "Actual performance minus expected performance"
+      - name: game_difficulty
+        description: "Game difficulty based on rating difference"
+        tests:
+          - accepted_values:
+              values: ['Even', 'Favored', 'Underdog', 'Unknown']
+      - name: accuracy_grade
+        description: "Performance grade based on accuracy"
+        tests:
+          - accepted_values:
+              values: ['Excellent', 'Good', 'Average', 'Below Average', 'Poor']
+      - name: opening_family
+        description: "Opening family based on ECO code"
+        tests:
+          - accepted_values:
+              values: ['Flank Openings', 'Semi-Open Games', 'Open Games', 'Closed Games', 'Indian Systems', 'Other']
