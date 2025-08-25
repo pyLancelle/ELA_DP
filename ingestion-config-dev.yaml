@@ -27,7 +27,7 @@ job_groups:
   
   chess_all:
     description: "All Chess.com data sources (DEV)"
-    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_clubs", "chess_tournaments"]
+    jobs: ["chess_player_profile", "chess_player_stats", "chess_games"]
   
   frequent_jobs:
     description: "Frequently running jobs for development testing"
@@ -56,7 +56,7 @@ job_groups:
   
   chess_fetch_all:
     description: "Fetch all Chess.com data (Step 1/2)"
-    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_clubs", "chess_tournaments"]
+    jobs: ["chess_player_profile", "chess_player_stats", "chess_games"]
   
   # Data Ingestion Groups (Step 2)
   ingestion_only:
@@ -103,7 +103,7 @@ job_groups:
   
   chess_pipeline:
     description: "Complete Chess.com pipeline (parallel execution - may have timing issues)"
-    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_clubs", "chess_tournaments", "chess_ingest", "chess_dbt_lake_run"]
+    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_ingest", "chess_dbt_lake_run"]
 
 # Individual Jobs Configuration - DEV Environment
 jobs:
@@ -396,9 +396,9 @@ jobs:
   chess_player_profile:
     service: "chess"
     data_type: "player_profile"
-    description: "Fetch player profile from Chess.com (DEV - daily)"
-    cron: "0 10 * * *"  # Daily at 10:00 UTC
-    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_profile --days 1"
+    description: "Fetch player profile from Chess.com (DEV - daily at 10pm Paris)"
+    cron: "0 21 * * *"  # Daily at 21:00 UTC (22:00 Paris time)
+    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_profile"
     environment: "dev"
     enabled: true
     dependencies: []
@@ -406,9 +406,9 @@ jobs:
   chess_player_stats:
     service: "chess"
     data_type: "player_stats"
-    description: "Fetch player statistics from Chess.com (DEV - daily)"
-    cron: "0 10 * * *"  # Daily at 10:00 UTC
-    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_stats --days 1"
+    description: "Fetch player statistics from Chess.com (DEV - daily at 10pm Paris)"
+    cron: "0 21 * * *"  # Daily at 21:00 UTC (22:00 Paris time)
+    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_stats"
     environment: "dev"
     enabled: true
     dependencies: []
@@ -416,32 +416,13 @@ jobs:
   chess_games:
     service: "chess"
     data_type: "games"
-    description: "Fetch recent games from Chess.com (DEV - every 6 hours)"
-    cron: "0 8,14,20 * * *"  # Every 6 hours
+    description: "Fetch recent games from Chess.com (DEV - daily at 10pm Paris)"
+    cron: "0 21 * * *"  # Daily at 21:00 UTC (22:00 Paris time)
     command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types games --days 2"
     environment: "dev"
     enabled: true
     dependencies: []
 
-  chess_clubs:
-    service: "chess"
-    data_type: "clubs"
-    description: "Fetch club memberships from Chess.com (DEV - weekly)"
-    cron: "0 11 * * 1"  # Weekly on Mondays at 11:00 UTC
-    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types clubs --days 1"
-    environment: "dev"
-    enabled: true
-    dependencies: []
-
-  chess_tournaments:
-    service: "chess"
-    data_type: "tournaments"
-    description: "Fetch tournament participation from Chess.com (DEV - weekly)"
-    cron: "0 11 * * 1"  # Weekly on Mondays at 11:00 UTC
-    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types tournaments --days 1"
-    environment: "dev"
-    enabled: true
-    dependencies: []
 
   # =================== INGESTION JOBS (DEV) ===================
   garmin_ingest:
@@ -497,8 +478,8 @@ jobs:
   chess_ingest:
     service: "chess"
     data_type: "ingest"
-    description: "Ingest Chess.com data from GCS to BigQuery (DEV)"
-    cron: "30 */6 * * *"  # 30 minutes after data fetch (every 6 hours)
+    description: "Ingest Chess.com data from GCS to BigQuery (DEV - daily at 11pm Paris)"
+    cron: "0 22 * * *"  # Daily at 22:00 UTC (23:00 Paris time) - 1h after fetch
     command: "python -m src.connectors.chess.chess_ingest --env dev"
     environment: "dev"
     enabled: true
@@ -540,4 +521,4 @@ services:
   chess:
     base_path: "src/connectors/chess"
     fetch_script: "chess_fetch.py"
-    supported_data_types: ["player_profile", "player_stats", "games", "clubs", "tournaments"]
+    supported_data_types: ["player_profile", "player_stats", "games"]

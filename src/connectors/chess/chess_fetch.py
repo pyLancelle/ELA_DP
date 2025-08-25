@@ -9,7 +9,6 @@ Features:
  - Configurable date range and data types
  - Clean code structure with functions and CLI
 """
-import os
 import sys
 import argparse
 import logging
@@ -18,11 +17,9 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+from typing import List, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
-
-import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
 from utils import to_jsonl
@@ -41,8 +38,6 @@ class DataType(Enum):
     PLAYER_PROFILE = "player_profile"
     PLAYER_STATS = "player_stats"
     GAMES = "games"
-    CLUBS = "clubs"
-    TOURNAMENTS = "tournaments"
 
 
 @dataclass
@@ -133,27 +128,46 @@ class ChessComConnector:
             )
             archive_urls = archives.get("archives", [])
 
+            # Extract the actual username from the archive URLs (handles case redirection)
+            actual_username = self.config.username
+            if archive_urls:
+                # Extract username from first archive URL
+                import re
+
+                match = re.search(r"/player/([^/]+)/games/", archive_urls[0])
+                if match:
+                    actual_username = match.group(1)
+
             games_data = []
             current_date = start_date.replace(day=1)  # Start from first day of month
+            logging.debug(f"Available archives: {archive_urls}")
 
             while current_date <= end_date:
                 year_month = current_date.strftime("%Y/%m")
-                archive_url = (
-                    f"{BASE_URL}/player/{self.config.username}/games/{year_month}"
-                )
+                archive_url = f"{BASE_URL}/player/{actual_username}/games/{year_month}"
+                logging.debug(f"Checking for archive: {archive_url}")
 
                 if archive_url in archive_urls:
                     try:
                         month_games = self._make_request(
-                            f"player/{self.config.username}/games/{year_month}"
+                            f"player/{actual_username}/games/{year_month}"
                         )
                         games = month_games.get("games", [])
 
                         # Filter games by date range
                         filtered_games = []
+                        logging.debug(
+                            f"Processing {len(games)} games from {year_month}"
+                        )
                         for game in games:
                             game_date = datetime.fromtimestamp(game.get("end_time", 0))
-                            if start_date <= game_date <= end_date:
+                            # Convert to timezone-naive for comparison
+                            start_date_naive = start_date.replace(tzinfo=None)
+                            end_date_naive = end_date.replace(tzinfo=None)
+                            logging.debug(
+                                f"Game date: {game_date}, Range: {start_date_naive} to {end_date_naive}"
+                            )
+                            if start_date_naive <= game_date <= end_date_naive:
                                 game["data_type"] = "games"
                                 game["fetch_timestamp"] = datetime.now().isoformat()
                                 filtered_games.append(game)
@@ -181,72 +195,6 @@ class ChessComConnector:
             logging.error(f"Error fetching games: {e}")
             return []
 
-    def fetch_clubs(self) -> List[Dict[str, Any]]:
-        """Fetch player's clubs."""
-        try:
-            clubs = self._make_request(f"player/{self.config.username}/clubs")
-            clubs_list = clubs.get("clubs", [])
-
-            # Enrich with detailed club information
-            detailed_clubs = []
-            for club_url in clubs_list:
-                try:
-                    # Extract club ID from URL
-                    club_id = club_url.split("/")[-1]
-                    club_detail = self._make_request(f"club/{club_id}")
-                    if club_detail:
-                        club_detail["data_type"] = "clubs"
-                        club_detail["fetch_timestamp"] = datetime.now().isoformat()
-                        detailed_clubs.append(club_detail)
-                except Exception as e:
-                    logging.warning(f"Could not fetch details for club {club_url}: {e}")
-
-            logging.info(f"Fetched {len(detailed_clubs)} clubs")
-            return detailed_clubs
-
-        except Exception as e:
-            logging.error(f"Error fetching clubs: {e}")
-            return []
-
-    def fetch_tournaments(self) -> List[Dict[str, Any]]:
-        """Fetch player's tournaments."""
-        try:
-            tournaments = self._make_request(
-                f"player/{self.config.username}/tournaments"
-            )
-            tournaments_list = (
-                tournaments.get("finished", [])
-                + tournaments.get("in_progress", [])
-                + tournaments.get("registered", [])
-            )
-
-            # Enrich with detailed tournament information
-            detailed_tournaments = []
-            for tournament_url in tournaments_list:
-                try:
-                    # Extract tournament ID from URL
-                    tournament_id = tournament_url.split("/")[-1]
-                    tournament_detail = self._make_request(
-                        f"tournament/{tournament_id}"
-                    )
-                    if tournament_detail:
-                        tournament_detail["data_type"] = "tournaments"
-                        tournament_detail["fetch_timestamp"] = (
-                            datetime.now().isoformat()
-                        )
-                        detailed_tournaments.append(tournament_detail)
-                except Exception as e:
-                    logging.warning(
-                        f"Could not fetch details for tournament {tournament_url}: {e}"
-                    )
-
-            logging.info(f"Fetched {len(detailed_tournaments)} tournaments")
-            return detailed_tournaments
-
-        except Exception as e:
-            logging.error(f"Error fetching tournaments: {e}")
-            return []
-
     def fetch_data(self, data_type: DataType, **kwargs) -> List[Dict[str, Any]]:
         """Generic method to fetch data by type."""
         method_map = {
@@ -257,8 +205,6 @@ class ChessComConnector:
                 [self.fetch_player_stats()] if self.fetch_player_stats() else []
             ),
             DataType.GAMES: lambda: self.fetch_games(**kwargs),
-            DataType.CLUBS: lambda: self.fetch_clubs(),
-            DataType.TOURNAMENTS: lambda: self.fetch_tournaments(),
         }
 
         if data_type not in method_map:
