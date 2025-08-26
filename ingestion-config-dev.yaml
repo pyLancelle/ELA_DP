@@ -492,7 +492,7 @@ jobs:
     cron: "0 7,12,16,20,23 * * *"  # 5 times per day at specific hours: 7h, 12h, 16h, 20h, 23h UTC
     command: "python -m src.connectors.chess.chess_dbt_run --env dev"
     environment: "dev"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
 # Service-specific configuration
