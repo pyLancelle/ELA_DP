@@ -29,12 +29,6 @@ models:
         +tags: ["spotify", "hub"]
       +materialized: view
     product:
-      garmin:
-        +materialized: view
-        +tags: ["garmin", "product"]
-      spotify:
-        +materialized: view
-        +tags: ["spotify", "product"]
       daily_recap:
         +materialized: view
         +tags: ["product", "daily_recap"]

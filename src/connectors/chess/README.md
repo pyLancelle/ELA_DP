@@ -16,13 +16,13 @@ A comprehensive Chess.com data connector for the ELA DATAPLATFORM that fetches p
 
 ```bash
 # Get profile and stats for a player
-python -m src.connectors.chess.chess_fetch hikaru --data-types player_profile player_stats
+python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_profile player_stats
 
 # Get recent games (last 30 days)
-python -m src.connectors.chess.chess_fetch hikaru --data-types games --days 30
+python -m src.connectors.chess.chess_fetch TTTiennou --data-types games --days 30
 
 # Get all data types
-python -m src.connectors.chess.chess_fetch myusername
+python -m src.connectors.chess.chess_fetch TTTiennou
 ```
 
 ### 2. Ingest to BigQuery

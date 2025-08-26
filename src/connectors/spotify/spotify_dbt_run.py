@@ -87,7 +87,7 @@ def run_dbt_command(dbt_dir: str, env: str, models: str = None) -> bool:
             "--target",
             env,
             "--select",
-            "tag:spotify,tag:lake",
+            "models/lake/spotify/",
             "--project-dir",
             dbt_dir,
         ]
@@ -147,7 +147,7 @@ def get_models_summary(dbt_dir: str, env: str) -> dict:
         "--target",
         env,
         "--select",
-        "tag:spotify,tag:lake",
+        "models/lake/spotify/",
         "--project-dir",
         dbt_dir,
     ]
