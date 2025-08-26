@@ -64,8 +64,8 @@ def main():
     )
     parser.add_argument(
         "--models",
-        default="chess",
-        help="dbt models to run (default: chess for all Chess.com models)",
+        default="models/lake/chess/",
+        help="dbt models to run (default: models/lake/chess/ for all Chess.com lake models)",
     )
     parser.add_argument(
         "--full-refresh", action="store_true", help="Run with full refresh"
@@ -77,7 +77,7 @@ def main():
     dbt_cmd = ["dbt", "run", "--target", args.env]
 
     if args.models:
-        dbt_cmd.extend(["--models", args.models])
+        dbt_cmd.extend(["--select", args.models])
 
     if args.full_refresh:
         dbt_cmd.append("--full-refresh")
