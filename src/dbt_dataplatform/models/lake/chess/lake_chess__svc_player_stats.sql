@@ -32,7 +32,7 @@ WITH stats_data_with_rank AS (
     ) AS row_rank
 
   FROM {{ source('chess', 'lake_chess__stg_chess_raw') }}
-  WHERE data_type = 'player_stats'
+  WHERE data_type = 'player'
     AND username IS NOT NULL
     
   {% if is_incremental() %}

@@ -2,6 +2,8 @@ version: 2
 
 sources:
   - name: chess
+    database: polar-scene-465223-f7
+    schema: "{{ 'dp_lake_' ~ target.name }}"
     description: "Raw Chess.com data from BigQuery"
     tables:
       - name: lake_chess__stg_chess_raw
@@ -19,23 +21,6 @@ sources:
             description: "Source JSONL filename"
 
 models:
-  - name: lake_chess__svc_player_profile
-    description: "Chess.com player profile data with deduplication"
-    columns:
-      - name: username
-        description: "Chess.com username (unique key)"
-        tests:
-          - unique
-          - not_null
-      - name: raw_data
-        description: "Complete player profile data as JSON"
-      - name: data_type
-        description: "Always 'player_profile'"
-      - name: dp_inserted_at
-        description: "When this record was ingested"
-      - name: source_file
-        description: "Source JSONL file"
-
   - name: lake_chess__svc_player_stats
     description: "Chess.com player statistics data with deduplication"
     columns:
@@ -67,44 +52,6 @@ models:
         description: "Complete game data as JSON"
       - name: data_type
         description: "Always 'games'"
-      - name: dp_inserted_at
-        description: "When this record was ingested"
-      - name: source_file
-        description: "Source JSONL file"
-
-  - name: lake_chess__svc_clubs
-    description: "Chess.com clubs data with deduplication"
-    columns:
-      - name: club_id
-        description: "Unique club identifier"
-        tests:
-          - unique
-          - not_null
-      - name: username
-        description: "Chess.com username that belongs to this club"
-      - name: raw_data
-        description: "Complete club data as JSON"
-      - name: data_type
-        description: "Always 'clubs'"
-      - name: dp_inserted_at
-        description: "When this record was ingested"
-      - name: source_file
-        description: "Source JSONL file"
-
-  - name: lake_chess__svc_tournaments
-    description: "Chess.com tournaments data with deduplication"
-    columns:
-      - name: tournament_id
-        description: "Unique tournament identifier"
-        tests:
-          - unique
-          - not_null
-      - name: username
-        description: "Chess.com username that participated in this tournament"
-      - name: raw_data
-        description: "Complete tournament data as JSON"
-      - name: data_type
-        description: "Always 'tournaments'"
       - name: dp_inserted_at
         description: "When this record was ingested"
       - name: source_file

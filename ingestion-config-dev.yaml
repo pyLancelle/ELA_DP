@@ -27,7 +27,7 @@ job_groups:
   
   chess_all:
     description: "All Chess.com data sources (DEV)"
-    jobs: ["chess_player_profile", "chess_player_stats", "chess_games"]
+    jobs: ["chess_player_stats", "chess_games"]
   
   frequent_jobs:
     description: "Frequently running jobs for development testing"
@@ -56,7 +56,7 @@ job_groups:
   
   chess_fetch_all:
     description: "Fetch all Chess.com data (Step 1/2)"
-    jobs: ["chess_player_profile", "chess_player_stats", "chess_games"]
+    jobs: ["chess_player_stats", "chess_games"]
   
   # Data Ingestion Groups (Step 2)
   ingestion_only:
@@ -103,7 +103,7 @@ job_groups:
   
   chess_pipeline:
     description: "Complete Chess.com pipeline (parallel execution - may have timing issues)"
-    jobs: ["chess_player_profile", "chess_player_stats", "chess_games", "chess_ingest", "chess_dbt_lake_run"]
+    jobs: ["chess_player_stats", "chess_games", "chess_ingest", "chess_dbt_lake_run"]
 
 # Individual Jobs Configuration - DEV Environment
 jobs:
@@ -393,16 +393,6 @@ jobs:
     dependencies: ["TODOIST_API_TOKEN"]
 
   # =================== CHESS.COM JOBS (DEV) ===================
-  chess_player_profile:
-    service: "chess"
-    data_type: "player_profile"
-    description: "Fetch player profile from Chess.com (DEV - daily at 10pm Paris)"
-    cron: "0 21 * * *"  # Daily at 21:00 UTC (22:00 Paris time)
-    command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_profile"
-    environment: "dev"
-    enabled: true
-    dependencies: []
-
   chess_player_stats:
     service: "chess"
     data_type: "player_stats"
@@ -521,4 +511,4 @@ services:
   chess:
     base_path: "src/connectors/chess"
     fetch_script: "chess_fetch.py"
-    supported_data_types: ["player_profile", "player_stats", "games"]
+    supported_data_types: ["player_stats", "games"]

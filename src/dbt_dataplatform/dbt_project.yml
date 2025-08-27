@@ -19,6 +19,11 @@ models:
         +incremental_strategy: merge
         +on_schema_change: sync_all_columns
         +tags: ["spotify", "lake"]
+      chess:
+        +materialized: incremental
+        +incremental_strategy: merge
+        +on_schema_change: sync_all_columns
+        +tags: ["chess", "lake"]
       +materialized: table
     hub:
       garmin:
@@ -27,6 +32,9 @@ models:
       spotify:
         +materialized: view
         +tags: ["spotify", "hub"]
+      chess:
+        +materialized: view
+        +tags: ["chess", "hub"]
       +materialized: view
     product:
       daily_recap:
