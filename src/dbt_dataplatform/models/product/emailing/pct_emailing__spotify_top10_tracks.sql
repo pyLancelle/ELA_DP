@@ -22,8 +22,10 @@ WITH track_stats AS (
         SUM(track.duration_ms) / 1000 / 60 as total_minutes
     FROM {{ ref('hub_spotify__recently_played') }}
     WHERE track_id IS NOT NULL
-      AND artists IS NOT NULL
-      AND ARRAY_LENGTH(artists) > 0
+        AND artists IS NOT NULL
+        AND ARRAY_LENGTH(artists) > 0
+      AND played_at >= TIMESTAMP(DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK), WEEK(MONDAY)))
+      AND played_at < TIMESTAMP(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)))
     GROUP BY 1, 2, 3, 4
 )
 
