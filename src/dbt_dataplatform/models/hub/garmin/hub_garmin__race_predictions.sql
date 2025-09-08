@@ -5,8 +5,6 @@
 
 SELECT
     -- Direct field mapping from JSON
-    DATE(JSON_VALUE(raw_data, '$.fromCalendarDate')) as from_calendar_date,
-    DATE(JSON_VALUE(raw_data, '$.toCalendarDate')) as to_calendar_date,
     DATE(JSON_VALUE(raw_data, '$.calendarDate')) as calendar_date,
     CAST(JSON_VALUE(raw_data, '$.time5K') AS INT64) as time_5k,
     CAST(JSON_VALUE(raw_data, '$.time10K') AS INT64) as time_10k,

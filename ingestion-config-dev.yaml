@@ -334,8 +334,8 @@ jobs:
     service: "garmin"
     data_type: "weight"
     description: "Fetch weight data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 2"
+    cron: "0 11 * * *" 
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 60"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
@@ -344,7 +344,7 @@ jobs:
     service: "garmin"
     data_type: "endurance_score"
     description: "Fetch endurance score data from Garmin (DEV - weekly on Sunday)"
-    cron: "0 10 * * 0"  # Sundays at 10:00 UTC (11:00 Paris)
+    cron: "0 10 * * 0"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types endurance_score --days 7 --no-withings-sync"
     environment: "dev"
     enabled: true
