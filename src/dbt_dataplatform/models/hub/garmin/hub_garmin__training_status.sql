@@ -4,8 +4,6 @@
 -- Direct extraction of JSON fields without complex transformations
 
 SELECT
-    -- Root level fields
-    CAST(JSON_VALUE(raw_data, '$.userId') AS INT64) as user_id,
     DATE(JSON_VALUE(raw_data, '$.date')) as date,
     
     -- VO2Max data grouped in STRUCT
