@@ -315,7 +315,7 @@ jobs:
     data_type: "weight"
     description: "Fetch weight data from Garmin (PRD - every 4 hours)"
     cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 2"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 60"
     environment: "prd"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
