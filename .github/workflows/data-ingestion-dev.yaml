@@ -66,6 +66,11 @@ env:
   GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
+  # Email service credentials
+  EMAIL_SMTP_FROM: ${{ secrets.EMAIL_SMTP_FROM }}
+  EMAIL_SMTP_PASSWORD: ${{ secrets.EMAIL_SMTP_PASSWORD }}
+  EMAIL_SMTP_TO: ${{ secrets.EMAIL_SMTP_TO }}
+
 jobs:
   # Job determination phase - decides which jobs should run
   determine-jobs:

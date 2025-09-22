@@ -454,6 +454,37 @@ jobs:
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
+  # =================== EMAIL SERVICES (PRD) ===================
+  spotify_email_weekly:
+    service: "mail"
+    data_type: "spotify_email"
+    description: "Send weekly Spotify top artists/tracks email (PRD - Monday 4am UTC)"
+    cron: "0 4 * * 1"  # Every Monday at 4:00 UTC (5:00 Paris winter, 6:00 summer)
+    command: "python -m src.services.mail.main --perimeter spotify_weekly --env prd"
+    environment: "prd"
+    enabled: true
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_PASSWORD"]
+
+  garmin_email_weekly:
+    service: "mail"
+    data_type: "garmin_email"
+    description: "Send weekly Garmin activities summary email (PRD - Monday 5am UTC)"
+    cron: "0 5 * * 1"  # Every Monday at 5:00 UTC
+    command: "python -m src.services.mail.main --perimeter garmin_weekly --env prd"
+    environment: "prd"
+    enabled: false  # Disabled until Garmin data is ready
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_PASSWORD"]
+
+  strava_email_weekly:
+    service: "mail"
+    data_type: "strava_email"
+    description: "Send weekly Strava performance summary email (PRD - Monday 6am UTC)"
+    cron: "0 6 * * 1"  # Every Monday at 6:00 UTC
+    command: "python -m src.services.mail.main --perimeter strava_weekly --env prd"
+    environment: "prd"
+    enabled: false  # Disabled until Strava data is ready
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_PASSWORD"]
+
 # Service-specific configuration
 services:
   spotify:
@@ -481,3 +512,8 @@ services:
     base_path: "src/connectors/chess"
     fetch_script: "chess_fetch.py"
     supported_data_types: ["player_stats", "games"]
+
+  mail:
+    base_path: "src/services/mail"
+    main_script: "main.py"
+    supported_data_types: ["spotify_email"]
