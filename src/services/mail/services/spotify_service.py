@@ -214,8 +214,9 @@ class SpotifyEmailService:
 
             # 2. Générer le contenu
             print("🎨 Génération de l'email mobile-optimisé...")
-            week_num = datetime.now().isocalendar()[1]
-            subject = f"🎵 Tes Top 5 Spotify - Artistes & Titres - S{week_num}"
+            current_week = datetime.now().isocalendar()[1]
+            previous_week = current_week - 1 if current_week > 1 else 52
+            subject = f"🎶 SPOTIFY WEEKLY OVERVIEW - W{previous_week:02d} 🎶"
 
             html_content = SpotifyEmailTemplate.generate_html_email(spotify_data)
             text_content = SpotifyEmailTemplate.generate_text_email(spotify_data)

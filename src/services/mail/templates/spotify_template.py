@@ -46,7 +46,7 @@ class SpotifyEmailTemplate:
                             <a href="{artist_url}" style="text-decoration: none; color: inherit; display: block;">
                                 <table width="100%" cellpadding="0" cellspacing="0" border="0">
                                     <tr>
-                                        <td width="30" style="color: {styles['color']}; font-weight: 700; font-size: 16px; vertical-align: middle;">#{position}</td>
+                                        <td width="40" style="color: {styles['color']}; font-weight: 700; font-size: 16px; vertical-align: middle; padding-right: 16px;">#{position}</td>
                                         <td width="40" style="padding-right: 12px; vertical-align: middle;">
                                             <img src="{image_url}"
                                                  width="36" height="36"
@@ -80,18 +80,18 @@ class SpotifyEmailTemplate:
                             <a href="{track_url}" style="text-decoration: none; color: inherit; display: block;">
                                 <table width="100%" cellpadding="0" cellspacing="0" border="0">
                                     <tr>
-                                        <td width="30" style="color: {styles['color']}; font-weight: 700; font-size: 16px; vertical-align: top; padding-top: 2px;">#{position}</td>
-                                        <td width="40" style="padding-right: 12px; vertical-align: top;">
+                                        <td width="40" style="color: {styles['color']}; font-weight: 700; font-size: 16px; vertical-align: middle; padding-right: 16px;">#{position}</td>
+                                        <td width="40" style="padding-right: 12px; vertical-align: middle;">
                                             <img src="{image_url}"
                                                  width="36" height="36"
                                                  style="width: 36px; height: 36px; border-radius: 8px; display: block; border: 0;"
                                                  alt="{track.artist_name} - {track.track_name}">
                                         </td>
-                                        <td style="color: {styles['color']}; vertical-align: top;">
+                                        <td style="color: {styles['color']}; vertical-align: middle;">
                                             <div style="font-weight: 600; font-size: 17px; line-height: 1.2; margin-bottom: 2px;">{track.artist_name}</div>
                                             <div style="font-weight: 500; font-size: 14px; opacity: 0.8; line-height: 1.2;">{track.track_name}</div>
                                         </td>
-                                        <td align="right" style="color: {styles['color']}; font-weight: 700; font-size: 17px; vertical-align: top; padding-top: 8px;">{track.play_display}</td>
+                                        <td align="right" style="color: {styles['color']}; font-weight: 700; font-size: 17px; vertical-align: middle;">{track.play_display}</td>
                                     </tr>
                                 </table>
                             </a>
@@ -104,7 +104,8 @@ class SpotifyEmailTemplate:
     @classmethod
     def generate_html_email(cls, spotify_data: SpotifyData) -> str:
         """Génère le HTML complet de l'email"""
-        week_num = datetime.now().isocalendar()[1]
+        current_week = datetime.now().isocalendar()[1]
+        previous_week = current_week - 1 if current_week > 1 else 52
         date_str = datetime.now().strftime("%d/%m/%Y")
 
         # Générer les lignes des classements
@@ -122,7 +123,7 @@ class SpotifyEmailTemplate:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Top 10 - Week {week_num}</title>
+    <title>Spotify Overview - W{previous_week}</title>
     <!--[if mso]>
     <noscript>
         <xml>
@@ -148,7 +149,7 @@ class SpotifyEmailTemplate:
                                 <tr>
                                     <td align="center" style="padding-bottom: 50px;">
                                         <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #1a1a1a; letter-spacing: 0.5px; line-height: 1.2;">
-                                            🎵 SPOTIFY - WEEK {week_num}
+                                            🎵 SPOTIFY - OVERVIEW - W{previous_week}
                                         </h1>
                                         <p style="margin: 15px 0 0 0; color: #64748b; font-size: 16px; line-height: 1.4;">
                                             Tes découvertes musicales de la semaine
@@ -185,20 +186,6 @@ class SpotifyEmailTemplate:
 
                             </table>
 
-                            <!-- Call to action -->
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #1DB954, #1ed760); border-radius: 16px; margin-bottom: 40px;">
-                                <tr>
-                                    <td align="center" style="padding: 25px 20px;">
-                                        <p style="margin: 0 0 15px 0; color: white; font-size: 18px; font-weight: 700; line-height: 1.2;">
-                                            🎧 Découvre tes stats complètes
-                                        </p>
-                                        <a href="https://open.spotify.com/genre/wrapped"
-                                           style="display: inline-block; background: white; color: #1DB954; padding: 12px 25px; border-radius: 25px; text-decoration: none; font-weight: 700; font-size: 16px; line-height: 1;">
-                                            Voir sur Spotify →
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
 
                             <!-- Footer -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top: 1px solid #e5e7eb;">
@@ -227,11 +214,12 @@ class SpotifyEmailTemplate:
     @classmethod
     def generate_text_email(cls, spotify_data: SpotifyData) -> str:
         """Génère la version texte de l'email"""
-        week_num = datetime.now().isocalendar()[1]
+        current_week = datetime.now().isocalendar()[1]
+        previous_week = current_week - 1 if current_week > 1 else 52
         date_str = datetime.now().strftime("%d/%m/%Y")
 
         text_content = f"""
-🎵 TES TOP 5 SPOTIFY - SEMAINE {week_num}
+🎵 SPOTIFY - OVERVIEW - W{previous_week}
 
 🎤 TOP ARTISTES:
 """
@@ -255,7 +243,6 @@ class SpotifyEmailTemplate:
 
         text_content += f"""
 
-🎧 Découvre tes stats complètes sur Spotify
 🤖 ELA DataPlatform - {date_str}
 """
         return text_content
