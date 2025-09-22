@@ -18,18 +18,10 @@ on:
         type: choice
         options:
           - ""
-          - "garmin_fetch_all"
-          - "strava_fetch_all"
           - "spotify_fetch_all"
+          - "garmin_fetch_all"
           - "chess_fetch_all"
-          - "chess_all"
           - "ingestion_only"
-          - "garmin_ingest_only"
-          - "chess_ingest_only"
-          - "garmin_dbt_only"
-          - "spotify_dbt_only"
-          - "chess_dbt_only"
-          - "dbt_transformations"
       force_run:
         description: "Force run all jobs regardless of schedule"
         required: false
@@ -68,7 +60,6 @@ env:
   # Email service credentials
   EMAIL_SMTP_FROM: ${{ secrets.EMAIL_SMTP_FROM }}
   EMAIL_SMTP_PASSWORD: ${{ secrets.EMAIL_SMTP_PASSWORD }}
-  EMAIL_SMTP_TO: ${{ secrets.EMAIL_SMTP_TO }}
 
 jobs:
   # Job determination phase - decides which jobs should run
