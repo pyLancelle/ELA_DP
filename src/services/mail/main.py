@@ -126,7 +126,6 @@ def main():
     # Configuration email depuis les variables d'environnement ou valeurs par défaut
     email_from = os.getenv("EMAIL_SMTP_FROM", "elancelle.code@gmail.com")
     email_password = os.getenv("EMAIL_SMTP_PASSWORD", "kmaa rwwe vwzj uowu")
-    default_to_email = os.getenv("EMAIL_SMTP_TO", "etiennelancelle@outlook.fr")
 
     # Gestion des destinataires
     recipients = []
@@ -136,7 +135,12 @@ def main():
             print("❌ Aucun destinataire valide fourni")
             sys.exit(1)
     else:
+        # Mode legacy : utiliser EMAIL_SMTP_TO pour rétrocompatibilité locale
+        default_to_email = os.getenv("EMAIL_SMTP_TO", "etiennelancelle@outlook.fr")
         recipients = [default_to_email]
+        print(
+            f"💡 Mode legacy : utilisation du destinataire par défaut {default_to_email}"
+        )
 
     print(f"📧 Configuration email:")
     print(f"   FROM: {email_from}")

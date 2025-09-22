@@ -463,7 +463,7 @@ jobs:
     command: "python -m src.services.mail.main --perimeter spotify_weekly --env prd"
     environment: "prd"
     enabled: true
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_PASSWORD"]
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
 
   garmin_email_weekly:
     service: "mail"
@@ -473,7 +473,7 @@ jobs:
     command: "python -m src.services.mail.main --perimeter garmin_weekly --env prd"
     environment: "prd"
     enabled: false  # Disabled until Garmin data is ready
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_PASSWORD"]
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
 
   strava_email_weekly:
     service: "mail"
@@ -483,7 +483,7 @@ jobs:
     command: "python -m src.services.mail.main --perimeter strava_weekly --env prd"
     environment: "prd"
     enabled: false  # Disabled until Strava data is ready
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_PASSWORD"]
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
 
 # Service-specific configuration
 services:

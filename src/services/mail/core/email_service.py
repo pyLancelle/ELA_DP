@@ -62,10 +62,19 @@ class EmailService:
     def test_connection(self) -> bool:
         """Test la connexion SMTP"""
         try:
+            # Vérifications préliminaires
+            if not self.config.email_from:
+                print(f"❌ SMTP Error: email_from is empty")
+                return False
+            if not self.config.email_password:
+                print(f"❌ SMTP Error: email_password is empty")
+                return False
+
             with smtplib.SMTP(self.config.smtp_server, self.config.smtp_port) as server:
                 if self.config.use_tls:
                     server.starttls()
                 server.login(self.config.email_from, self.config.email_password)
             return True
-        except Exception:
+        except Exception as e:
+            print(f"❌ SMTP Error: {e}")
             return False
