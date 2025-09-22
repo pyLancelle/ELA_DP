@@ -505,7 +505,7 @@ jobs:
     data_type: "spotify_email"
     description: "Test Spotify email (DEV - manual trigger only)"
     cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.mail.main --perimeter spotify_weekly --env dev --dry-run"
+    command: "python -m src.services.mail.main --perimeter spotify_weekly --env dev --destinataires etiennelancelle@outlook.fr --dry-run"
     environment: "dev"
     enabled: true  # Enabled for manual testing
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_PASSWORD"]
