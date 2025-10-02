@@ -530,6 +530,16 @@ jobs:
     enabled: true  # Enabled for manual testing with mock data
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
 
+  withings_sync_weight:
+    service: "mail"
+    data_type: "withings sync"
+    description: "Test withings sync (DEV - manual trigger only, mock data)"
+    cron: ""  # No automatic schedule - manual only
+    command: "python -m src.services.withings_sync_weight.main"
+    environment: "dev"
+    enabled: true  # Enabled for manual testing with mock data
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY"]
+
 # Service-specific configuration
 services:
   spotify:
