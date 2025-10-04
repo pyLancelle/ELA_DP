@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='hrv_date',
+    partition_by={'field': 'hrv_date', 'data_type': 'date'},
+    cluster_by=['hrv_date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin HRV data with structured objects
 -- Uses STRUCT to preserve logical groupings for heart rate variability analysis
@@ -49,5 +56,9 @@ SELECT
     -- Metadata
     dp_inserted_at,
     source_file
-    
+
 FROM {{ ref('lake_garmin__svc_hrv') }}
+
+{% if is_incremental() %}
+WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

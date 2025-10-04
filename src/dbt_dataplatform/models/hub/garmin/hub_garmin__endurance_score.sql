@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='score_date',
+    partition_by={'field': 'score_date', 'data_type': 'date'},
+    cluster_by=['score_date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin endurance score data - comprehensive field extraction
 -- Extracts all possible fields from the JSON response
@@ -112,5 +119,9 @@ SELECT
     -- Metadata
     dp_inserted_at,
     source_file
-    
+
 FROM {{ ref('lake_garmin__svc_endurance_score') }}
+
+{% if is_incremental() %}
+WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

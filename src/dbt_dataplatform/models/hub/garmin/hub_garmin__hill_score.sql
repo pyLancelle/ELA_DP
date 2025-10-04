@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='score_date',
+    partition_by={'field': 'score_date', 'data_type': 'date'},
+    cluster_by=['score_date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin hill score data - based on actual API structure
 -- The API returns a nested structure with hillScoreDTOList containing daily records
@@ -101,3 +108,6 @@ SELECT
 
 FROM expanded_daily_scores
 WHERE calendar_date IS NOT NULL
+{% if is_incremental() %}
+  AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

@@ -1,1 +1,99 @@
 version: 2
+
+models:
+  - name: pct_spotify__listening_monthly_summary
+    description: "Récapitulatif mensuel des écoutes Spotify calculé à partir de la durée effectivement jouée."
+    columns:
+      - name: month_start
+        description: "Premier jour du mois (UTC)."
+        tests:
+          - not_null
+      - name: month_label
+        description: "Libellé du mois au format AAAA-MM."
+      - name: total_plays
+        description: "Nombre total d'écoutes déclenchées sur le mois."
+      - name: distinct_tracks
+        description: "Nombre de morceaux distincts écoutés sur le mois."
+      - name: distinct_primary_artists
+        description: "Nombre d'artistes principaux distincts (premier artiste du morceau) écoutés sur le mois."
+      - name: total_listened_ms
+        description: "Durée totale écoutée durant le mois, en millisecondes (basée sur l'écoute effective)."
+      - name: total_listened_seconds
+        description: "Durée totale écoutée durant le mois, en secondes."
+      - name: total_listened_minutes
+        description: "Durée totale écoutée durant le mois, en minutes."
+      - name: total_listened_hours
+        description: "Durée totale écoutée durant le mois, en heures décimales."
+      - name: top_track
+        description: "STRUCT détaillant le morceau le plus écouté du mois (identifiant, artiste, nombre de lectures, temps total)."
+      - name: top_artist
+        description: "STRUCT détaillant l'artiste principal le plus écouté du mois (identifiant, nombre de lectures, temps total)."
+  - name: pct_spotify__listening_rankings_yearly
+    description: "Classements annuels (top morceaux, artistes, albums) basés sur la durée réellement écoutée."
+    columns:
+      - name: perimeter
+        description: "Type de classement (top_track, top_artist, top_album)."
+        tests:
+          - not_null
+      - name: period_start
+        description: "Premier jour de l'année concernée."
+        tests:
+          - not_null
+      - name: rank
+        description: "Position dans le top 20."
+      - name: artist_name
+        description: "Nom de l'artiste principal (NULL pour top_album/track si inconnu)."
+      - name: album_name
+        description: "Nom de l'album (NULL pour top_artist)."
+      - name: track_name
+        description: "Nom du morceau (NULL pour top_artist/top_album)."
+      - name: play_count
+        description: "Nombre d'écoutes sur la période."
+      - name: listened_minutes
+        description: "Durée d'écoute totale en minutes."
+  - name: pct_spotify__listening_rankings_weekly
+    description: "Classements hebdomadaires (top morceaux, artistes, albums) basés sur la durée réellement écoutée."
+    columns:
+      - name: perimeter
+        description: "Type de classement (top_track, top_artist, top_album)."
+        tests:
+          - not_null
+      - name: period_start
+        description: "Lundi de la semaine (UTC)."
+        tests:
+          - not_null
+      - name: rank
+        description: "Position dans le top 20."
+      - name: artist_name
+        description: "Nom de l'artiste principal."
+      - name: album_name
+        description: "Nom de l'album."
+      - name: track_name
+        description: "Nom du morceau."
+      - name: play_count
+        description: "Nombre d'écoutes sur la période."
+      - name: listened_minutes
+        description: "Durée d'écoute totale en minutes."
+  - name: pct_spotify__listening_rankings_daily
+    description: "Classements quotidiens (top morceaux, artistes, albums) basés sur la durée réellement écoutée."
+    columns:
+      - name: perimeter
+        description: "Type de classement (top_track, top_artist, top_album)."
+        tests:
+          - not_null
+      - name: period_start
+        description: "Date du jour (UTC)."
+        tests:
+          - not_null
+      - name: rank
+        description: "Position dans le top 20."
+      - name: artist_name
+        description: "Nom de l'artiste principal."
+      - name: album_name
+        description: "Nom de l'album."
+      - name: track_name
+        description: "Nom du morceau."
+      - name: play_count
+        description: "Nombre d'écoutes sur la période."
+      - name: listened_minutes
+        description: "Durée d'écoute totale en minutes."

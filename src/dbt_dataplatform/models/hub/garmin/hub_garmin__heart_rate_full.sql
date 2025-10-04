@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='heart_rate_date',
+    partition_by={'field': 'heart_rate_date', 'data_type': 'date'},
+    cluster_by=['heart_rate_date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin heart rate data with structured organization
 -- Transforms raw heart rate JSON into structured format with logical groupings
@@ -34,3 +41,7 @@ SELECT
     source_file
 
 FROM {{ ref('lake_garmin__svc_heart_rate') }}
+
+{% if is_incremental() %}
+WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

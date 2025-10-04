@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='step_date',
+    partition_by={'field': 'step_date', 'data_type': 'date'},
+    cluster_by=['step_date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin steps daily aggregation
 -- One line per day with 15-minute intervals as array
@@ -30,4 +37,7 @@ SELECT
     
 FROM {{ ref('lake_garmin__svc_steps') }}
 WHERE DATE(JSON_VALUE(raw_data, '$.date')) >= '2025-03-01'
+{% if is_incremental() %}
+  AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}
 GROUP BY DATE(JSON_VALUE(raw_data, '$.date'))
