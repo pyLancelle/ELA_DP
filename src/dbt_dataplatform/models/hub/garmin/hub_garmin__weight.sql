@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='calendar_date',
+    partition_by={'field': 'calendar_date', 'data_type': 'date'},
+    cluster_by=['calendar_date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin weight data with logical STRUCT groupings
 -- Direct extraction of JSON fields organized by measurement type
@@ -32,5 +39,9 @@ SELECT
     -- Metadata
     dp_inserted_at,
     source_file
-    
+
 FROM {{ ref('lake_garmin__svc_weight') }}
+
+{% if is_incremental() %}
+WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

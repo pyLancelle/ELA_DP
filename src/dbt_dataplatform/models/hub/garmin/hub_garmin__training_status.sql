@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='date',
+    partition_by={'field': 'date', 'data_type': 'date'},
+    cluster_by=['date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin training status data - simple field mapping
 -- Direct extraction of JSON fields without complex transformations
@@ -53,5 +60,9 @@ SELECT
     -- Metadata
     dp_inserted_at,
     source_file
-    
+
 FROM {{ ref('lake_garmin__svc_training_status') }}
+
+{% if is_incremental() %}
+WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

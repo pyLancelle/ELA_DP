@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='battery_date',
+    partition_by={'field': 'battery_date', 'data_type': 'date'},
+    cluster_by=['battery_date'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin body battery data with structured objects
 -- Uses STRUCT to preserve logical groupings for daily energy metrics
@@ -41,5 +48,9 @@ SELECT
     -- Metadata
     dp_inserted_at,
     source_file
-    
+
 FROM {{ ref('lake_garmin__svc_body_battery') }}
+
+{% if is_incremental() %}
+WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}

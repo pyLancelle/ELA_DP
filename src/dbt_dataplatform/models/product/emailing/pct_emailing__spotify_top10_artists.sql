@@ -4,23 +4,27 @@
     tags=["product", "spotify"]
 ) }}
 
--- Top 10 Artists All Time - Fixed duplicates
+-- Top 10 Artists All Time - Based on actual listening time
 
-WITH artist_stats AS (
+WITH filtered_plays AS (
     SELECT
-        artists[OFFSET(0)].name as artist_name,
-        artists[OFFSET(0)].external_urls.spotify as artist_url,
-        artists[OFFSET(0)].id as artist_id,
-        COUNT(*) as total_plays,
-        SUM(track.duration_ms) / 1000 / 60 as total_minutes
+        *
     FROM {{ ref('hub_spotify__recently_played') }}
     WHERE artists IS NOT NULL
         AND ARRAY_LENGTH(artists) > 0
       AND played_at >= TIMESTAMP(DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK), WEEK(MONDAY)))
       AND played_at < TIMESTAMP(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)))
+),
+artist_stats AS (
+    SELECT
+        artists[OFFSET(0)].name as artist_name,
+        artists[OFFSET(0)].external_urls.spotify as artist_url,
+        artists[OFFSET(0)].id as artist_id,
+        COUNT(*) as total_plays,
+        SUM(COALESCE(actual_duration_ms, track.duration_ms, 0)) / 1000.0 / 60 as total_minutes
+    FROM filtered_plays
     GROUP BY 1, 2, 3
 ),
-
 artist_image AS (
     -- Get ONE image per artist (most recent album image)
     SELECT 
@@ -31,10 +35,8 @@ artist_image AS (
             ORDER BY img.height DESC 
             LIMIT 1
         ) as artist_image_url
-    FROM {{ ref('hub_spotify__recently_played') }}
-    WHERE artists IS NOT NULL
-      AND ARRAY_LENGTH(artists) > 0
-      AND album.images IS NOT NULL
+    FROM filtered_plays
+    WHERE album.images IS NOT NULL
       AND ARRAY_LENGTH(album.images) > 0
     QUALIFY ROW_NUMBER() OVER (PARTITION BY artists[OFFSET(0)].id ORDER BY played_at DESC) = 1
 )

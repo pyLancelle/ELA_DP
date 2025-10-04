@@ -1,154 +1,590 @@
 version: 2
 
 models:
+  # ============================================================
+  # ACTIVITIES - Main activity models
+  # ============================================================
+
   - name: hub_garmin__activities
-    description: Hub model parsing Garmin activities data with comprehensive metrics
+    description: |
+      Incremental table parsing comprehensive Garmin activities data with structured metrics.
+      Contains all activity types with detailed splits, summaries, and performance data.
+      Uses STRUCT for complex nested data (splits, laps, event types).
     columns:
       - name: activity_id
         description: Unique identifier for the activity
         tests:
           - unique
           - not_null
+      - name: activity_date
+        description: Date of the activity (used for partitioning)
+        tests:
+          - not_null
       - name: activity_name
         description: Name/title of the activity
       - name: activity_type
-        description: Type of activity (running, cycling, swimming, etc.)
+        description: STRUCT containing typeId, typeKey (running, cycling, etc), sortOrder
+      - name: event_type
+        description: STRUCT containing type_id (can be NULL for non-interval activities), type_key, sort_order
+      - name: start_time_gmt
+        description: Activity start timestamp in GMT
       - name: start_time_local
-        description: Activity start time in local timezone
+        description: Activity start timestamp in local timezone
       - name: duration_seconds
         description: Total activity duration in seconds
       - name: distance_meters
         description: Total distance covered in meters
       - name: calories
         description: Calories burned during activity
-      - name: average_heart_rate
+      - name: average_heart_rate_bpm
         description: Average heart rate during activity (bpm)
+      - name: max_heart_rate_bpm
+        description: Maximum heart rate during activity (bpm)
       - name: elevation_gain_meters
         description: Total elevation gain in meters
+      - name: elevation_loss_meters
+        description: Total elevation loss in meters
+      - name: split_summaries
+        description: ARRAY<STRUCT> containing detailed split metrics (split_type as STRING, distance, duration, pace, elevation, HR, power, cadence, etc)
+      - name: user_roles
+        description: ARRAY<STRING> of user roles for this activity
+      - name: lap_count
+        description: Number of laps in the activity
+
+  - name: hub_garmin__activities_running_metrics
+    description: |
+      Incremental table with detailed running-specific metrics for each running activity.
+      Aggregated metrics including pace, cadence, ground contact time, vertical oscillation, etc.
+    columns:
+      - name: activity_id
+        description: Unique identifier for the running activity
+        tests:
+          - unique
+          - not_null
+      - name: activity_date
+        description: Date of the activity (used for partitioning)
+      - name: avg_pace_min_per_km
+        description: Average pace in minutes per kilometer
+      - name: avg_running_cadence_spm
+        description: Average running cadence in steps per minute
+      - name: avg_stride_length_meters
+        description: Average stride length in meters
+      - name: avg_vertical_oscillation_cm
+        description: Average vertical oscillation in centimeters
+      - name: avg_ground_contact_time_ms
+        description: Average ground contact time in milliseconds
+      - name: avg_vertical_ratio
+        description: Average vertical ratio (vertical oscillation / stride length)
+      - name: avg_power_watts
+        description: Average running power in watts
+      - name: max_power_watts
+        description: Maximum running power in watts
+
+  - name: hub_garmin__activities_running_timeseries
+    description: |
+      Incremental table with second-by-second timeseries data for running activities.
+      Each row represents one metric point with 19+ different measurements organized in STRUCT groups.
+      Extracted from detailed_data.activityDetailMetrics.
+    columns:
+      - name: activity_id
+        description: Activity identifier
+        tests:
+          - not_null
+      - name: metric_point_index
+        description: Index of the metric point in the timeseries (0-based)
+        tests:
+          - not_null
+      - name: activity_date
+        description: Date of the activity (used for partitioning)
+      - name: temporal_raw
+        description: STRUCT with timestamps and durations (direct_timestamp_gmt, sum_moving_duration_ms, sum_elapsed_duration_ms, sum_duration_ms)
+      - name: physiological_raw
+        description: STRUCT with physiological metrics (direct_heart_rate_bpm, direct_body_battery, direct_available_stamina, direct_potential_stamina)
+      - name: biomechanical_raw
+        description: STRUCT with running biomechanics (cadence_spm, fractional_cadence, double_cadence, stride_length_cm, vertical_oscillation_cm, vertical_ratio, ground_contact_time_ms)
+      - name: performance_raw
+        description: STRUCT with speed and distance (direct_speed_mps_x10, sum_distance_cm, sum_accumulated_power_watts)
+      - name: power_raw
+        description: STRUCT with power metrics (direct_power_watts, sum_accumulated_power_watts)
+
+  - name: hub_garmin__activities_running_segments
+    description: |
+      Incremental table with segment-based view of running activities metrics.
+      Similar to timeseries but may have different aggregation or filtering.
+      Filters out activities without detailed_data.activityDetailMetrics.
+    columns:
+      - name: activity_id
+        description: Activity identifier
+        tests:
+          - not_null
+      - name: segment_index
+        description: Index of the segment in the activity
+      - name: activity_date
+        description: Date of the activity (used for partitioning)
+
+  # ============================================================
+  # SLEEP - Sleep tracking models
+  # ============================================================
 
   - name: hub_garmin__sleep
-    description: Hub model parsing Garmin sleep data with detailed sleep metrics
+    description: |
+      Incremental table parsing comprehensive Garmin sleep data with structured objects.
+      Uses STRUCT to preserve logical groupings: sleep_window, device_info, health_metrics,
+      sleep_scores (with nested sub-scores), insights, sleep_need, next_sleep_need.
+      Main sleep model for daily sleep sessions.
     columns:
-      - name: sleep_session_id
+      - name: sleep_id
         description: Unique identifier for the sleep session
         tests:
           - unique
           - not_null
-      - name: calendar_date
-        description: Date of the sleep session
-      - name: sleep_time_seconds
+      - name: user_profile_pk
+        description: User profile identifier
+        tests:
+          - not_null
+      - name: sleep_date
+        description: Calendar date of the sleep session (used for partitioning)
+      - name: total_sleep_seconds
         description: Total sleep time in seconds
-      - name: light_sleep_duration_seconds
-        description: Light sleep duration in seconds
-      - name: deep_sleep_duration_seconds
+      - name: nap_time_seconds
+        description: Nap time in seconds
+      - name: sleep_window
+        description: STRUCT with confirmed, confirmation_type, start_gmt/local, end_gmt/local, auto_start/end_gmt
+      - name: deep_sleep_seconds
         description: Deep sleep duration in seconds
-      - name: rem_sleep_duration_seconds
+      - name: light_sleep_seconds
+        description: Light sleep duration in seconds
+      - name: rem_sleep_seconds
         description: REM sleep duration in seconds
-      - name: sleep_efficiency_percent
-        description: Sleep efficiency percentage
-      - name: overall_sleep_score
-        description: Overall sleep quality score
+      - name: awake_sleep_seconds
+        description: Awake time during sleep in seconds
+      - name: device_info
+        description: STRUCT with rem_capable, is_retro, from_device, version
+      - name: health_metrics
+        description: STRUCT with avg/lowest/highest SpO2, avg/lowest/highest respiration, awake_count, avg_stress
+      - name: sleep_scores
+        description: STRUCT with nested sub-STRUCTs for overall, total_duration, stress, awake_count, rem_percentage, restlessness, light_percentage, deep_percentage scores
+      - name: insights
+        description: STRUCT with age_group, score_feedback, score_insight, personalized_insight
+      - name: sleep_need
+        description: STRUCT with sleep need calculation (baseline, actual, feedback, adjustments)
+      - name: next_sleep_need
+        description: STRUCT with next day sleep need prediction
+      - name: body_battery_change
+        description: Body battery change during sleep
+      - name: resting_heart_rate
+        description: Resting heart rate measured during sleep
+      - name: avg_overnight_hrv
+        description: Average overnight HRV
+      - name: hrv_status
+        description: HRV status during sleep
+
+  - name: hub_garmin__sleep_timeseries
+    description: |
+      Incremental table with parsed timeseries arrays for detailed sleep analysis.
+      Contains ARRAY<STRUCT> for sleep_movement, sleep_levels, stress, HRV, body_battery,
+      heart_rate, SpO2, respiration, breathing_disruption timeseries.
+      One row per sleep session with all timeseries as nested arrays.
+    columns:
+      - name: sleep_id
+        description: Unique identifier linking to hub_garmin__sleep
+        tests:
+          - unique
+          - not_null
+      - name: sleep_date
+        description: Calendar date of the sleep session (used for partitioning)
+      - name: sleep_movement_timeseries
+        description: ARRAY<STRUCT> with start_time, end_time, activity_level for minute-by-minute movement
+      - name: sleep_levels_timeseries
+        description: ARRAY<STRUCT> with start_time, end_time, sleep_level (0=awake, 1=light, 2=deep, 3=REM)
+      - name: stress_timeseries
+        description: ARRAY<STRUCT> with time, value for stress measurements during sleep
+      - name: hrv_timeseries
+        description: ARRAY<STRUCT> with time, value for HRV measurements during sleep
+      - name: body_battery_timeseries
+        description: ARRAY<STRUCT> with time, value for body battery during sleep
+      - name: heart_rate_timeseries
+        description: ARRAY<STRUCT> with time, value for heart rate during sleep
+      - name: spo2_timeseries
+        description: ARRAY<STRUCT> with time, value for SpO2 readings during sleep
+      - name: respiration_timeseries
+        description: ARRAY<STRUCT> with time, respiration_value for breathing rate during sleep
+      - name: spo2_summary
+        description: STRUCT with SpO2 summary metrics (avg, lowest, highest, events below threshold)
+
+  # ============================================================
+  # BODY METRICS - Body battery, HRV, stress, heart rate
+  # ============================================================
+
+  - name: hub_garmin__body_battery
+    description: |
+      Incremental table parsing Garmin body battery energy tracking data.
+      Daily body battery metrics with start/end levels and charge/drain information.
+    columns:
+      - name: battery_date
+        description: Date of body battery measurement (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: user_profile_pk
+        description: User profile identifier
+      - name: start_timestamp_gmt
+        description: Start timestamp of the measurement period
+      - name: charged_value
+        description: Total charge gained during the day
+      - name: drained_value
+        description: Total drain during the day
+      - name: highest_body_battery
+        description: Highest body battery level reached
+      - name: lowest_body_battery
+        description: Lowest body battery level reached
+      - name: most_recent_value
+        description: Most recent body battery value
+
+  - name: hub_garmin__body_battery_timeseries
+    description: |
+      Incremental table with parsed body battery timeseries from body battery endpoint.
+      Contains minute-level body battery values as ARRAY<STRUCT>.
+    columns:
+      - name: battery_date
+        description: Date of body battery data (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: body_battery_timeseries
+        description: ARRAY<STRUCT> with time, battery_level for minute-by-minute body battery values
+      - name: battery_value_descriptors
+        description: ARRAY<STRUCT> with descriptor_index, descriptor_key metadata
+
+  - name: hub_garmin__hrv
+    description: |
+      Incremental table parsing Garmin HRV (Heart Rate Variability) data with structured metrics.
+      Contains daily HRV summaries and status assessments.
+    columns:
+      - name: hrv_date
+        description: Date of HRV measurement (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: user_profile_pk
+        description: User profile identifier
+      - name: weekly_avg
+        description: Weekly average HRV value in milliseconds
+      - name: last_night_avg
+        description: Last night's average HRV in milliseconds
+      - name: last_night_5_min_high
+        description: Highest 5-minute average HRV from last night
+      - name: baseline
+        description: STRUCT with balanced low/high values for baseline HRV range
+      - name: status
+        description: HRV status (BALANCED, UNBALANCED, LOW, etc.)
+      - name: feedback_phrase
+        description: Textual feedback about HRV status
+      - name: create_timestamp
+        description: Timestamp when the HRV data was created
+
+  - name: hub_garmin__hrv_timeseries
+    description: |
+      Incremental table with parsed HRV timeseries data.
+      Contains detailed HRV readings as ARRAY<STRUCT> with timestamps and values.
+    columns:
+      - name: hrv_date
+        description: Date of HRV data (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: hrv_timeseries
+        description: ARRAY<STRUCT> with time, hrv_value for detailed HRV measurements
+      - name: hrv_value_descriptors
+        description: ARRAY<STRUCT> with descriptor_index, descriptor_key metadata
+
+  - name: hub_garmin__stress
+    description: |
+      Incremental table parsing Garmin stress data with STRUCT organization.
+      Contains daily stress summary metrics (average, max) and time window information.
+      Detailed timeseries available in hub_garmin__stress_timeseries.
+    columns:
+      - name: stress_date
+        description: Date of stress measurement (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: user_profile_pk
+        description: User profile identifier
+      - name: time_window
+        description: STRUCT with start/end timestamps (GMT and local)
+      - name: avg_stress_level
+        description: Average stress level for the day (0-100)
+      - name: max_stress_level
+        description: Maximum stress level reached during the day
+      - name: stress_chart_value_offset
+        description: Offset value for stress chart display
+      - name: stress_chart_y_axis_origin
+        description: Y-axis origin for stress chart
+
+  - name: hub_garmin__stress_timeseries
+    description: |
+      Incremental table with parsed stress and body battery timeseries from stress endpoint.
+      Contains minute-level stress values and body battery values as ARRAY<STRUCT>.
+      Uses SAFE_CAST to handle non-numeric values like "MEASURED".
+    columns:
+      - name: stress_date
+        description: Date of stress data (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: user_profile_pk
+        description: User profile identifier
+      - name: stress_timeseries
+        description: ARRAY<STRUCT> with time, stress_level for minute-by-minute stress values (filters out non-numeric values)
+      - name: body_battery_timeseries
+        description: ARRAY<STRUCT> with time, battery_level for body battery during the day
+      - name: body_battery_descriptors
+        description: ARRAY<STRUCT> with descriptor_index, descriptor_key metadata
+
+  - name: hub_garmin__heart_rate_full
+    description: |
+      Incremental table with comprehensive heart rate data including summary metrics and timeseries metadata.
+      Contains resting HR, max/min HR, and references to timeseries data.
+    columns:
+      - name: heart_rate_date
+        description: Date of heart rate measurement (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: time_window
+        description: STRUCT with start/end timestamps (GMT and local) for the measurement period
+      - name: heart_rate_metrics
+        description: STRUCT with resting_heart_rate, max_heart_rate, min_heart_rate, last_seven_days_avg_resting_heart_rate
+      - name: heart_rate_descriptors
+        description: JSON metadata for timeseries heart rate values
+      - name: heart_rate_timeseries
+        description: JSON array with detailed heart rate timeseries (for detailed analysis)
+
+  - name: hub_garmin__heart_rate_timeseries
+    description: |
+      Incremental table with parsed heart rate timeseries data.
+      Contains minute-by-minute heart rate readings as ARRAY<STRUCT>.
+    columns:
+      - name: heart_rate_date
+        description: Date of heart rate data (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: heart_rate_timeseries
+        description: ARRAY<STRUCT> with time, heart_rate_value for detailed HR measurements
+      - name: heart_rate_value_descriptors
+        description: ARRAY<STRUCT> with descriptor_index, descriptor_key metadata
+
+  # ============================================================
+  # ACTIVITY TRACKING - Steps, floors
+  # ============================================================
+
+  - name: hub_garmin__steps_daily
+    description: |
+      Incremental table aggregating Garmin steps data to daily level.
+      One row per day with total steps/pushes and array of 15-minute intervals.
+      Aggregates from 15-minute raw data using GROUP BY.
+    columns:
+      - name: step_date
+        description: Date of steps measurement (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: total_steps
+        description: Total steps for the day (sum of all 15-minute intervals)
+      - name: total_pushes
+        description: Total wheelchair pushes for the day (sum of all 15-minute intervals)
+      - name: intervals_array
+        description: ARRAY<STRUCT> with 15-minute intervals (start_gmt, end_gmt, steps, pushes, primary_activity_level, activity_level_constant)
+
+  - name: hub_garmin__floors
+    description: |
+      Incremental table parsing Garmin floors climbed data.
+      Daily summary of floors ascended and descended with goal tracking.
+    columns:
+      - name: floors_date
+        description: Date of floors measurement (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: user_profile_pk
+        description: User profile identifier
+      - name: floors_ascended
+        description: Number of floors climbed up during the day
+      - name: floors_descended
+        description: Number of floors climbed down during the day
+      - name: floors_ascended_goal
+        description: Daily goal for floors ascended
+      - name: min_descent_threshold
+        description: Minimum descent threshold for floor counting
+      - name: min_ascent_threshold
+        description: Minimum ascent threshold for floor counting
+
+  - name: hub_garmin__floors_timeseries
+    description: |
+      Incremental table with parsed floors timeseries data.
+      Contains 15-minute interval floors data as ARRAY<STRUCT>.
+    columns:
+      - name: floors_date
+        description: Date of floors data (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: floors_timeseries
+        description: ARRAY<STRUCT> with start_time, end_time, floors_ascended, floors_descended for 15-minute intervals
+      - name: floors_value_descriptors
+        description: ARRAY<STRUCT> with descriptor_index, descriptor_key metadata
+
+  # ============================================================
+  # PERFORMANCE METRICS - Training status, race predictions, scores
+  # ============================================================
+
+  - name: hub_garmin__training_status
+    description: |
+      Incremental table parsing Garmin training status and performance condition data.
+      Contains training load, VO2 max, recovery metrics, and training recommendations.
+    columns:
+      - name: date
+        description: Date of training status assessment (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: user_profile_pk
+        description: User profile identifier
+      - name: training_status
+        description: Current training status (PRODUCTIVE, MAINTAINING, RECOVERY, etc.)
+      - name: load_balance
+        description: Load balance indicator
+      - name: latest_vo2_max
+        description: Most recent VO2 max value
+      - name: current_acute_training_load
+        description: Current acute (short-term) training load
+      - name: current_training_load_focus
+        description: Current training load focus area
+      - name: fitness_age
+        description: Calculated fitness age based on VO2 max
+      - name: recovery_time_hours
+        description: Recommended recovery time in hours
+
+  - name: hub_garmin__race_predictions
+    description: |
+      Incremental table parsing Garmin race time predictions for standard distances.
+      Contains predicted finish times for 5K, 10K, half marathon, and marathon.
+    columns:
+      - name: calendar_date
+        description: Date of race prediction (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: time_5k
+        description: Predicted 5K race time in seconds
+      - name: time_10k
+        description: Predicted 10K race time in seconds
+      - name: time_half_marathon
+        description: Predicted half marathon race time in seconds
+      - name: time_marathon
+        description: Predicted marathon race time in seconds
+
+  - name: hub_garmin__endurance_score
+    description: |
+      Incremental table parsing comprehensive Garmin endurance score data.
+      Contains endurance score, trends, training loads, VO2 max, and performance metrics.
+      Extensive field extraction from JSON (40+ fields).
+    columns:
+      - name: score_date
+        description: Date of endurance score (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: endurance_score
+        description: Current endurance score value
+      - name: endurance_score_change
+        description: Change in endurance score since last measurement
+      - name: endurance_score_category
+        description: Category of endurance score (beginner, intermediate, advanced, etc.)
+      - name: endurance_gain
+        description: Endurance gained during the period
+      - name: endurance_loss
+        description: Endurance lost during the period
+      - name: net_endurance_change
+        description: Net change in endurance (gain - loss)
+      - name: training_load
+        description: Current training load value
+      - name: vo2_max
+        description: General VO2 max value
+      - name: vo2_max_running
+        description: Running-specific VO2 max
+      - name: vo2_max_cycling
+        description: Cycling-specific VO2 max
+      - name: fitness_age
+        description: Calculated fitness age
+      - name: recovery_time_hours
+        description: Recommended recovery time in hours
+
+  - name: hub_garmin__hill_score
+    description: |
+      Incremental table parsing Garmin hill score data with daily records.
+      Extracts daily hill score records from hillScoreDTOList array.
+      Contains strength score, endurance score, overall score, and VO2 max metrics.
+    columns:
+      - name: score_date
+        description: Calendar date of the hill score (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
+      - name: user_profile_pk
+        description: User profile identifier
+      - name: strength_score
+        description: Hill strength score component
+      - name: endurance_score
+        description: Hill endurance score component
+      - name: overall_score
+        description: Overall hill score (combination of strength and endurance)
+      - name: hill_score_classification_id
+        description: Classification ID for hill score level
+      - name: hill_score_feedback_phrase_id
+        description: Feedback phrase ID for hill score
+      - name: vo2_max
+        description: VO2 max value (often null)
+      - name: vo2_max_precise_value
+        description: Precise VO2 max value
+      - name: period_start_date
+        description: Start date of the scoring period
+      - name: period_end_date
+        description: End date of the scoring period
+      - name: period_max_score
+        description: Maximum score during the period
+
+  # ============================================================
+  # BODY COMPOSITION
+  # ============================================================
 
   - name: hub_garmin__weight
-    description: Hub model parsing Garmin weight data including Withings synced data
+    description: |
+      Incremental table parsing Garmin weight and body composition data.
+      Includes weight from Withings sync and body composition metrics.
     columns:
+      - name: calendar_date
+        description: Date of weight measurement (used for partitioning and unique key)
+        tests:
+          - unique
+          - not_null
       - name: weight_date
-        description: Date of weight measurement
+        description: Date extracted from raw data
       - name: timestamp_gmt
         description: Timestamp of measurement in GMT
       - name: weight_kg
         description: Weight measurement in kilograms
       - name: bmi
         description: Body Mass Index
-      - name: body_fat_percent
+      - name: body_fat_percentage
         description: Body fat percentage
+      - name: body_water_percentage
+        description: Body water percentage
+      - name: bone_mass_kg
+        description: Bone mass in kilograms
       - name: muscle_mass_kg
         description: Muscle mass in kilograms
-      - name: is_withings_data
-        description: Flag indicating if data originated from Withings sync
-
-
-  - name: hub_garmin__body_battery
-    description: Hub model parsing Garmin body battery energy data
-    columns:
-      - name: body_battery_date
-        description: Date of body battery measurement
-      - name: start_timestamp_gmt
-        description: Start timestamp of the measurement period
-      - name: start_level
-        description: Body battery level at start of period
-      - name: end_level
-        description: Body battery level at end of period
-      - name: level_change
-        description: Change in body battery level
-      - name: total_charge
-        description: Total charge gained during period
-      - name: total_drain
-        description: Total drain during period
-      - name: energy_trend
-        description: Whether battery was charging, draining, or stable
-
-  - name: hub_garmin__hrv
-    description: Hub model parsing Garmin HRV (Heart Rate Variability) data
-    columns:
-      - name: hrv_date
-        description: Date of HRV measurement
-      - name: weekly_average_hrv
-        description: Weekly average HRV value
-      - name: last_night_average_hrv
-        description: Last night's average HRV
-      - name: hrv_status
-        description: HRV status (BALANCED, UNBALANCED, LOW)
-      - name: training_readiness
-        description: Training readiness based on HRV status
-      - name: baseline_comparison
-        description: How current HRV compares to baseline range
-
-  - name: hub_garmin__floors
-    description: Hub model parsing Garmin floors climbed data
-    columns:
-      - name: floors_date
-        description: Date of floors measurement
-      - name: floors_up
-        description: Number of floors climbed up
-      - name: floors_down
-        description: Number of floors climbed down
-      - name: floors_goal
-        description: Daily floors goal
-      - name: goal_achieved
-        description: Whether daily floors goal was achieved
-
-  - name: hub_garmin__training_status
-    description: Hub model parsing Garmin training status and performance data
-    columns:
-      - name: training_date
-        description: Date of training status assessment
-      - name: training_load
-        description: Current training load value
-      - name: training_status
-        description: Training status (PRODUCTIVE, MAINTAINING, etc.)
-      - name: vo2_max_value
-        description: VO2 Max fitness level
-      - name: recovery_time_hours
-        description: Recommended recovery time in hours
-      - name: training_recommendation
-        description: Training recommendation based on status
-
-  - name: hub_garmin__race_predictions
-    description: Hub model parsing Garmin race time predictions
-    columns:
-      - name: race_distance_meters
-        description: Race distance in meters
-      - name: race_distance_name
-        description: Common race distance name (5K, 10K, Marathon, etc.)
-      - name: predicted_time_seconds
-        description: Predicted race time in seconds
-      - name: predicted_time_formatted
-        description: Predicted time in HH:MM:SS format
-      - name: predicted_pace_formatted
-        description: Predicted pace per kilometer in MM:SS format
-      - name: confidence_level
-        description: Confidence level of the prediction
-      - name: performance_category
-        description: Performance category (elite, competitive, recreational)
-
+      - name: source_type
+        description: Source of the measurement (manual, device, withings sync, etc.)

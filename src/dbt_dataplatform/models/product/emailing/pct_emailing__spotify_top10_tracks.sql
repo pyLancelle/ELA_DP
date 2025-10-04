@@ -4,7 +4,7 @@
     tags=["product", "spotify"]
 ) }}
 
--- Top 10 Tracks All Time - Sorted by total listening time
+-- Top 10 Tracks All Time - Sorted by total listening time (actual played duration)
 
 WITH track_stats AS (
     SELECT
@@ -19,7 +19,7 @@ WITH track_stats AS (
             LIMIT 1
         ) as album_cover_url,
         COUNT(*) as total_plays,
-        SUM(track.duration_ms) / 1000 / 60 as total_minutes
+        SUM(COALESCE(actual_duration_ms, track.duration_ms, 0)) / 1000.0 / 60 as total_minutes
     FROM {{ ref('hub_spotify__recently_played') }}
     WHERE track_id IS NOT NULL
         AND artists IS NOT NULL

@@ -1,4 +1,11 @@
-{{ config(dataset=get_schema('hub'), materialized='view', tags=["hub", "garmin"]) }}
+{{ config(
+    materialized='incremental',
+    unique_key='activity_id',
+    partition_by={'field': 'activity_date', 'data_type': 'date'},
+    cluster_by=['activity_id'],
+    dataset=get_schema('hub'),
+    tags=["hub", "garmin"]
+) }}
 
 -- Hub model for Garmin activities data with structured objects
 -- Uses STRUCT to preserve logical groupings for efficient analysis
@@ -7,6 +14,7 @@ SELECT
     -- Core identifiers and basic info (kept flat for easy filtering/joining)
     CAST(JSON_VALUE(raw_data, '$.activityId') AS INT64) as activity_id,
     JSON_VALUE(raw_data, '$.activityName') as activity_name,
+    DATE(TIMESTAMP(JSON_VALUE(raw_data, '$.startTimeGMT'))) as activity_date,
     TIMESTAMP(JSON_VALUE(raw_data, '$.startTimeLocal')) as start_time_local,
     TIMESTAMP(JSON_VALUE(raw_data, '$.startTimeGMT')) as start_time_gmt,
     TIMESTAMP(JSON_VALUE(raw_data, '$.endTimeGMT')) as end_time_gmt,
@@ -24,9 +32,9 @@ SELECT
     
     -- Event type information
     STRUCT(
-        CAST(JSON_VALUE(raw_data, '$.eventType.typeId') AS INT64) as type_id,
+        SAFE_CAST(JSON_VALUE(raw_data, '$.eventType.typeId') AS INT64) as type_id,
         JSON_VALUE(raw_data, '$.eventType.typeKey') as type_key,
-        CAST(JSON_VALUE(raw_data, '$.eventType.sortOrder') AS INT64) as sort_order
+        SAFE_CAST(JSON_VALUE(raw_data, '$.eventType.sortOrder') AS INT64) as sort_order
     ) as event_type,
     
     -- Distance and duration metrics (flat for easy analysis)
@@ -150,7 +158,8 @@ SELECT
     STRUCT(
         CAST(JSON_VALUE(raw_data, '$.fastestSplit_1000') AS FLOAT64) as fastest_1000m_seconds,
         CAST(JSON_VALUE(raw_data, '$.fastestSplit_1609') AS FLOAT64) as fastest_mile_seconds,
-        CAST(JSON_VALUE(raw_data, '$.fastestSplit_5000') AS FLOAT64) as fastest_5000m_seconds
+        CAST(JSON_VALUE(raw_data, '$.fastestSplit_5000') AS FLOAT64) as fastest_5000m_seconds,
+        CAST(JSON_VALUE(raw_data, '$.fastestSplit_10000') AS FLOAT64) as fastest_10000m_seconds
     ) as fastest_splits,
     
     -- Intensity minutes
@@ -175,15 +184,45 @@ SELECT
     CAST(JSON_VALUE(raw_data, '$.minActivityLapDuration') AS FLOAT64) as min_lap_duration_seconds,
     CAST(JSON_VALUE(raw_data, '$.maxVerticalSpeed') AS FLOAT64) as max_vertical_speed_mps,
     
-    -- User roles (as JSON array for flexibility)
-    JSON_QUERY(raw_data, '$.userRoles') as user_roles,
-    
-    -- Split summaries (detailed segment data as JSON for advanced analysis)
-    JSON_QUERY(raw_data, '$.splitSummaries') as split_summaries,
-    
-    -- Dive-specific information (structured even if often empty)
+    -- User roles parsed (array of strings)
+    ARRAY(
+        SELECT JSON_VALUE(role)
+        FROM UNNEST(JSON_QUERY_ARRAY(JSON_QUERY(raw_data, '$.userRoles'))) AS role
+    ) as user_roles,
+
+    -- Split summaries parsed (segment splits with detailed metrics)
+    ARRAY(
+        SELECT AS STRUCT
+            JSON_VALUE(TO_JSON_STRING(split), '$.splitType') as split_type,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.noOfSplits') AS INT64) as no_of_splits,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.distance') AS FLOAT64) as distance_meters,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.maxDistance') AS FLOAT64) as max_distance_meters,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.duration') AS FLOAT64) as duration_seconds,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.movingDuration') AS FLOAT64) as moving_duration_seconds,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.averageSpeed') AS FLOAT64) as average_speed_mps,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.maxSpeed') AS FLOAT64) as max_speed_mps,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.averageHR') AS INT64) as average_hr,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.averageRunningCadenceInStepsPerMinute') AS FLOAT64) as avg_cadence_spm,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.maxRunningCadenceInStepsPerMinute') AS FLOAT64) as max_cadence_spm,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.calories') AS FLOAT64) as calories,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.averageElevationGain') AS FLOAT64) as avg_elevation_gain_meters,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.maxElevationGain') AS FLOAT64) as max_elevation_gain_meters,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.elevationLoss') AS FLOAT64) as elevation_loss_meters,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.totalAscent') AS FLOAT64) as total_ascent_meters,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.numClimbSends') AS INT64) as num_climb_sends,
+            SAFE_CAST(JSON_VALUE(TO_JSON_STRING(split), '$.numFalls') AS INT64) as num_falls
+        FROM UNNEST(JSON_QUERY_ARRAY(JSON_QUERY(raw_data, '$.splitSummaries'))) AS split
+    ) as split_summaries,
+
+    -- Dive-specific information parsed
     STRUCT(
-        JSON_QUERY(raw_data, '$.summarizedDiveInfo.summarizedDiveGases') as dive_gases,
+        ARRAY(
+            SELECT AS STRUCT
+                CAST(JSON_VALUE(TO_JSON_STRING(gas), '$.oxygenPercentage') AS FLOAT64) as oxygen_percentage,
+                CAST(JSON_VALUE(TO_JSON_STRING(gas), '$.heliumPercentage') AS FLOAT64) as helium_percentage,
+                JSON_VALUE(TO_JSON_STRING(gas), '$.gasMode') as gas_mode
+            FROM UNNEST(JSON_QUERY_ARRAY(JSON_QUERY(raw_data, '$.summarizedDiveInfo.summarizedDiveGases'))) AS gas
+        ) as dive_gases,
         CAST(JSON_VALUE(raw_data, '$.qualifyingDive') AS BOOL) as is_qualifying_dive,
         CAST(JSON_VALUE(raw_data, '$.decoDive') AS BOOL) as is_deco_dive
     ) as dive_info,
@@ -198,5 +237,9 @@ SELECT
     -- Metadata
     dp_inserted_at,
     source_file
-    
+
 FROM {{ ref('lake_garmin__svc_activities') }}
+
+{% if is_incremental() %}
+WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+{% endif %}
