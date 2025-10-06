@@ -204,7 +204,7 @@ class WithingsClient:
             end_date: End date for measurements (default: now)
 
         Returns:
-            List of measurement dictionaries with date, weight_kg, etc.
+            List of measurement dictionaries with date, weight_kg, body_fat, etc.
         """
         if not self.access_token:
             self.authenticate()
@@ -212,10 +212,13 @@ class WithingsClient:
         if not end_date:
             end_date = datetime.now()
 
-        # Prepare API request
+        # Prepare API request - fetch all body composition metrics
+        # Measure types:
+        # 1=Weight(kg), 5=Fat-Free Mass(kg), 6=Fat(%), 8=Muscle Mass(kg),
+        # 76=Water(%), 77=Water Mass(kg), 88=Bone Mass(kg)
         params = {
             "action": "getmeas",
-            "meastypes": "1",  # 1 = Weight in kg
+            "meastypes": "1,5,6,8,76,77,88",  # Weight + body composition
             "category": "1",  # 1 = Real measurements
             "startdate": int(start_date.timestamp()),
             "enddate": int(end_date.timestamp()),
@@ -261,24 +264,45 @@ class WithingsClient:
                 if attrib not in (0, 2):  # 0 = device, 2 = device (ambiguous)
                     continue
 
-                # Extract weight from measures
-                for measure in grp.get("measures", []):
-                    if measure.get("type") == 1:  # Weight
-                        # Weight is value * 10^unit
-                        value = measure.get("value")
-                        unit = measure.get("unit")
-                        if value is not None and unit is not None:
-                            weight_kg = value * (10**unit)
+                # Extract all measurements from this group
+                measurement = {
+                    "date": datetime.fromtimestamp(grp.get("date")),
+                    "timestamp": grp.get("date"),
+                }
 
-                            date = datetime.fromtimestamp(grp.get("date"))
-                            weight_data.append(
-                                {
-                                    "date": date,
-                                    "weight_kg": weight_kg,
-                                    "timestamp": grp.get("date"),
-                                }
-                            )
-                            logging.debug(f"Found weight: {weight_kg:.2f}kg on {date}")
+                # Parse all measure types
+                for measure in grp.get("measures", []):
+                    meas_type = measure.get("type")
+                    value = measure.get("value")
+                    unit = measure.get("unit")
+
+                    if value is not None and unit is not None:
+                        actual_value = value * (10**unit)
+
+                        if meas_type == 1:  # Weight (kg)
+                            measurement["weight_kg"] = actual_value
+                        elif meas_type == 5:  # Fat-Free Mass (kg) - Skeletal muscle
+                            measurement["fat_free_mass_kg"] = actual_value
+                        elif meas_type == 6:  # Body fat (%)
+                            measurement["body_fat_percent"] = actual_value
+                        elif meas_type == 8:  # Muscle mass non-skeletal (kg)
+                            measurement["muscle_mass_kg"] = actual_value
+                        elif meas_type == 76:  # Water (%)
+                            measurement["body_water_percent"] = actual_value
+                        elif meas_type == 77:  # Water mass (kg)
+                            measurement["water_mass_kg"] = actual_value
+                        elif meas_type == 88:  # Bone mass (kg)
+                            measurement["bone_mass_kg"] = actual_value
+
+                # Only add if we have at least weight
+                if "weight_kg" in measurement:
+                    weight_data.append(measurement)
+                    logging.debug(
+                        f"Found measurement on {measurement['date']}: "
+                        f"weight={measurement.get('weight_kg', 0):.2f}kg "
+                        f"fat={measurement.get('body_fat_percent', 0):.1f}% "
+                        f"water={measurement.get('body_water_percent', 0):.1f}%"
+                    )
 
             logging.info(
                 f"✅ Fetched {len(weight_data)} weight measurements from Withings"
@@ -290,39 +314,65 @@ class WithingsClient:
             raise
 
 
-def upload_weight_to_garmin(
+def upload_body_composition_to_garmin(
     garmin_client,
-    weight_kg: float,
-    timestamp: datetime,
+    measurement: Dict[str, Any],
+    user_height_m: Optional[float] = None,
 ) -> bool:
     """
-    Upload a single weight measurement to Garmin Connect.
+    Upload body composition measurement to Garmin Connect.
 
     Args:
         garmin_client: Authenticated Garmin client
-        weight_kg: Weight in kilograms
-        timestamp: Timestamp of the measurement
+        measurement: Dictionary with weight_kg, body_fat_percent, etc.
+        user_height_m: User height in meters for BMI calculation (optional)
 
     Returns:
         True if successful, False otherwise
     """
     try:
+        timestamp = measurement["date"]
         # Format timestamp for Garmin (ISO format with time)
         # Garmin expects: YYYY-MM-DDTHH:MM:SS
         timestamp_str = timestamp.strftime("%Y-%m-%dT%H:%M:%S")
 
-        # Upload to Garmin
-        garmin_client.add_weigh_in(
-            weight=weight_kg,
+        # Calculate BMI if height is provided: BMI = weight(kg) / height(m)²
+        bmi = None
+        if user_height_m and "weight_kg" in measurement:
+            bmi = measurement["weight_kg"] / (user_height_m**2)
+
+        # Upload to Garmin with all available metrics
+        # Use fat_free_mass_kg (skeletal muscle mass ~54kg) instead of muscle_mass_kg (~10kg)
+        garmin_client.add_body_composition(
             timestamp=timestamp_str,
+            weight=measurement["weight_kg"],
+            percent_fat=measurement.get("body_fat_percent"),
+            percent_hydration=measurement.get("body_water_percent"),
+            bone_mass=measurement.get("bone_mass_kg"),
+            muscle_mass=measurement.get("fat_free_mass_kg"),  # Skeletal muscle mass
+            bmi=bmi,
         )
 
-        logging.debug(f"✅ Uploaded {weight_kg:.2f}kg to Garmin for {timestamp_str}")
+        metrics = [f"weight={measurement['weight_kg']:.2f}kg"]
+        if "body_fat_percent" in measurement:
+            metrics.append(f"fat={measurement['body_fat_percent']:.1f}%")
+        if "body_water_percent" in measurement:
+            metrics.append(f"water={measurement['body_water_percent']:.1f}%")
+        if "fat_free_mass_kg" in measurement:
+            metrics.append(f"skeletal_muscle={measurement['fat_free_mass_kg']:.2f}kg")
+        if "bone_mass_kg" in measurement:
+            metrics.append(f"bone={measurement['bone_mass_kg']:.2f}kg")
+        if bmi:
+            metrics.append(f"bmi={bmi:.1f}")
+
+        logging.debug(f"✅ Uploaded to Garmin ({timestamp_str}): {', '.join(metrics)}")
         return True
 
     except Exception as e:
-        timestamp_str = timestamp.strftime("%Y-%m-%dT%H:%M:%S")
-        logging.warning(f"⚠️ Failed to upload weight to Garmin ({timestamp_str}): {e}")
+        timestamp_str = measurement["date"].strftime("%Y-%m-%dT%H:%M:%S")
+        logging.warning(
+            f"⚠️ Failed to upload body composition to Garmin ({timestamp_str}): {e}"
+        )
         return False
 
 
@@ -331,15 +381,17 @@ def sync_withings_to_garmin(
     withings_client_id: str,
     withings_client_secret: str,
     days_back: int = 7,
+    user_height_m: Optional[float] = None,
 ) -> bool:
     """
-    Sync weight data from Withings to Garmin Connect.
+    Sync body composition data from Withings to Garmin Connect.
 
     Args:
         garmin_client: Authenticated Garmin client
         withings_client_id: Withings API client ID
         withings_client_secret: Withings API client secret
         days_back: Number of days to sync (default: 7)
+        user_height_m: User height in meters for BMI calculation (optional)
 
     Returns:
         True if sync was successful, False otherwise
@@ -365,15 +417,15 @@ def sync_withings_to_garmin(
         # Upload to Garmin
         success_count = 0
         for measurement in measurements:
-            if upload_weight_to_garmin(
+            if upload_body_composition_to_garmin(
                 garmin_client=garmin_client,
-                weight_kg=measurement["weight_kg"],
-                timestamp=measurement["date"],
+                measurement=measurement,
+                user_height_m=user_height_m,
             ):
                 success_count += 1
 
         logging.info(
-            f"✅ Synced {success_count}/{len(measurements)} weight measurements to Garmin"
+            f"✅ Synced {success_count}/{len(measurements)} body composition measurements to Garmin"
         )
         return success_count > 0
 

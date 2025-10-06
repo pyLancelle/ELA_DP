@@ -84,7 +84,7 @@ class GarminConnectorError(Exception):
 
 def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
     """
-    Automatically sync Withings weight data to Garmin Connect.
+    Automatically sync Withings body composition data to Garmin Connect.
 
     Uses our custom Withings client to avoid dependency conflicts.
 
@@ -98,6 +98,7 @@ def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
     # Check if Withings credentials are available
     withings_client_id = os.getenv("WITHINGS_CLIENT_ID")
     withings_client_secret = os.getenv("WITHINGS_CLIENT_SECRET")
+    user_height_m = os.getenv("USER_HEIGHT_M")  # Optional: for BMI calculation
 
     if not withings_client_id or not withings_client_secret:
         logging.info("ℹ️ No Withings credentials found, skipping automatic sync")
@@ -113,12 +114,16 @@ def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
         sys.path.insert(0, str(Path(__file__).parent.parent))
         from withings import sync_withings_to_garmin
 
+        # Parse user height if provided
+        height = float(user_height_m) if user_height_m else None
+
         # Sync Withings to Garmin
         success = sync_withings_to_garmin(
             garmin_client=garmin_client,
             withings_client_id=withings_client_id,
             withings_client_secret=withings_client_secret,
             days_back=days,
+            user_height_m=height,
         )
 
         if success:
