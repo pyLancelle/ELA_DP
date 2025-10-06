@@ -342,14 +342,18 @@ def upload_body_composition_to_garmin(
             bmi = measurement["weight_kg"] / (user_height_m**2)
 
         # Upload to Garmin with all available metrics
-        # Use fat_free_mass_kg (skeletal muscle mass ~54kg) instead of muscle_mass_kg (~10kg)
+        # IMPORTANT: Garmin API has inverted naming:
+        # - percent_hydration expects muscle mass in kg (not %)
+        # - muscle_mass expects body water in % (not kg)
         garmin_client.add_body_composition(
             timestamp=timestamp_str,
             weight=measurement["weight_kg"],
             percent_fat=measurement.get("body_fat_percent"),
-            percent_hydration=measurement.get("body_water_percent"),
+            percent_hydration=measurement.get(
+                "fat_free_mass_kg"
+            ),  # Muscle mass kg (inverted!)
             bone_mass=measurement.get("bone_mass_kg"),
-            muscle_mass=measurement.get("fat_free_mass_kg"),  # Skeletal muscle mass
+            muscle_mass=measurement.get("body_water_percent"),  # Water % (inverted!)
             bmi=bmi,
         )
 
@@ -382,6 +386,7 @@ def sync_withings_to_garmin(
     withings_client_secret: str,
     days_back: int = 7,
     user_height_m: Optional[float] = None,
+    deduplicate_window_hours: int = 24,
 ) -> bool:
     """
     Sync body composition data from Withings to Garmin Connect.
@@ -392,6 +397,7 @@ def sync_withings_to_garmin(
         withings_client_secret: Withings API client secret
         days_back: Number of days to sync (default: 7)
         user_height_m: User height in meters for BMI calculation (optional)
+        deduplicate_window_hours: Keep only one measurement per time window in hours (default: 24 = one per day)
 
     Returns:
         True if sync was successful, False otherwise
@@ -413,6 +419,37 @@ def sync_withings_to_garmin(
         if not measurements:
             logging.info("ℹ️  No new weight measurements to sync")
             return True
+
+        # Deduplicate measurements from Withings (keep only one per time window)
+        if deduplicate_window_hours > 0:
+            deduplicated = []
+            measurements_sorted = sorted(measurements, key=lambda m: m["date"])
+
+            for measurement in measurements_sorted:
+                # Check if we already have a measurement in this time window
+                should_add = True
+                for existing in deduplicated:
+                    time_diff = abs(
+                        (measurement["date"] - existing["date"]).total_seconds() / 3600
+                    )
+                    if time_diff < deduplicate_window_hours:
+                        should_add = False
+                        logging.debug(
+                            f"⏭️  Skipping measurement at {measurement['date']} "
+                            f"(too close to {existing['date']}, {time_diff:.1f}h apart)"
+                        )
+                        break
+
+                if should_add:
+                    deduplicated.append(measurement)
+
+            filtered_count = len(measurements) - len(deduplicated)
+            if filtered_count > 0:
+                logging.info(
+                    f"🔍 Filtered {filtered_count} duplicate measurements "
+                    f"(keeping one per {deduplicate_window_hours}h window)"
+                )
+            measurements = deduplicated
 
         # Fetch existing Garmin body composition data to avoid duplicates
         try:

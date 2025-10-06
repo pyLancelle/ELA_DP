@@ -82,7 +82,12 @@ class GarminConnectorError(Exception):
     pass
 
 
-def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
+def sync_withings_data(
+    garmin_client: Garmin,
+    days: int = 30,
+    user_height_m: Optional[float] = None,
+    dedupe_window_hours: int = 24,
+) -> bool:
     """
     Automatically sync Withings body composition data to Garmin Connect.
 
@@ -91,6 +96,8 @@ def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
     Args:
         garmin_client: Authenticated Garmin client
         days: Number of days to sync (for historical data)
+        user_height_m: User height in meters for BMI calculation (optional)
+        dedupe_window_hours: Deduplication window in hours (default: 24)
 
     Returns:
         True if sync successful or skipped, False if failed
@@ -98,7 +105,6 @@ def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
     # Check if Withings credentials are available
     withings_client_id = os.getenv("WITHINGS_CLIENT_ID")
     withings_client_secret = os.getenv("WITHINGS_CLIENT_SECRET")
-    user_height_m = os.getenv("USER_HEIGHT_M")  # Optional: for BMI calculation
 
     if not withings_client_id or not withings_client_secret:
         logging.info("ℹ️ No Withings credentials found, skipping automatic sync")
@@ -114,8 +120,10 @@ def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
         sys.path.insert(0, str(Path(__file__).parent.parent))
         from withings import sync_withings_to_garmin
 
-        # Parse user height if provided
-        height = float(user_height_m) if user_height_m else None
+        # Fallback to env var if user_height_m not provided via argument
+        if user_height_m is None:
+            env_height = os.getenv("USER_HEIGHT_M")
+            user_height_m = float(env_height) if env_height else None
 
         # Sync Withings to Garmin
         success = sync_withings_to_garmin(
@@ -123,7 +131,8 @@ def sync_withings_data(garmin_client: Garmin, days: int = 30) -> bool:
             withings_client_id=withings_client_id,
             withings_client_secret=withings_client_secret,
             days_back=days,
-            user_height_m=height,
+            user_height_m=user_height_m,
+            deduplicate_window_hours=dedupe_window_hours,
         )
 
         if success:
@@ -1299,6 +1308,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip automatic Withings to Garmin synchronization before fetching data",
     )
+    parser.add_argument(
+        "--user-height",
+        type=float,
+        help="User height in meters for BMI calculation (e.g., 1.72). Overrides USER_HEIGHT_M env var.",
+    )
+    parser.add_argument(
+        "--withings-dedupe-hours",
+        type=int,
+        default=24,
+        help="Deduplication window in hours for Withings measurements (default: 24 = one per day)",
+    )
 
     return parser.parse_args()
 
@@ -1321,6 +1341,8 @@ def main() -> None:
             sync_withings_data(
                 garmin_client=client,
                 days=args.days,
+                user_height_m=args.user_height,
+                dedupe_window_hours=args.withings_dedupe_hours,
             )
         else:
             logging.info("ℹ️ Withings sync disabled via --no-withings-sync flag")
