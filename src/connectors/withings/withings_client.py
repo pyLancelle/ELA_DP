@@ -342,18 +342,13 @@ def upload_body_composition_to_garmin(
             bmi = measurement["weight_kg"] / (user_height_m**2)
 
         # Upload to Garmin with all available metrics
-        # IMPORTANT: Garmin API has inverted naming:
-        # - percent_hydration expects muscle mass in kg (not %)
-        # - muscle_mass expects body water in % (not kg)
         garmin_client.add_body_composition(
             timestamp=timestamp_str,
             weight=measurement["weight_kg"],
             percent_fat=measurement.get("body_fat_percent"),
-            percent_hydration=measurement.get(
-                "fat_free_mass_kg"
-            ),  # Muscle mass kg (inverted!)
+            percent_hydration=measurement.get("body_water_percent"),  # Body water %
             bone_mass=measurement.get("bone_mass_kg"),
-            muscle_mass=measurement.get("body_water_percent"),  # Water % (inverted!)
+            muscle_mass=measurement.get("fat_free_mass_kg"),  # Skeletal muscle mass kg
             bmi=bmi,
         )
 
