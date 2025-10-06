@@ -406,7 +406,7 @@ def sync_withings_to_garmin(
         # Authenticate
         withings.authenticate()
 
-        # Fetch measurements
+        # Fetch measurements from Withings
         start_date = datetime.now() - timedelta(days=days_back)
         measurements = withings.get_weight_measurements(start_date=start_date)
 
@@ -414,9 +414,49 @@ def sync_withings_to_garmin(
             logging.info("ℹ️  No new weight measurements to sync")
             return True
 
-        # Upload to Garmin
+        # Fetch existing Garmin body composition data to avoid duplicates
+        try:
+            start_date_str = start_date.strftime("%Y-%m-%d")
+            end_date_str = datetime.now().strftime("%Y-%m-%d")
+            garmin_data = garmin_client.get_body_composition(
+                startdate=start_date_str, enddate=end_date_str
+            )
+
+            # Extract existing timestamps (convert to datetime for comparison)
+            existing_timestamps = set()
+            if garmin_data and isinstance(garmin_data, list):
+                for entry in garmin_data:
+                    if "samplePk" in entry:
+                        # Garmin timestamp is in milliseconds
+                        ts = datetime.fromtimestamp(entry["samplePk"] / 1000)
+                        # Round to minute precision for comparison
+                        ts_rounded = ts.replace(second=0, microsecond=0)
+                        existing_timestamps.add(ts_rounded)
+
+            logging.debug(
+                f"Found {len(existing_timestamps)} existing Garmin body composition entries"
+            )
+        except Exception as e:
+            logging.warning(
+                f"⚠️ Could not fetch existing Garmin data (will sync all): {e}"
+            )
+            existing_timestamps = set()
+
+        # Upload to Garmin (skip duplicates)
         success_count = 0
+        skipped_count = 0
         for measurement in measurements:
+            # Round measurement timestamp to minute precision
+            meas_time = measurement["date"].replace(second=0, microsecond=0)
+
+            # Check if entry already exists
+            if meas_time in existing_timestamps:
+                logging.debug(
+                    f"⏭️  Skipping duplicate entry for {meas_time.strftime('%Y-%m-%d %H:%M')}"
+                )
+                skipped_count += 1
+                continue
+
             if upload_body_composition_to_garmin(
                 garmin_client=garmin_client,
                 measurement=measurement,
@@ -425,9 +465,10 @@ def sync_withings_to_garmin(
                 success_count += 1
 
         logging.info(
-            f"✅ Synced {success_count}/{len(measurements)} body composition measurements to Garmin"
+            f"✅ Synced {success_count}/{len(measurements)} body composition measurements to Garmin "
+            f"({skipped_count} duplicates skipped)"
         )
-        return success_count > 0
+        return success_count > 0 or skipped_count > 0
 
     except RuntimeError as e:
         # OAuth credentials not found - expected on first run
