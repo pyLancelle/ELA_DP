@@ -36,3 +36,6 @@ playground/
 
 # Claude working notes and temporary files
 .claude_notes/
+# Withings credentials
+config/withings_app.json
+.withings_user.json
