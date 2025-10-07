@@ -313,12 +313,12 @@ jobs:
   garmin_weight:
     service: "garmin"
     data_type: "weight"
-    description: "Fetch weight data from Garmin (PRD - every 4 hours)"
+    description: "Fetch body composition data from Garmin with Withings sync (PRD - daily)"
     cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 60"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 60 --user-height 1.72 --withings-dedupe-hours 24"
     environment: "prd"
     enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET", "WITHINGS_CREDENTIALS_JSON"]
 
   garmin_endurance_score:
     service: "garmin"

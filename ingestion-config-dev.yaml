@@ -337,12 +337,12 @@ jobs:
   garmin_weight:
     service: "garmin"
     data_type: "weight"
-    description: "Fetch weight data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *" 
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 60"
+    description: "Fetch body composition data from Garmin with Withings sync (DEV - daily)"
+    cron: "0 11 * * *"
+    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 60 --user-height 1.72 --withings-dedupe-hours 24"
     environment: "dev"
     enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET", "WITHINGS_CREDENTIALS_JSON"]
 
   garmin_endurance_score:
     service: "garmin"
@@ -530,15 +530,6 @@ jobs:
     enabled: true  # Enabled for manual testing with mock data
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
 
-  withings_sync_weight:
-    service: "mail"
-    data_type: "withings sync"
-    description: "Test withings sync (DEV - manual trigger only, mock data)"
-    cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.withings_sync_weight.main"
-    environment: "dev"
-    enabled: true  # Enabled for manual testing with mock data
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY"]
 
 # Service-specific configuration
 services:

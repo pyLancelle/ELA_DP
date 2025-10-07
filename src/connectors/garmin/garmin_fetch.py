@@ -82,34 +82,26 @@ class GarminConnectorError(Exception):
     pass
 
 
-def sync_withings_data(username: str, password: str, days: int = 30) -> bool:
+def sync_withings_data(
+    garmin_client: Garmin,
+    days: int = 30,
+    user_height_m: Optional[float] = None,
+    dedupe_window_hours: int = 24,
+) -> bool:
     """
-    Automatically sync Withings data to Garmin Connect before fetching.
+    Automatically sync Withings body composition data to Garmin Connect.
+
+    Uses our custom Withings client to avoid dependency conflicts.
 
     Args:
-        username: Garmin username
-        password: Garmin password
+        garmin_client: Authenticated Garmin client
         days: Number of days to sync (for historical data)
+        user_height_m: User height in meters for BMI calculation (optional)
+        dedupe_window_hours: Deduplication window in hours (default: 24)
 
     Returns:
         True if sync successful or skipped, False if failed
     """
-    # Quick check: is withings-sync even installed?
-    try:
-        result = subprocess.run(
-            ["withings-sync", "--help"],
-            capture_output=True,
-            text=True,
-            timeout=5,  # Reduced timeout for quick check
-        )
-        if result.returncode != 0:
-            logging.info("ℹ️ withings-sync not available, skipping Withings sync")
-            return True
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        logging.info("ℹ️ withings-sync not installed, skipping Withings sync")
-        logging.debug("💡 Install with: pip install withings-sync")
-        return True
-
     # Check if Withings credentials are available
     withings_client_id = os.getenv("WITHINGS_CLIENT_ID")
     withings_client_secret = os.getenv("WITHINGS_CLIENT_SECRET")
@@ -121,64 +113,42 @@ def sync_withings_data(username: str, password: str, days: int = 30) -> bool:
         )
         return True
 
-    # All checks passed, proceed with sync
     try:
         logging.info("🔄 Starting automatic Withings to Garmin sync...")
 
-        # Calculate from date for historical sync
-        from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        # Import our Withings client
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from withings import sync_withings_to_garmin
 
-        # Build withings-sync command
-        cmd = [
-            "withings-sync",
-            f"--garmin-username={username}",
-            f"--garmin-password={password}",
-            f"--fromdate={from_date}",
-            "--verbose",
-        ]
+        # Fallback to env var if user_height_m not provided via argument
+        if user_height_m is None:
+            env_height = os.getenv("USER_HEIGHT_M")
+            user_height_m = float(env_height) if env_height else None
 
-        # Set environment variables for Withings credentials
-        env = os.environ.copy()
-        env["WITHINGS_CLIENT_ID"] = withings_client_id
-        env["WITHINGS_CLIENT_SECRET"] = withings_client_secret
-        logging.info("✅ Using Withings credentials from environment")
-
-        # Run withings-sync with timeout
-        logging.info(
-            f"🔧 Running: withings-sync --garmin-username=XXX --garmin-password=XXX --fromdate={from_date}"
+        # Sync Withings to Garmin
+        success = sync_withings_to_garmin(
+            garmin_client=garmin_client,
+            withings_client_id=withings_client_id,
+            withings_client_secret=withings_client_secret,
+            days_back=days,
+            user_height_m=user_height_m,
+            deduplicate_window_hours=dedupe_window_hours,
         )
 
-        result = subprocess.run(
-            cmd,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minutes timeout
-        )
-
-        if result.returncode == 0:
+        if success:
             logging.info("✅ Withings sync completed successfully")
-            logging.info(
-                "⏳ Waiting 30 seconds for Garmin to process data and reset rate limits..."
-            )
+            logging.info("⏳ Waiting 10 seconds for Garmin to process data...")
             import time
 
-            time.sleep(30)  # Give Garmin time to process data and reset rate limits
+            time.sleep(10)  # Brief pause to let Garmin process
             return True
         else:
-            logging.warning(f"⚠️ Withings sync failed (exit code {result.returncode})")
-            if result.stderr:
-                logging.warning(f"   Error: {result.stderr.strip()}")
-            if result.stdout:
-                logging.info(f"   Output: {result.stdout.strip()}")
-            logging.info("🔄 Continuing with Garmin fetch anyway...")
+            logging.warning("⚠️ Withings sync had issues but continuing anyway")
             return True  # Don't fail the entire process
 
-    except subprocess.TimeoutExpired:
-        logging.warning("⏰ Withings sync timed out - continuing with Garmin fetch")
-        return True
     except Exception as e:
         logging.warning(f"⚠️ Withings sync error: {e}")
+        logging.debug(f"   Full traceback: {e}", exc_info=True)
         logging.info("🔄 Continuing with Garmin fetch anyway...")
         return True
 
@@ -1338,6 +1308,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip automatic Withings to Garmin synchronization before fetching data",
     )
+    parser.add_argument(
+        "--user-height",
+        type=float,
+        help="User height in meters for BMI calculation (e.g., 1.72). Overrides USER_HEIGHT_M env var.",
+    )
+    parser.add_argument(
+        "--withings-dedupe-hours",
+        type=int,
+        default=24,
+        help="Deduplication window in hours for Withings measurements (default: 24 = one per day)",
+    )
 
     return parser.parse_args()
 
@@ -1352,18 +1333,19 @@ def main() -> None:
         load_env(args.env)
         env_vars = validate_env_vars()
 
+        # Setup Garmin client
+        client = get_garmin_client(env_vars)
+
         # Automatic Withings to Garmin sync (if enabled)
         if not args.no_withings_sync:
             sync_withings_data(
-                username=env_vars["GARMIN_USERNAME"],
-                password=env_vars["GARMIN_PASSWORD"],
+                garmin_client=client,
                 days=args.days,
+                user_height_m=args.user_height,
+                dedupe_window_hours=args.withings_dedupe_hours,
             )
         else:
             logging.info("ℹ️ Withings sync disabled via --no-withings-sync flag")
-
-        # Setup Garmin client
-        client = get_garmin_client(env_vars)
 
         # Calculate date range
         end_date = datetime.now()
