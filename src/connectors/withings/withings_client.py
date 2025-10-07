@@ -145,7 +145,36 @@ class WithingsClient:
         logging.debug(f"💾 Saved credentials to {self.credentials_file}")
 
     def _load_credentials(self) -> bool:
-        """Load credentials from file. Returns True if successful."""
+        """Load credentials from file or environment variable. Returns True if successful."""
+        # First, try to load from environment variable (for GitHub Actions)
+        credentials_json_env = os.getenv("WITHINGS_CREDENTIALS_JSON")
+        if credentials_json_env:
+            try:
+                logging.debug(
+                    "🔐 Loading Withings credentials from environment variable"
+                )
+                creds = json.loads(credentials_json_env)
+
+                self.access_token = creds.get("access_token")
+                self.refresh_token = creds.get("refresh_token")
+                self.token_expiry = creds.get("token_expiry")
+                self.user_id = creds.get("user_id")
+
+                # Check if token is expired or about to expire (within 5 minutes)
+                if self.token_expiry and time.time() >= (self.token_expiry - 300):
+                    logging.debug("🔄 Token expired, refreshing...")
+                    self._refresh_access_token()
+
+                logging.info("✅ Loaded Withings credentials from environment variable")
+                return True
+
+            except Exception as e:
+                logging.warning(
+                    f"⚠️ Could not parse WITHINGS_CREDENTIALS_JSON env var: {e}"
+                )
+                # Fall through to try file-based credentials
+
+        # Fallback to file-based credentials
         if not self.credentials_file.exists():
             return False
 
