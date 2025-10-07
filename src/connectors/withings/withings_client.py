@@ -281,17 +281,19 @@ class WithingsClient:
 
                         if meas_type == 1:  # Weight (kg)
                             measurement["weight_kg"] = actual_value
-                        elif meas_type == 5:  # Fat-Free Mass (kg) - Skeletal muscle
+                        elif meas_type == 5:  # Fat-Free Mass (kg) = Muscle mass
                             measurement["fat_free_mass_kg"] = actual_value
-                        elif meas_type == 6:  # Body fat (%)
+                        elif meas_type == 6:  # Fat Ratio (%)
                             measurement["body_fat_percent"] = actual_value
-                        elif meas_type == 8:  # Muscle mass non-skeletal (kg)
-                            measurement["muscle_mass_kg"] = actual_value
-                        elif meas_type == 76:  # Water (%)
-                            measurement["body_water_percent"] = actual_value
-                        elif meas_type == 77:  # Water mass (kg)
-                            measurement["water_mass_kg"] = actual_value
-                        elif meas_type == 88:  # Bone mass (kg)
+                        elif meas_type == 8:  # Fat Mass Weight (kg)
+                            measurement["fat_mass_kg"] = actual_value
+                        elif (
+                            meas_type == 76
+                        ):  # Muscle Mass (%) - ACTUALLY water % in practice!
+                            measurement["muscle_mass_percent"] = actual_value
+                        elif meas_type == 77:  # Hydration (kg)
+                            measurement["hydration_kg"] = actual_value
+                        elif meas_type == 88:  # Bone Mass (kg)
                             measurement["bone_mass_kg"] = actual_value
 
                 # Only add if we have at least weight
@@ -341,24 +343,38 @@ def upload_body_composition_to_garmin(
         if user_height_m and "weight_kg" in measurement:
             bmi = measurement["weight_kg"] / (user_height_m**2)
 
+        # Calculate hydration percentage (same as withings-sync)
+        # percent_hydration = hydration_kg / weight_kg * 100
+        hydration_percent = None
+        if "hydration_kg" in measurement and "weight_kg" in measurement:
+            hydration_percent = (
+                measurement["hydration_kg"] / measurement["weight_kg"]
+            ) * 100
+
         # Upload to Garmin with all available metrics
+        # Garmin expects:
+        # - percent_hydration: Body Water Percentage (%)
+        # - muscle_mass: Skeletal Muscle Mass (kg)
+        # Withings-sync mapping:
+        # - percent_hydration = Type 77 / Type 1 * 100 (58.3%)
+        # - muscle_mass = Type 76 (52.5% - unclear what this represents)
         garmin_client.add_body_composition(
             timestamp=timestamp_str,
             weight=measurement["weight_kg"],
             percent_fat=measurement.get("body_fat_percent"),
-            percent_hydration=measurement.get("body_water_percent"),  # Body water %
+            percent_hydration=hydration_percent,  # Calculated: Type 77 / Type 1 * 100
             bone_mass=measurement.get("bone_mass_kg"),
-            muscle_mass=measurement.get("fat_free_mass_kg"),  # Skeletal muscle mass kg
+            muscle_mass=measurement.get("muscle_mass_percent"),  # Type 76 (52.5%)
             bmi=bmi,
         )
 
         metrics = [f"weight={measurement['weight_kg']:.2f}kg"]
         if "body_fat_percent" in measurement:
             metrics.append(f"fat={measurement['body_fat_percent']:.1f}%")
-        if "body_water_percent" in measurement:
-            metrics.append(f"water={measurement['body_water_percent']:.1f}%")
-        if "fat_free_mass_kg" in measurement:
-            metrics.append(f"skeletal_muscle={measurement['fat_free_mass_kg']:.2f}kg")
+        if hydration_percent:
+            metrics.append(f"hydration={hydration_percent:.1f}%")
+        if "muscle_mass_percent" in measurement:
+            metrics.append(f"muscle={measurement['muscle_mass_percent']:.1f}%")
         if "bone_mass_kg" in measurement:
             metrics.append(f"bone={measurement['bone_mass_kg']:.2f}kg")
         if bmi:

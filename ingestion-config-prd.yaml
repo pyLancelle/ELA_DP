@@ -318,7 +318,7 @@ jobs:
     command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 60 --user-height 1.72 --withings-dedupe-hours 24"
     environment: "prd"
     enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET"]
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET", "WITHINGS_CREDENTIALS_JSON"]
 
   garmin_endurance_score:
     service: "garmin"
