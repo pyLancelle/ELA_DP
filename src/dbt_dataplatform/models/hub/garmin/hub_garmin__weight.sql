@@ -14,8 +14,8 @@ SELECT
     -- Core identifiers
     DATE(JSON_VALUE(raw_data, '$.calendarDate')) as calendar_date,
     DATE(JSON_VALUE(raw_data, '$.summaryDate')) as summary_date,
-    TIMESTAMP_MILLIS(CAST(JSON_VALUE(raw_data, '$.date') AS INT64)) as date_timestamp,
-    TIMESTAMP_MILLIS(CAST(JSON_VALUE(raw_data, '$.timestampGMT') AS INT64)) as timestamp_gmt,
+    SAFE.TIMESTAMP_MILLIS(CAST(JSON_VALUE(raw_data, '$.date') AS INT64)) as date_timestamp,
+    SAFE.TIMESTAMP_MILLIS(CAST(JSON_VALUE(raw_data, '$.timestampGMT') AS INT64)) as timestamp_gmt,
     JSON_VALUE(raw_data, '$.sourceType') as source_type,
     
     -- Weight measurements grouped in STRUCT
@@ -42,6 +42,8 @@ SELECT
 
 FROM {{ ref('lake_garmin__svc_weight') }}
 
+QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(JSON_VALUE(raw_data, '$.calendarDate')) ORDER BY dp_inserted_at DESC) = 1
+
 {% if is_incremental() %}
-WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+  WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
 {% endif %}

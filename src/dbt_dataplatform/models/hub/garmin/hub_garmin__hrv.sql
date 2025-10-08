@@ -49,10 +49,7 @@ SELECT
         TIMESTAMP(JSON_VALUE(raw_data, '$.sleepStartTimestampLocal')) as sleep_start_local,
         TIMESTAMP(JSON_VALUE(raw_data, '$.sleepEndTimestampLocal')) as sleep_end_local
     ) as sleep_time_window,
-    
-    -- HRV readings time series (for detailed analysis)
-    JSON_QUERY(raw_data, '$.hrvReadings') as hrv_readings_timeseries,
-    
+
     -- Metadata
     dp_inserted_at,
     source_file
