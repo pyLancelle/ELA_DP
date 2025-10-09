@@ -61,8 +61,8 @@ SELECT
 
 FROM {{ ref('lake_garmin__svc_hrv') }}
 
-QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(JSON_VALUE(raw_data, '$.date')) ORDER BY dp_inserted_at DESC) = 1
 
 {% if is_incremental() %}
   WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
 {% endif %}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY DATE(JSON_VALUE(raw_data, '$.date')) ORDER BY dp_inserted_at DESC) = 1
