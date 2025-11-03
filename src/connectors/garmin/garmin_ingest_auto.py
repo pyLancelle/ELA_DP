@@ -54,9 +54,21 @@ FILE_PATTERNS = {
 # Configs that are ready for ingest_v2
 SUPPORTED_CONFIGS = {
     'activities',
+    'activity_details',
+    'activity_splits',
+    'activity_hr_zones',
+    'activity_weather',
     'sleep',
     'floors',
     'weight',
+    'steps',
+    'heart_rate',
+    'body_battery',
+    'stress',
+    'hrv',
+    'training_status',
+    'race_predictions',
+    'endurance_score',
     'hill_score',
 }
 
