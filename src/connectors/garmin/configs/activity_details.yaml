@@ -1,0 +1,990 @@
+# =============================================================================
+# GARMIN ACTIVITY DETAILS - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Garmin activity detailed metrics.
+#
+# Structure:
+# - Activity summary: distance, duration, speed, elevation, HR, power
+# - Owner info: ownerId, displayName, profileImages
+# - Training metrics: VO2max, training effects, fastest splits
+# - HR/Power zones: time in each zone
+# - GPS polyline: detailed_data.geoPolylineDTO (stored in raw_data)
+#
+# Note: detailed_data contains GPS polyline with 100s-1000s of points.
+# Stored in raw_data JSON for flexibility. Extract via JSON functions if needed.
+# =============================================================================
+
+data_type: activity_details
+description: "Garmin activity detailed metrics with performance data"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-11-01"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "garmin/landing"
+  file_pattern: "*_activity_details.jsonl"
+  archive_path: "garmin/archive"
+  rejected_path: "garmin/rejected"
+  delete_after_archive: false
+  max_file_age_days: 30
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_garmin__normalized_activity_details"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null
+
+  clustering:
+    enabled: true
+    fields:
+      - "activityId"
+      - "ownerId"
+      - "startTimeLocal"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # ACTIVITY IDENTIFICATION
+    # =========================================================================
+    - name: activityId
+      json_path: "$.activityId"
+      bq_type: INT64
+      mode: REQUIRED
+      description: "Garmin activity ID (primary key)"
+      validations:
+        - type: not_null
+        - type: positive
+
+    - name: activityName
+      json_path: "$.activityName"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Activity name (user-defined)"
+
+    - name: startTimeLocal
+      json_path: "$.startTimeLocal"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "Activity start time in local timezone (partition key)"
+      transform: "string_to_timestamp_space"
+      validations:
+        - type: not_null
+
+    - name: startTimeGMT
+      json_path: "$.startTimeGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Activity start time GMT"
+      transform: "string_to_timestamp_space"
+
+    - name: endTimeGMT
+      json_path: "$.endTimeGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Activity end time GMT"
+      transform: "string_to_timestamp_space"
+
+    - name: beginTimestamp
+      json_path: "$.beginTimestamp"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Activity begin timestamp (epoch milliseconds)"
+
+    - name: timeZoneId
+      json_path: "$.timeZoneId"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Time zone ID"
+
+    - name: locationName
+      json_path: "$.locationName"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Activity location name"
+
+    - name: data_type
+      json_path: "$.data_type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Data type identifier"
+
+    # =========================================================================
+    # ACTIVITY TYPE & EVENT TYPE
+    # =========================================================================
+    - name: activityType
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.activityType"
+      description: "Activity type details"
+      fields:
+        - name: typeId
+          json_path: "$.typeId"
+          bq_type: INT64
+          mode: NULLABLE
+
+        - name: typeKey
+          json_path: "$.typeKey"
+          bq_type: STRING
+          mode: NULLABLE
+
+        - name: parentTypeId
+          json_path: "$.parentTypeId"
+          bq_type: INT64
+          mode: NULLABLE
+
+        - name: isHidden
+          json_path: "$.isHidden"
+          bq_type: BOOL
+          mode: NULLABLE
+
+        - name: restricted
+          json_path: "$.restricted"
+          bq_type: BOOL
+          mode: NULLABLE
+
+        - name: trimmable
+          json_path: "$.trimmable"
+          bq_type: BOOL
+          mode: NULLABLE
+
+    - name: eventType
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.eventType"
+      description: "Event type (race, uncategorized, etc.)"
+      fields:
+        - name: typeId
+          json_path: "$.typeId"
+          bq_type: INT64
+          mode: NULLABLE
+
+        - name: typeKey
+          json_path: "$.typeKey"
+          bq_type: STRING
+          mode: NULLABLE
+
+        - name: sortOrder
+          json_path: "$.sortOrder"
+          bq_type: INT64
+          mode: NULLABLE
+
+    - name: sportTypeId
+      json_path: "$.sportTypeId"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Sport type ID"
+
+    # =========================================================================
+    # OWNER INFORMATION
+    # =========================================================================
+    - name: ownerId
+      json_path: "$.ownerId"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Owner user ID"
+
+    - name: ownerDisplayName
+      json_path: "$.ownerDisplayName"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Owner display name"
+
+    - name: ownerFullName
+      json_path: "$.ownerFullName"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Owner full name"
+
+    - name: ownerProfileImageUrlSmall
+      json_path: "$.ownerProfileImageUrlSmall"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Owner profile image URL (small)"
+
+    - name: ownerProfileImageUrlMedium
+      json_path: "$.ownerProfileImageUrlMedium"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Owner profile image URL (medium)"
+
+    - name: ownerProfileImageUrlLarge
+      json_path: "$.ownerProfileImageUrlLarge"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Owner profile image URL (large)"
+
+    - name: userPro
+      json_path: "$.userPro"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether user has Pro subscription"
+
+    # =========================================================================
+    # DISTANCE & DURATION
+    # =========================================================================
+    - name: distance
+      json_path: "$.distance"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Total distance (meters)"
+
+    - name: duration
+      json_path: "$.duration"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Total duration (seconds)"
+
+    - name: elapsedDuration
+      json_path: "$.elapsedDuration"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Elapsed duration including pauses (seconds)"
+
+    - name: movingDuration
+      json_path: "$.movingDuration"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Moving duration excluding pauses (seconds)"
+
+    # =========================================================================
+    # SPEED
+    # =========================================================================
+    - name: averageSpeed
+      json_path: "$.averageSpeed"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average speed (m/s)"
+
+    - name: maxSpeed
+      json_path: "$.maxSpeed"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Maximum speed (m/s)"
+
+    - name: avgGradeAdjustedSpeed
+      json_path: "$.avgGradeAdjustedSpeed"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average grade-adjusted speed (m/s)"
+
+    - name: maxVerticalSpeed
+      json_path: "$.maxVerticalSpeed"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Maximum vertical speed (m/s)"
+
+    # =========================================================================
+    # ELEVATION
+    # =========================================================================
+    - name: elevationGain
+      json_path: "$.elevationGain"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Total elevation gain (meters)"
+
+    - name: elevationLoss
+      json_path: "$.elevationLoss"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Total elevation loss (meters)"
+
+    - name: minElevation
+      json_path: "$.minElevation"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Minimum elevation (meters)"
+
+    - name: maxElevation
+      json_path: "$.maxElevation"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Maximum elevation (meters)"
+
+    - name: elevationCorrected
+      json_path: "$.elevationCorrected"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether elevation data was corrected"
+
+    # =========================================================================
+    # GPS COORDINATES
+    # =========================================================================
+    - name: startLatitude
+      json_path: "$.startLatitude"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Start latitude"
+
+    - name: startLongitude
+      json_path: "$.startLongitude"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Start longitude"
+
+    - name: endLatitude
+      json_path: "$.endLatitude"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "End latitude"
+
+    - name: endLongitude
+      json_path: "$.endLongitude"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "End longitude"
+
+    - name: hasPolyline
+      json_path: "$.hasPolyline"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether GPS polyline is available"
+
+    # =========================================================================
+    # HEART RATE
+    # =========================================================================
+    - name: averageHR
+      json_path: "$.averageHR"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average heart rate (bpm)"
+
+    - name: maxHR
+      json_path: "$.maxHR"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Maximum heart rate (bpm)"
+
+    - name: hrTimeInZone_1
+      json_path: "$.hrTimeInZone_1"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in HR Zone 1 (seconds)"
+
+    - name: hrTimeInZone_2
+      json_path: "$.hrTimeInZone_2"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in HR Zone 2 (seconds)"
+
+    - name: hrTimeInZone_3
+      json_path: "$.hrTimeInZone_3"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in HR Zone 3 (seconds)"
+
+    - name: hrTimeInZone_4
+      json_path: "$.hrTimeInZone_4"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in HR Zone 4 (seconds)"
+
+    - name: hrTimeInZone_5
+      json_path: "$.hrTimeInZone_5"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in HR Zone 5 (seconds)"
+
+    # =========================================================================
+    # POWER
+    # =========================================================================
+    - name: avgPower
+      json_path: "$.avgPower"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average power (watts)"
+
+    - name: maxPower
+      json_path: "$.maxPower"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Maximum power (watts)"
+
+    - name: normPower
+      json_path: "$.normPower"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Normalized power (watts)"
+
+    - name: powerTimeInZone_1
+      json_path: "$.powerTimeInZone_1"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in Power Zone 1 (seconds)"
+
+    - name: powerTimeInZone_2
+      json_path: "$.powerTimeInZone_2"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in Power Zone 2 (seconds)"
+
+    - name: powerTimeInZone_3
+      json_path: "$.powerTimeInZone_3"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in Power Zone 3 (seconds)"
+
+    - name: powerTimeInZone_4
+      json_path: "$.powerTimeInZone_4"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in Power Zone 4 (seconds)"
+
+    - name: powerTimeInZone_5
+      json_path: "$.powerTimeInZone_5"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Time in Power Zone 5 (seconds)"
+
+    # =========================================================================
+    # RUNNING METRICS
+    # =========================================================================
+    - name: steps
+      json_path: "$.steps"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Total steps"
+
+    - name: averageRunningCadenceInStepsPerMinute
+      json_path: "$.averageRunningCadenceInStepsPerMinute"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average running cadence (steps per minute)"
+
+    - name: maxRunningCadenceInStepsPerMinute
+      json_path: "$.maxRunningCadenceInStepsPerMinute"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Maximum running cadence (steps per minute)"
+
+    - name: maxDoubleCadence
+      json_path: "$.maxDoubleCadence"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Maximum double cadence"
+
+    - name: avgStrideLength
+      json_path: "$.avgStrideLength"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average stride length (cm)"
+
+    - name: avgGroundContactTime
+      json_path: "$.avgGroundContactTime"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average ground contact time (ms)"
+
+    - name: avgVerticalOscillation
+      json_path: "$.avgVerticalOscillation"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average vertical oscillation (cm)"
+
+    - name: avgVerticalRatio
+      json_path: "$.avgVerticalRatio"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average vertical ratio (%)"
+
+    # =========================================================================
+    # CALORIES & ENERGY
+    # =========================================================================
+    - name: calories
+      json_path: "$.calories"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Total calories burned"
+
+    - name: bmrCalories
+      json_path: "$.bmrCalories"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Basal metabolic rate calories"
+
+    - name: autoCalcCalories
+      json_path: "$.autoCalcCalories"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether calories were auto-calculated"
+
+    - name: differenceBodyBattery
+      json_path: "$.differenceBodyBattery"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Body battery difference (end - start)"
+
+    # =========================================================================
+    # TRAINING METRICS
+    # =========================================================================
+    - name: vO2MaxValue
+      json_path: "$.vO2MaxValue"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "VO2 max value (ml/kg/min)"
+
+    - name: aerobicTrainingEffect
+      json_path: "$.aerobicTrainingEffect"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Aerobic training effect (0-5)"
+
+    - name: aerobicTrainingEffectMessage
+      json_path: "$.aerobicTrainingEffectMessage"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Aerobic training effect message"
+
+    - name: anaerobicTrainingEffect
+      json_path: "$.anaerobicTrainingEffect"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Anaerobic training effect (0-5)"
+
+    - name: anaerobicTrainingEffectMessage
+      json_path: "$.anaerobicTrainingEffectMessage"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Anaerobic training effect message"
+
+    - name: trainingEffectLabel
+      json_path: "$.trainingEffectLabel"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Overall training effect label"
+
+    - name: activityTrainingLoad
+      json_path: "$.activityTrainingLoad"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Activity training load"
+
+    - name: moderateIntensityMinutes
+      json_path: "$.moderateIntensityMinutes"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Moderate intensity minutes"
+
+    - name: vigorousIntensityMinutes
+      json_path: "$.vigorousIntensityMinutes"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Vigorous intensity minutes"
+
+    # =========================================================================
+    # FASTEST SPLITS
+    # =========================================================================
+    - name: fastestSplit_1000
+      json_path: "$.fastestSplit_1000"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Fastest 1km split time (seconds)"
+
+    - name: fastestSplit_1609
+      json_path: "$.fastestSplit_1609"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Fastest 1 mile split time (seconds)"
+
+    - name: fastestSplit_5000
+      json_path: "$.fastestSplit_5000"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Fastest 5km split time (seconds)"
+
+    - name: fastestSplit_10000
+      json_path: "$.fastestSplit_10000"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Fastest 10km split time (seconds)"
+
+    - name: fastestSplit_21098
+      json_path: "$.fastestSplit_21098"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Fastest half marathon split time (seconds)"
+
+    - name: fastestSplit_42195
+      json_path: "$.fastestSplit_42195"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Fastest marathon split time (seconds)"
+
+    # =========================================================================
+    # TEMPERATURE
+    # =========================================================================
+    - name: minTemperature
+      json_path: "$.minTemperature"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Minimum temperature (Celsius)"
+
+    - name: maxTemperature
+      json_path: "$.maxTemperature"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Maximum temperature (Celsius)"
+
+    # =========================================================================
+    # DEVICE & METADATA
+    # =========================================================================
+    - name: deviceId
+      json_path: "$.deviceId"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Device ID"
+
+    - name: manufacturer
+      json_path: "$.manufacturer"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Device manufacturer"
+
+    - name: manualActivity
+      json_path: "$.manualActivity"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity was manually entered"
+
+    - name: lapCount
+      json_path: "$.lapCount"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Number of laps"
+
+    - name: minActivityLapDuration
+      json_path: "$.minActivityLapDuration"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Minimum lap duration (seconds)"
+
+    - name: hasSplits
+      json_path: "$.hasSplits"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity has splits"
+
+    - name: hasHeatMap
+      json_path: "$.hasHeatMap"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether heat map is available"
+
+    # =========================================================================
+    # PRIVACY & SOCIAL
+    # =========================================================================
+    - name: privacy
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.privacy"
+      description: "Activity privacy settings"
+      fields:
+        - name: typeId
+          json_path: "$.typeId"
+          bq_type: INT64
+          mode: NULLABLE
+
+        - name: typeKey
+          json_path: "$.typeKey"
+          bq_type: STRING
+          mode: NULLABLE
+
+    - name: hasImages
+      json_path: "$.hasImages"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity has images"
+
+    - name: hasVideo
+      json_path: "$.hasVideo"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity has video"
+
+    - name: favorite
+      json_path: "$.favorite"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity is favorited"
+
+    - name: pr
+      json_path: "$.pr"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity is a personal record"
+
+    - name: parent
+      json_path: "$.parent"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity is a parent activity"
+
+    - name: atpActivity
+      json_path: "$.atpActivity"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity is ATP (Adaptive Training Plan)"
+
+    - name: purposeful
+      json_path: "$.purposeful"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether activity was purposeful"
+
+    # =========================================================================
+    # DIVING (optional)
+    # =========================================================================
+    - name: decoDive
+      json_path: "$.decoDive"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether dive was decompression dive"
+
+    - name: qualifyingDive
+      json_path: "$.qualifyingDive"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether dive was qualifying dive"
+
+    - name: waterEstimated
+      json_path: "$.waterEstimated"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Estimated water consumption (liters)"
+
+  # ===========================================================================
+  # EXTENDED FIELDS
+  # ===========================================================================
+  extended_fields_reference:
+    note: "GPS polyline and detailed metrics stored in raw_data JSON"
+    reason: "Polyline contains 100s-1000s of GPS points - too large for static schema"
+    structures:
+      - "detailed_data.geoPolylineDTO: GPS polyline with lat/lon/altitude/speed per point"
+      - "detailed_data.metricDescriptors: Metric definitions"
+      - "detailed_data.activityDetailMetrics: Time-series metrics arrays"
+      - "userRoles: User permission scopes (array)"
+      - "splitSummaries: Split summaries (small array, could extract if needed)"
+    query_access: "Use JSON_EXTRACT functions or create views to access GPS data"
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete activity details JSON including GPS polyline"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key: activityId
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - activityId
+    - startTimeLocal
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp_space:
+    description: "Convert 'YYYY-MM-DD HH:MM:SS' string to TIMESTAMP"
+    logic: "datetime.strptime(value, '%Y-%m-%d %H:%M:%S')"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 200
+  max_batch_size_mb: 20
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 4096
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Ingest activity_details to dev"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activity_details --env dev"
+
+  - name: "Ingest activity_details to prod"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activity_details --env prd"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  GARMIN ACTIVITY DETAILS:
+
+  The most comprehensive activity dataset with 195 JSON paths including:
+  - Complete activity summary metrics
+  - Owner/user information
+  - Training effects and VO2 max
+  - HR and Power zone time distribution
+  - Fastest splits (1km, 1mi, 5km, 10km, half, full)
+  - GPS polyline with 100s-1000s of coordinate points
+  - Detailed metric time-series
+
+  This table is the PRIMARY activity table - join with other tables:
+  - activity_weather: Weather conditions
+  - activity_hr_zones: Detailed HR zone breakdown
+  - activity_splits: Lap/split details
+  - activities: Extended activity data
+
+  Training Effect (0-5 scale):
+  - 0.0-1.9: Minor
+  - 2.0-2.9: Maintaining
+  - 3.0-3.9: Improving
+  - 4.0-4.9: Highly Improving
+  - 5.0: Overreaching
+
+  Query examples:
+
+  # Activity summary with key metrics
+  SELECT
+    activityId,
+    activityName,
+    startTimeLocal,
+    activityType.typeKey AS activity_type,
+    ROUND(distance / 1000, 2) AS distance_km,
+    ROUND(duration / 60, 1) AS duration_min,
+    ROUND(averageSpeed * 3.6, 2) AS avg_speed_kmh,
+    ROUND(1000 / (averageSpeed * 60), 2) AS pace_min_per_km,
+    averageHR,
+    vO2MaxValue,
+    aerobicTrainingEffect,
+    calories
+  FROM `lake_garmin__activity_details_normalized`
+  WHERE startTimeLocal >= '2025-10-01'
+  ORDER BY startTimeLocal DESC;
+
+  # Training effect analysis
+  SELECT
+    DATE_TRUNC(startTimeLocal, WEEK) AS week,
+    COUNT(*) AS activity_count,
+    ROUND(AVG(aerobicTrainingEffect), 2) AS avg_aerobic_te,
+    ROUND(AVG(anaerobicTrainingEffect), 2) AS avg_anaerobic_te,
+    SUM(CASE WHEN aerobicTrainingEffect >= 4.0 THEN 1 ELSE 0 END) AS overreaching_count
+  FROM `lake_garmin__activity_details_normalized`
+  WHERE startTimeLocal >= '2025-09-01'
+  GROUP BY week
+  ORDER BY week DESC;
+
+  # Personal records
+  SELECT
+    activityId,
+    activityName,
+    startTimeLocal,
+    ROUND(fastestSplit_1000 / 60, 2) AS best_1km_min,
+    ROUND(fastestSplit_5000 / 60, 2) AS best_5km_min,
+    ROUND(fastestSplit_10000 / 60, 2) AS best_10km_min
+  FROM `lake_garmin__activity_details_normalized`
+  WHERE pr = TRUE
+    AND startTimeLocal >= '2025-01-01'
+  ORDER BY startTimeLocal DESC;
+
+  # HR zone distribution
+  SELECT
+    activityId,
+    activityName,
+    ROUND((hrTimeInZone_1 + hrTimeInZone_2) / 60, 1) AS easy_min,
+    ROUND(hrTimeInZone_3 / 60, 1) AS moderate_min,
+    ROUND((hrTimeInZone_4 + hrTimeInZone_5) / 60, 1) AS hard_min,
+    ROUND((hrTimeInZone_1 + hrTimeInZone_2) * 100.0 /
+          (hrTimeInZone_1 + hrTimeInZone_2 + hrTimeInZone_3 + hrTimeInZone_4 + hrTimeInZone_5), 1) AS easy_pct
+  FROM `lake_garmin__activity_details_normalized`
+  WHERE startTimeLocal >= '2025-10-01'
+    AND hrTimeInZone_1 IS NOT NULL
+  ORDER BY startTimeLocal DESC;
+
+  # Extract GPS polyline bounds
+  SELECT
+    activityId,
+    JSON_EXTRACT_SCALAR(raw_data, '$.detailed_data.geoPolylineDTO.minLat') AS min_lat,
+    JSON_EXTRACT_SCALAR(raw_data, '$.detailed_data.geoPolylineDTO.maxLat') AS max_lat,
+    JSON_EXTRACT_SCALAR(raw_data, '$.detailed_data.geoPolylineDTO.minLon') AS min_lon,
+    JSON_EXTRACT_SCALAR(raw_data, '$.detailed_data.geoPolylineDTO.maxLon') AS max_lon
+  FROM `lake_garmin__activity_details_normalized`
+  WHERE hasPolyline = TRUE
+  LIMIT 10;

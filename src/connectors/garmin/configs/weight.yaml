@@ -1,0 +1,244 @@
+# =============================================================================
+# GARMIN WEIGHT - BODY COMPOSITION DATA
+# =============================================================================
+# This dataset contains body composition metrics from Garmin Index Scale
+# Includes weight, BMI, body fat %, body water %, bone mass, muscle mass, etc.
+# =============================================================================
+
+data_type: weight
+description: "Garmin body composition data from Index Scale"
+version: "2.0.0"
+owner: "data-platform"
+last_updated: "2025-11-02"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "garmin/landing"
+  file_pattern: "*_weight.jsonl"
+  archive_path: "garmin/archive"
+  rejected_path: "garmin/rejected"
+  delete_after_archive: false
+  max_file_age_days: 30
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_garmin__normalized_weight"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null
+
+  clustering:
+    enabled: true
+    fields:
+      - "calendarDate"
+      - "samplePk"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    - name: samplePk
+      json_path: "$.samplePk"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Unique sample identifier"
+
+    - name: date
+      json_path: "$.date"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Measurement date (epoch milliseconds)"
+      transform: "timestamp_ms_to_timestamp"
+
+    - name: calendarDate
+      json_path: "$.calendarDate"
+      bq_type: DATE
+      mode: NULLABLE
+      description: "Calendar date of measurement"
+      transform: "string_to_date"
+
+    - name: weight
+      json_path: "$.weight"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Weight in grams"
+
+    - name: bmi
+      json_path: "$.bmi"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Body Mass Index"
+
+    - name: bodyFat
+      json_path: "$.bodyFat"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Body fat percentage"
+
+    - name: bodyWater
+      json_path: "$.bodyWater"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Body water percentage"
+
+    - name: boneMass
+      json_path: "$.boneMass"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Bone mass in grams"
+
+    - name: muscleMass
+      json_path: "$.muscleMass"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Muscle mass in grams"
+
+    - name: physiqueRating
+      json_path: "$.physiqueRating"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Physique rating score"
+
+    - name: visceralFat
+      json_path: "$.visceralFat"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Visceral fat rating"
+
+    - name: metabolicAge
+      json_path: "$.metabolicAge"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Metabolic age in years"
+
+    - name: sourceType
+      json_path: "$.sourceType"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Source of measurement (e.g., INDEX_SCALE)"
+
+    - name: timestampGMT
+      json_path: "$.timestampGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Measurement timestamp GMT (epoch milliseconds)"
+      transform: "timestamp_ms_to_timestamp"
+
+    - name: weightDelta
+      json_path: "$.weightDelta"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Weight change since last measurement (grams)"
+
+    - name: summaryDate
+      json_path: "$.summaryDate"
+      bq_type: DATE
+      mode: NULLABLE
+      description: "Summary date for aggregation"
+      transform: "string_to_date"
+
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Original measurement data"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Ingestion timestamp"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source file for audit"
+
+quality_checks:
+  unique_key: samplePk
+  deduplication_strategy: "keep_latest"
+  required_fields:
+    - calendarDate
+  validation_mode: "warn"
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+transformations:
+  timestamp_ms_to_timestamp:
+    description: "Convert epoch milliseconds to TIMESTAMP"
+    logic: "datetime.fromtimestamp(value / 1000, tz=timezone.utc)"
+
+  string_to_date:
+    description: "Convert ISO string to DATE"
+    logic: "datetime.fromisoformat(value).date()"
+
+performance:
+  batch_size: 500
+  max_workers: 4
+
+logging:
+  level: INFO
+  console: true
+
+notes: |
+  GARMIN WEIGHT DATA
+
+  This dataset contains body composition measurements from Garmin Index Scale.
+  Each record represents a single measurement with multiple body metrics.
+
+  Key fields:
+  - samplePk: Unique identifier for each measurement
+  - calendarDate: Date of measurement (partitioning key)
+  - weight: Weight in grams (divide by 1000 for kg)
+  - bmi: Body Mass Index
+  - bodyFat/bodyWater: Composition percentages
+  - boneMass/muscleMass: Mass measurements in grams
+  - timestampGMT: Exact measurement time
+  - weightDelta: Change since previous measurement
+
+  All nullable to handle missing metrics from different scale models.
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+    - name: no_data
+      threshold: 0
+    - name: processing_time
+      threshold: 600
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Ingest weight to dev"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config weight --env dev"
+
+  - name: "Ingest weight to prod"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config weight --env prd"
+
+  - name: "Dry run"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config weight --env dev --dry-run"

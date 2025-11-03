@@ -1,0 +1,357 @@
+# =============================================================================
+# GARMIN RACE PREDICTIONS - HYBRID INGESTION CONFIGURATION
+# =============================================================================
+# This configuration defines the complete ingestion pipeline for Garmin race
+# time predictions using a hybrid approach: core fields as typed columns +
+# extended fields in JSON
+#
+# Philosophy:
+# - Core fields (8): All prediction fields are core (simple, frequently used)
+# - Extended fields: Minimal (only metadata)
+# - Benefits: Fast queries on race predictions, time comparisons, trends
+#
+# Maintenance:
+# - This is a simple dataset with stable schema
+# - Version this file with git for auditability
+# =============================================================================
+
+# Metadata
+data_type: race_predictions
+description: "Garmin race time predictions based on VO2max and training data"
+version: "2.0.0"
+owner: "data-platform"
+last_updated: "2025-10-31"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  # GCS bucket configuration
+  bucket_pattern: "ela-dp-{env}"  # {env} replaced by --env flag (dev/prd)
+  landing_path: "garmin/landing"
+  file_pattern: "*_race_predictions.jsonl"  # Match files ending with _race_predictions.jsonl
+
+  # Post-processing paths
+  archive_path: "garmin/archive"     # Successful files moved here
+  rejected_path: "garmin/rejected"   # Failed files moved here
+
+  # File handling
+  delete_after_archive: false  # Keep files in archive for audit
+  max_file_age_days: 30        # Alert if files older than this
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  # BigQuery table
+  project_id: "${GCP_PROJECT_ID}"           # From environment variable
+  dataset_pattern: "dp_lake_{env}"          # {env} replaced by --env flag
+  table_name: "lake_garmin__normalized_race_predictions"
+
+  # Write behavior
+  write_disposition: "WRITE_APPEND"         # Always append
+  create_disposition: "CREATE_IF_NEEDED"    # Create table if missing
+
+  # Partitioning (critical for performance)
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null  # null = no expiration
+
+  # Clustering (critical for query performance)
+  clustering:
+    enabled: true
+    fields:
+      - "userId"
+      - "calendarDate"
+
+# =============================================================================
+# PARSING CONFIGURATION - HYBRID STRATEGY
+# =============================================================================
+parsing:
+  strategy: "hybrid"  # Options: hybrid | json_only
+
+  # Core fields: All fields are core (simple dataset, all frequently used)
+  # Criteria for inclusion:
+  # - All race prediction times are essential metrics
+  # - Date fields for time-series analysis
+  # - User identification for filtering
+  core_fields:
+    # =========================================================================
+    # IDENTIFIERS (Critical for joins and filtering)
+    # =========================================================================
+    - name: userId
+      json_path: "$.userId"
+      bq_type: INT64
+      mode: REQUIRED
+      description: "Garmin user identifier"
+      validations:
+        - type: not_null
+        - type: positive
+
+    - name: calendarDate
+      json_path: "$.calendarDate"
+      bq_type: DATE
+      mode: REQUIRED
+      description: "Date of the prediction (used for partitioning)"
+      transform: "string_to_date"
+      validations:
+        - type: not_null
+        - type: date_range
+          min: "2020-01-01"
+          max: "2030-12-31"
+
+    - name: fromCalendarDate
+      json_path: "$.fromCalendarDate"
+      bq_type: DATE
+      mode: NULLABLE
+      description: "Start date of training data used for prediction"
+      transform: "string_to_date"
+
+    - name: toCalendarDate
+      json_path: "$.toCalendarDate"
+      bq_type: DATE
+      mode: NULLABLE
+      description: "End date of training data used for prediction"
+      transform: "string_to_date"
+
+    # =========================================================================
+    # RACE TIME PREDICTIONS (in seconds)
+    # =========================================================================
+    - name: time5K
+      json_path: "$.time5K"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Predicted 5K race time in seconds"
+      validations:
+        - type: range
+          min: 600       # 10 minutes (very fast)
+          max: 7200      # 2 hours (very slow)
+
+    - name: time10K
+      json_path: "$.time10K"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Predicted 10K race time in seconds"
+      validations:
+        - type: range
+          min: 1200      # 20 minutes (very fast)
+          max: 14400     # 4 hours (very slow)
+
+    - name: timeHalfMarathon
+      json_path: "$.timeHalfMarathon"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Predicted half marathon (21.1km) race time in seconds"
+      validations:
+        - type: range
+          min: 3600      # 1 hour (very fast)
+          max: 28800     # 8 hours (very slow)
+
+    - name: timeMarathon
+      json_path: "$.timeMarathon"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Predicted full marathon (42.2km) race time in seconds"
+      validations:
+        - type: range
+          min: 7200      # 2 hours (very fast)
+          max: 57600     # 16 hours (very slow)
+
+  # ===========================================================================
+  # EXTENDED FIELDS (Kept in raw_data JSON for flexibility)
+  # ===========================================================================
+  # For this dataset, there are no extended fields - all fields are core
+  # This is because the dataset is small and all fields are frequently used
+  extended_fields_reference:
+    note: "All fields are core for this dataset - no extended fields needed"
+
+# =============================================================================
+# METADATA FIELDS (Automatically added by ingestion script)
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete race prediction JSON (minimal - all fields already in core)"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested into data platform"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename for audit trail"
+
+# =============================================================================
+# DATA QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  # Deduplication - composite key: userId + calendarDate
+  unique_key: userId  # Note: Should be combined with calendarDate in practice
+  deduplication_strategy: "keep_latest"  # Options: keep_latest | keep_first | fail
+
+  # Required fields for a valid record
+  required_fields:
+    - userId
+    - calendarDate
+
+  # Field-level validations (defined in core_fields above)
+  validation_mode: "warn"  # Options: strict | warn | skip
+  # - strict: Reject entire file if any record fails validation
+  # - warn: Log warning but continue (default)
+  # - skip: No validation
+
+  # Null handling
+  null_handling:
+    strategy: "allow"  # Options: allow | reject | replace
+    replacement_values: {}  # Map of field -> default value
+
+# =============================================================================
+# TRANSFORMATIONS (Custom logic for data conversion)
+# =============================================================================
+transformations:
+  string_to_date:
+    description: "Convert string date (YYYY-MM-DD) to BigQuery DATE"
+    logic: "datetime.strptime(value, '%Y-%m-%d').date()"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  # Batch processing
+  batch_size: 500              # Records per BigQuery insert
+  max_batch_size_mb: 10        # Max batch size in MB
+
+  # Parallelization
+  max_workers: 4               # Parallel file processing threads
+  parallel_file_limit: 10      # Max files to process in parallel
+
+  # Memory management
+  max_memory_mb: 2048          # Max memory usage
+  stream_large_files: true     # Stream files > 100MB
+
+  # Timeouts
+  bq_job_timeout_seconds: 600  # BigQuery job timeout (10 min)
+  gcs_download_timeout: 300    # GCS download timeout (5 min)
+
+  # Retry logic
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING & MONITORING
+# =============================================================================
+logging:
+  level: INFO  # DEBUG | INFO | WARNING | ERROR
+
+  # Output
+  console: true
+  file: false
+  file_path: "logs/garmin_ingest_{env}_{timestamp}.log"
+
+  # Content
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+
+  # Metrics
+  track_metrics: true
+  metrics:
+    - records_processed
+    - records_inserted
+    - records_rejected
+    - files_processed
+    - files_failed
+    - processing_time_seconds
+    - bigquery_bytes_processed
+
+# =============================================================================
+# ALERTING (Optional integration with monitoring systems)
+# =============================================================================
+alerting:
+  enabled: false
+
+  # Alert conditions
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1  # Alert if >10% records rejected
+
+    - name: no_data
+      threshold: 0    # Alert if no files found
+
+    - name: processing_time
+      threshold: 600  # Alert if processing takes >10 minutes
+
+  # Alert channels (to be implemented)
+  channels:
+    - email
+    - slack
+    - pagerduty
+
+# =============================================================================
+# NOTES & DOCUMENTATION
+# =============================================================================
+notes: |
+  GARMIN RACE PREDICTIONS DATA:
+
+  This dataset contains Garmin's predicted race finish times based on the user's
+  VO2max estimate and recent training data. Predictions are provided for:
+  - 5K (5 kilometers)
+  - 10K (10 kilometers)
+  - Half Marathon (21.1 kilometers)
+  - Full Marathon (42.2 kilometers)
+
+  All times are stored in seconds for consistency and easy calculations.
+
+  Key use cases:
+  - Track improvement in predicted race times over time
+  - Compare predictions to actual race results
+  - Analyze relationship between training load and predictions
+  - Identify performance trends
+  - Set realistic race goals
+
+  Example queries:
+
+  # Get latest predictions
+  SELECT
+    calendar_date,
+    TIMESTAMP_SECONDS(time_5k_seconds) as predicted_5k,
+    TIMESTAMP_SECONDS(time_10k_seconds) as predicted_10k,
+    TIMESTAMP_SECONDS(time_half_marathon_seconds) as predicted_half_marathon,
+    TIMESTAMP_SECONDS(time_marathon_seconds) as predicted_marathon
+  FROM `project.dataset.lake_garmin__race_predictions_normalized`
+  WHERE user_id = 119326264
+  ORDER BY calendar_date DESC
+  LIMIT 1
+
+  # Track improvement over time
+  SELECT
+    calendar_date,
+    time_5k_seconds,
+    LAG(time_5k_seconds) OVER (PARTITION BY user_id ORDER BY calendar_date) as previous_5k,
+    time_5k_seconds - LAG(time_5k_seconds) OVER (PARTITION BY user_id ORDER BY calendar_date) as improvement_seconds
+  FROM `project.dataset.lake_garmin__race_predictions_normalized`
+  WHERE user_id = 119326264
+  ORDER BY calendar_date
+
+examples:
+  - name: "Ingest race predictions to dev"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config race_predictions --env dev"
+
+  - name: "Ingest race predictions to prod"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config race_predictions --env prd"
+
+  - name: "Dry run (validate config only)"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config race_predictions --env dev --dry-run"
+
+  - name: "Verbose logging"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config race_predictions --env dev --log-level DEBUG"

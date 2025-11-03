@@ -1,0 +1,763 @@
+# =============================================================================
+# SPOTIFY SAVED TRACKS - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Spotify saved tracks (liked songs) data with full
+# track details, album information, and artist metadata.
+#
+# Structure:
+# - Save context: added_at timestamp (when user saved/liked the track)
+# - Track info: id, name, duration_ms, explicit, popularity, track_number
+# - Album info: id, name, album_type, release_date, total_tracks, images
+# - Track artists: id, name, external_urls (REPEATED RECORD)
+# - Album artists: id, name, external_urls (REPEATED RECORD)
+# =============================================================================
+
+data_type: saved_tracks
+description: "Spotify saved tracks (liked songs) with full track/album/artist details"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-11-01"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "spotify/landing"
+  file_pattern: "*_saved_tracks.jsonl"
+  archive_path: "spotify/archive"
+  rejected_path: "spotify/rejected"
+  delete_after_archive: false
+  max_file_age_days: 30
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_spotify__normalized_saved_tracks"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null
+
+  clustering:
+    enabled: true
+    fields:
+      - "trackId"
+      - "addedAt"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # SAVE CONTEXT
+    # =========================================================================
+    - name: addedAt
+      json_path: "$.added_at"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "Timestamp when track was saved/liked"
+      transform: "string_to_timestamp_iso"
+      validations:
+        - type: not_null
+
+    # =========================================================================
+    # TRACK IDENTIFICATION
+    # =========================================================================
+    - name: trackId
+      json_path: "$.track.id"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Spotify track ID (unique identifier)"
+      validations:
+        - type: not_null
+
+    - name: trackName
+      json_path: "$.track.name"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Track name/title"
+
+    - name: type
+      json_path: "$.track.type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Object type (always 'track')"
+
+    - name: uri
+      json_path: "$.track.uri"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify URI (spotify:track:xxx)"
+
+    - name: href
+      json_path: "$.track.href"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify API URL for this track"
+
+    # =========================================================================
+    # TRACK METADATA
+    # =========================================================================
+    - name: durationMs
+      json_path: "$.track.duration_ms"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Track duration in milliseconds"
+      validations:
+        - type: range
+          min: 0
+          max: 7200000
+
+    - name: explicit
+      json_path: "$.track.explicit"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether track contains explicit content"
+
+    - name: popularity
+      json_path: "$.track.popularity"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Track popularity score (0-100)"
+      validations:
+        - type: range
+          min: 0
+          max: 100
+
+    - name: trackNumber
+      json_path: "$.track.track_number"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Track number on album"
+
+    - name: discNumber
+      json_path: "$.track.disc_number"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Disc number for multi-disc albums"
+
+    - name: isLocal
+      json_path: "$.track.is_local"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether track is a local file (not from Spotify catalog)"
+
+    - name: isPlayable
+      json_path: "$.track.is_playable"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether track is playable in user's market"
+
+    - name: previewUrl
+      json_path: "$.track.preview_url"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "30-second preview MP3 URL (null if not available)"
+
+    - name: availableMarkets
+      json_path: "$.track.available_markets"
+      bq_type: JSON
+      mode: NULLABLE
+      description: "List of country codes where track is available (stored as JSON array)"
+
+    # =========================================================================
+    # EXTERNAL URLS (RECORD)
+    # =========================================================================
+    - name: externalUrls
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.track.external_urls"
+      description: "External URLs for this track"
+      fields:
+        - name: spotify
+          json_path: "$.spotify"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify web player URL"
+
+    # =========================================================================
+    # EXTERNAL IDS (RECORD)
+    # =========================================================================
+    - name: externalIds
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.track.external_ids"
+      description: "External identifiers (ISRC, EAN, UPC)"
+      fields:
+        - name: isrc
+          json_path: "$.isrc"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "International Standard Recording Code"
+
+    # =========================================================================
+    # TRACK ARTISTS (REPEATED RECORD)
+    # =========================================================================
+    - name: artists
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.track.artists"
+      description: "Track artists (can differ from album artists for features/collaborations)"
+      fields:
+        - name: artistId
+          json_path: "$.id"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist ID"
+
+        - name: artistName
+          json_path: "$.name"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Artist name"
+
+        - name: type
+          json_path: "$.type"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Object type (always 'artist')"
+
+        - name: uri
+          json_path: "$.uri"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist URI"
+
+        - name: href
+          json_path: "$.href"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify API URL for artist"
+
+        - name: externalUrls
+          bq_type: RECORD
+          mode: NULLABLE
+          json_path: "$.external_urls"
+          description: "External URLs for artist"
+          fields:
+            - name: spotify
+              json_path: "$.spotify"
+              bq_type: STRING
+              mode: NULLABLE
+              description: "Spotify web player URL for artist"
+
+    # =========================================================================
+    # ALBUM INFORMATION
+    # =========================================================================
+    - name: albumId
+      json_path: "$.track.album.id"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify album ID"
+
+    - name: albumName
+      json_path: "$.track.album.name"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Album name/title"
+
+    - name: albumType
+      json_path: "$.track.album.album_type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Album type (album, single, compilation)"
+
+    - name: albumReleaseDate
+      json_path: "$.track.album.release_date"
+      bq_type: DATE
+      mode: NULLABLE
+      description: "Album release date (YYYY, YYYY-MM, or YYYY-MM-DD)"
+      transform: "string_to_date_flexible"
+
+    - name: albumReleaseDatePrecision
+      json_path: "$.track.album.release_date_precision"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Precision of release date (year, month, day)"
+
+    - name: albumTotalTracks
+      json_path: "$.track.album.total_tracks"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Total number of tracks on album"
+      validations:
+        - type: range
+          min: 1
+          max: 500
+
+    - name: albumType2
+      json_path: "$.track.album.type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Object type (always 'album')"
+
+    - name: albumUri
+      json_path: "$.track.album.uri"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify album URI"
+
+    - name: albumHref
+      json_path: "$.track.album.href"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify API URL for album"
+
+    - name: albumIsPlayable
+      json_path: "$.track.album.is_playable"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether album is playable in user's market"
+
+    - name: albumAvailableMarkets
+      json_path: "$.track.album.available_markets"
+      bq_type: JSON
+      mode: NULLABLE
+      description: "List of country codes where album is available (stored as JSON array)"
+
+    # =========================================================================
+    # ALBUM EXTERNAL URLS (RECORD)
+    # =========================================================================
+    - name: albumExternalUrls
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.track.album.external_urls"
+      description: "External URLs for album"
+      fields:
+        - name: spotify
+          json_path: "$.spotify"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify web player URL for album"
+
+    # =========================================================================
+    # ALBUM ARTISTS (REPEATED RECORD)
+    # =========================================================================
+    - name: albumArtists
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.track.album.artists"
+      description: "Album artists (primary artists for the album)"
+      fields:
+        - name: artistId
+          json_path: "$.id"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist ID"
+
+        - name: artistName
+          json_path: "$.name"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Artist name"
+
+        - name: type
+          json_path: "$.type"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Object type (always 'artist')"
+
+        - name: uri
+          json_path: "$.uri"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist URI"
+
+        - name: href
+          json_path: "$.href"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify API URL for artist"
+
+        - name: externalUrls
+          bq_type: RECORD
+          mode: NULLABLE
+          json_path: "$.external_urls"
+          description: "External URLs for artist"
+          fields:
+            - name: spotify
+              json_path: "$.spotify"
+              bq_type: STRING
+              mode: NULLABLE
+              description: "Spotify web player URL for artist"
+
+    # =========================================================================
+    # ALBUM IMAGES (REPEATED RECORD)
+    # =========================================================================
+    - name: albumImages
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.track.album.images"
+      description: "Album cover images in various sizes"
+      fields:
+        - name: url
+          json_path: "$.url"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Image URL"
+
+        - name: height
+          json_path: "$.height"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Image height in pixels"
+          validations:
+            - type: range
+              min: 0
+              max: 10000
+
+        - name: width
+          json_path: "$.width"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Image width in pixels"
+          validations:
+            - type: range
+              min: 0
+              max: 10000
+
+  # ===========================================================================
+  # EXTENDED FIELDS
+  # ===========================================================================
+  extended_fields_reference:
+    note: "All 54 JSON paths are mapped as core fields - no extended fields needed"
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete saved track JSON"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key: trackId
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - addedAt
+    - trackId
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp_iso:
+    description: "Convert ISO 8601 timestamp to Python datetime (Spotify format: 2025-11-01T10:34:56Z)"
+    logic: "datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)"
+
+  string_to_date_flexible:
+    description: "Convert YYYY, YYYY-MM, or YYYY-MM-DD to date"
+    logic: |
+      if len(value) == 4:
+          return datetime.strptime(value, '%Y').date()
+      elif len(value) == 7:
+          return datetime.strptime(value, '%Y-%m').date()
+      else:
+          return datetime.strptime(value, '%Y-%m-%d').date()
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 500
+  max_batch_size_mb: 10
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 2048
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Ingest saved_tracks to dev"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_tracks --env dev"
+
+  - name: "Ingest saved_tracks to prod"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_tracks --env prd"
+
+  - name: "Dry run"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_tracks --env dev --dry-run"
+
+  - name: "Verbose logging"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_tracks --env dev --log-level DEBUG"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  SPOTIFY SAVED TRACKS (LIKED SONGS):
+
+  This dataset contains tracks saved to the user's "Liked Songs" library, providing
+  comprehensive track and album metadata including:
+  - Track details (name, duration, popularity, explicit flag)
+  - Album information (name, type, release date, images)
+  - Track artists (can differ from album artists for features/collaborations)
+  - Album artists (primary artists)
+  - Availability and playability information
+  - External identifiers (ISRC)
+
+  Structure:
+  - Top level: added_at (when user saved/liked the track) + track object
+  - Track object: metadata + artists array + album object
+  - Album object: metadata + artists array + images array
+
+  Difference from recently_played:
+  - saved_tracks: User's permanent library (liked songs) - added_at is when saved
+  - recently_played: Listening history (ephemeral) - played_at is when listened
+
+  Album Types:
+  - album: Full-length album
+  - single: Single release (1-3 tracks)
+  - compilation: Compilation album (various artists)
+
+  Release Date Precision:
+  - year: Only year known (e.g., "2023")
+  - month: Year and month known (e.g., "2023-04")
+  - day: Full date known (e.g., "2023-04-21")
+
+  Artist Disambiguation:
+  - artists: Track-level artists (includes features/collaborations)
+  - albumArtists: Album-level artists (primary artists only)
+  - Use artists for track-specific queries, albumArtists for album context
+
+  Use cases:
+  1. Analyze music taste and preferences
+  2. Track library growth over time (using added_at)
+  3. Identify favorite artists and genres
+  4. Discover listening patterns and trends
+  5. Generate personalized playlists
+  6. Track when songs were added to library
+
+  Query examples:
+
+  # Recently saved tracks
+  SELECT
+    addedAt,
+    trackName,
+    artists[OFFSET(0)].artistName AS primary_artist,
+    albumName,
+    albumReleaseDate,
+    popularity,
+    ROUND(durationMs / 1000.0 / 60, 2) AS duration_minutes
+  FROM `lake_spotify__saved_tracks_normalized`
+  ORDER BY addedAt DESC
+  LIMIT 50;
+
+  # Top artists by saved tracks
+  SELECT
+    artist.artistName,
+    COUNT(*) AS tracks_saved,
+    AVG(popularity) AS avg_popularity,
+    SUM(durationMs) / 1000 / 60 AS total_minutes
+  FROM `lake_spotify__saved_tracks_normalized`,
+  UNNEST(artists) AS artist
+  WHERE addedAt >= '2025-01-01'
+  GROUP BY artist.artistName
+  ORDER BY tracks_saved DESC
+  LIMIT 20;
+
+  # Tracks saved over time (monthly trend)
+  SELECT
+    DATE_TRUNC(addedAt, MONTH) AS month,
+    COUNT(*) AS tracks_saved,
+    COUNT(DISTINCT artists[OFFSET(0)].artistId) AS unique_artists,
+    COUNTIF(explicit) AS explicit_tracks,
+    ROUND(AVG(popularity), 1) AS avg_popularity
+  FROM `lake_spotify__saved_tracks_normalized`
+  GROUP BY month
+  ORDER BY month DESC;
+
+  # Explicit vs clean content
+  SELECT
+    explicit,
+    COUNT(*) AS track_count,
+    ROUND(AVG(popularity), 1) AS avg_popularity,
+    ROUND(AVG(durationMs) / 1000 / 60, 1) AS avg_duration_minutes
+  FROM `lake_spotify__saved_tracks_normalized`
+  GROUP BY explicit
+  ORDER BY explicit DESC;
+
+  # Most popular albums in library
+  SELECT
+    albumName,
+    albumArtists[OFFSET(0)].artistName AS primary_artist,
+    COUNT(*) AS tracks_saved,
+    albumTotalTracks,
+    ROUND(COUNT(*) * 100.0 / albumTotalTracks, 1) AS pct_album_saved,
+    MIN(addedAt) AS first_track_saved,
+    MAX(addedAt) AS last_track_saved
+  FROM `lake_spotify__saved_tracks_normalized`
+  GROUP BY albumName, primary_artist, albumTotalTracks
+  HAVING tracks_saved >= 3
+  ORDER BY tracks_saved DESC
+  LIMIT 20;
+
+  # Track features and collaborations
+  SELECT
+    trackName,
+    albumName,
+    ARRAY_AGG(artist.artistName) AS all_artists,
+    ARRAY_LENGTH(artists) AS artist_count,
+    popularity,
+    addedAt
+  FROM `lake_spotify__saved_tracks_normalized`,
+  UNNEST(artists) AS artist
+  WHERE ARRAY_LENGTH(artists) > 1  -- Collaborations
+  GROUP BY trackName, albumName, popularity, addedAt
+  ORDER BY addedAt DESC
+  LIMIT 50;
+
+  # Album type distribution
+  SELECT
+    albumType,
+    COUNT(*) AS track_count,
+    COUNT(DISTINCT albumId) AS unique_albums,
+    ROUND(AVG(popularity), 1) AS avg_popularity,
+    ROUND(AVG(durationMs) / 1000 / 60, 1) AS avg_track_minutes
+  FROM `lake_spotify__saved_tracks_normalized`
+  GROUP BY albumType
+  ORDER BY track_count DESC;
+
+  # Oldest vs newest releases in library
+  SELECT
+    'Oldest' AS category,
+    trackName,
+    artists[OFFSET(0)].artistName AS artist,
+    albumName,
+    albumReleaseDate,
+    addedAt
+  FROM `lake_spotify__saved_tracks_normalized`
+  WHERE albumReleaseDate IS NOT NULL
+  ORDER BY albumReleaseDate ASC
+  LIMIT 10
+
+  UNION ALL
+
+  SELECT
+    'Newest' AS category,
+    trackName,
+    artists[OFFSET(0)].artistName AS artist,
+    albumName,
+    albumReleaseDate,
+    addedAt
+  FROM `lake_spotify__saved_tracks_normalized`
+  WHERE albumReleaseDate IS NOT NULL
+  ORDER BY albumReleaseDate DESC
+  LIMIT 10;
+
+  # Tracks by release decade
+  SELECT
+    FLOOR(EXTRACT(YEAR FROM albumReleaseDate) / 10) * 10 AS decade,
+    COUNT(*) AS track_count,
+    COUNT(DISTINCT albumId) AS unique_albums,
+    COUNT(DISTINCT artists[OFFSET(0)].artistId) AS unique_artists,
+    ROUND(AVG(popularity), 1) AS avg_popularity
+  FROM `lake_spotify__saved_tracks_normalized`
+  WHERE albumReleaseDate IS NOT NULL
+  GROUP BY decade
+  ORDER BY decade DESC;
+
+  # Track duration distribution
+  SELECT
+    CASE
+      WHEN durationMs < 120000 THEN '< 2 min'
+      WHEN durationMs < 180000 THEN '2-3 min'
+      WHEN durationMs < 240000 THEN '3-4 min'
+      WHEN durationMs < 300000 THEN '4-5 min'
+      WHEN durationMs < 360000 THEN '5-6 min'
+      ELSE '> 6 min'
+    END AS duration_range,
+    COUNT(*) AS track_count,
+    ROUND(AVG(popularity), 1) AS avg_popularity,
+    ARRAY_AGG(trackName ORDER BY popularity DESC LIMIT 3) AS sample_tracks
+  FROM `lake_spotify__saved_tracks_normalized`
+  GROUP BY duration_range
+  ORDER BY MIN(durationMs);
+
+  # Library growth rate (tracks per month)
+  SELECT
+    DATE_TRUNC(addedAt, MONTH) AS month,
+    COUNT(*) AS tracks_added,
+    SUM(COUNT(*)) OVER (ORDER BY DATE_TRUNC(addedAt, MONTH)) AS cumulative_tracks,
+    ROUND(AVG(COUNT(*)) OVER (
+      ORDER BY DATE_TRUNC(addedAt, MONTH)
+      ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ), 1) AS rolling_3month_avg
+  FROM `lake_spotify__saved_tracks_normalized`
+  GROUP BY month
+  ORDER BY month DESC;

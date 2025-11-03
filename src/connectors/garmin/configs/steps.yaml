@@ -1,0 +1,363 @@
+# =============================================================================
+# GARMIN STEPS - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Garmin steps data with 15-minute intervals.
+#
+# Structure:
+# - Time period: startGMT, endGMT (15-minute intervals)
+# - Activity: steps, pushes (wheelchair), primaryActivityLevel
+# - Metadata: date, activityLevelConstant
+#
+# Data frequency: Every 15 minutes (96 records per day)
+# =============================================================================
+
+data_type: steps
+description: "Garmin steps data with 15-minute interval measurements"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-11-01"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "garmin/landing"
+  file_pattern: "*_steps.jsonl"
+  archive_path: "garmin/archive"
+  rejected_path: "garmin/rejected"
+  delete_after_archive: false
+  max_file_age_days: 30
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_garmin__normalized_steps"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null
+
+  clustering:
+    enabled: true
+    fields:
+      - "date"
+      - "startGMT"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # TIME PERIOD
+    # =========================================================================
+    - name: startGMT
+      json_path: "$.startGMT"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "Start timestamp GMT (15-minute interval)"
+      transform: "string_to_timestamp"
+      validations:
+        - type: not_null
+
+    - name: endGMT
+      json_path: "$.endGMT"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "End timestamp GMT (15-minute interval)"
+      transform: "string_to_timestamp"
+      validations:
+        - type: not_null
+
+    - name: date
+      json_path: "$.date"
+      bq_type: DATE
+      mode: REQUIRED
+      description: "Calendar date (used for partitioning)"
+      transform: "string_to_date"
+      validations:
+        - type: not_null
+
+    # =========================================================================
+    # ACTIVITY METRICS
+    # =========================================================================
+    - name: steps
+      json_path: "$.steps"
+      bq_type: INT64
+      mode: REQUIRED
+      description: "Number of steps taken during the interval"
+      validations:
+        - type: not_null
+        - type: range
+          min: 0
+          max: 10000
+
+    - name: pushes
+      json_path: "$.pushes"
+      bq_type: INT64
+      mode: REQUIRED
+      description: "Number of wheelchair pushes during the interval"
+      validations:
+        - type: not_null
+        - type: range
+          min: 0
+          max: 10000
+
+    - name: primaryActivityLevel
+      json_path: "$.primaryActivityLevel"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Primary activity level (sedentary, sleeping, active, highly_active)"
+      validations:
+        - type: not_null
+        - type: allowed_values
+          values:
+            - sedentary
+            - sleeping
+            - active
+            - highly_active
+
+    - name: activityLevelConstant
+      json_path: "$.activityLevelConstant"
+      bq_type: BOOL
+      mode: REQUIRED
+      description: "Whether activity level was constant during the interval"
+      validations:
+        - type: not_null
+
+  # ===========================================================================
+  # EXTENDED FIELDS
+  # ===========================================================================
+  extended_fields_reference:
+    note: "All 7 JSON paths are mapped as core fields - no extended fields needed"
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete steps JSON"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key:
+    - startGMT
+    - endGMT
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - startGMT
+    - endGMT
+    - date
+    - steps
+    - pushes
+    - primaryActivityLevel
+    - activityLevelConstant
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp:
+    description: "Convert ISO string to TIMESTAMP"
+    logic: "datetime.fromisoformat(value.replace('.0', ''))"
+
+  string_to_date:
+    description: "Convert YYYY-MM-DD string to DATE"
+    logic: "datetime.strptime(value, '%Y-%m-%d').date()"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 1000
+  max_batch_size_mb: 10
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 2048
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Ingest steps to dev"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config steps --env dev"
+
+  - name: "Ingest steps to prod"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config steps --env prd"
+
+  - name: "Dry run"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config steps --env dev --dry-run"
+
+  - name: "Verbose logging"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config steps --env dev --log-level DEBUG"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  GARMIN STEPS DATA:
+
+  Steps are tracked continuously and aggregated into 15-minute intervals.
+  This results in 96 records per day per user (24 hours * 4 intervals/hour).
+
+  Data includes:
+  - Step count: Walking steps
+  - Pushes: Wheelchair pushes (for accessibility)
+  - Activity level: sedentary, sleeping, active, highly_active
+  - Activity level constant: Whether level changed during interval
+
+  Activity levels:
+  - sedentary: Sitting, minimal movement (< 70 steps/15min)
+  - sleeping: Sleep detected by device
+  - active: Walking, moderate activity (70-200 steps/15min)
+  - highly_active: Running, intense activity (> 200 steps/15min)
+
+  Note: Steps data has NO userProfilePK field. The user is inferred from the
+  filename or must be added during ingestion.
+
+  Query examples:
+
+  # Daily step totals
+  SELECT
+    date,
+    SUM(steps) AS total_steps,
+    SUM(pushes) AS total_pushes,
+    COUNT(*) AS interval_count,
+    AVG(steps) AS avg_steps_per_interval
+  FROM `lake_garmin__steps_normalized`
+  WHERE date >= '2025-10-01'
+  GROUP BY date
+  ORDER BY date DESC;
+
+  # Hourly activity patterns
+  SELECT
+    date,
+    EXTRACT(HOUR FROM startGMT) AS hour_of_day,
+    SUM(steps) AS hourly_steps,
+    AVG(steps) AS avg_steps_per_interval,
+    MAX(steps) AS max_steps_interval
+  FROM `lake_garmin__steps_normalized`
+  WHERE date >= '2025-10-01'
+  GROUP BY date, hour_of_day
+  ORDER BY date DESC, hour_of_day;
+
+  # Activity level distribution
+  SELECT
+    date,
+    primaryActivityLevel,
+    COUNT(*) AS interval_count,
+    SUM(steps) AS total_steps,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY date), 2) AS percentage_of_day
+  FROM `lake_garmin__steps_normalized`
+  WHERE date >= '2025-10-01'
+  GROUP BY date, primaryActivityLevel
+  ORDER BY date DESC, interval_count DESC;
+
+  # Most active periods
+  SELECT
+    date,
+    startGMT,
+    endGMT,
+    steps,
+    primaryActivityLevel,
+    activityLevelConstant
+  FROM `lake_garmin__steps_normalized`
+  WHERE date >= '2025-10-01'
+    AND steps > 200
+  ORDER BY steps DESC
+  LIMIT 20;
+
+  # Sleep vs wake hours
+  SELECT
+    date,
+    SUM(CASE WHEN primaryActivityLevel = 'sleeping' THEN 1 ELSE 0 END) * 0.25 AS sleep_hours,
+    SUM(CASE WHEN primaryActivityLevel != 'sleeping' THEN steps ELSE 0 END) AS awake_steps
+  FROM `lake_garmin__steps_normalized`
+  WHERE date >= '2025-10-01'
+  GROUP BY date
+  ORDER BY date DESC;
+
+  # Activity consistency (constant vs variable intervals)
+  SELECT
+    date,
+    activityLevelConstant,
+    COUNT(*) AS interval_count,
+    AVG(steps) AS avg_steps
+  FROM `lake_garmin__steps_normalized`
+  WHERE date >= '2025-10-01'
+  GROUP BY date, activityLevelConstant
+  ORDER BY date DESC;

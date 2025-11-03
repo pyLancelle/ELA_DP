@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -104,6 +104,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7d/6b/d52e42361e1aa00709585ecc30b3f9684b3ab62530771402248b1b1d6240/babel-2.17.0.tar.gz", hash = "sha256:0c54cffb19f690cdcc52a3b50bcbf71e07a808d1c80d549f2459b9d2cf0afb9d", size = 9951852, upload-time = "2025-02-01T15:17:41.026Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/b8/3fe70c75fe32afc4bb507f75563d39bc5642255d1d94f1f23604725780bf/babel-2.17.0-py3-none-any.whl", hash = "sha256:4d0b53093fdfb4b21c92b5213dba5a1b23885afa8383709427046b21c366e5f2", size = 10182537, upload-time = "2025-02-01T15:17:37.39Z" },
+]
+
+[[package]]
+name = "beautifulsoup4"
+version = "4.14.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "soupsieve" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/77/e9/df2358efd7659577435e2177bfa69cba6c33216681af51a707193dec162a/beautifulsoup4-4.14.2.tar.gz", hash = "sha256:2a98ab9f944a11acee9cc848508ec28d9228abfd522ef0fad6a02a72e0ded69e", size = 625822, upload-time = "2025-09-29T10:05:42.613Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl", hash = "sha256:5ef6fa3a8cbece8488d66985560f97ed091e22bbc4e9c2338508a9d5de6d4515", size = 106392, upload-time = "2025-09-29T10:05:43.771Z" },
 ]
 
 [[package]]
@@ -557,6 +570,7 @@ dependencies = [
     { name = "dbt-core" },
     { name = "dotenv" },
     { name = "garminconnect" },
+    { name = "google" },
     { name = "google-cloud" },
     { name = "google-cloud-bigquery" },
     { name = "google-cloud-storage" },
@@ -569,6 +583,7 @@ dependencies = [
     { name = "pytz" },
     { name = "pyyaml" },
     { name = "requests" },
+    { name = "requests-oauthlib" },
     { name = "spotipy" },
     { name = "stravalib" },
     { name = "types-requests" },
@@ -581,7 +596,8 @@ requires-dist = [
     { name = "dbt-bigquery", specifier = ">=1.8.0" },
     { name = "dbt-core", specifier = ">=1.8.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "garminconnect", specifier = ">=0.2.28" },
+    { name = "garminconnect", specifier = ">=0.2.30" },
+    { name = "google", specifier = ">=3.0.0" },
     { name = "google-cloud", specifier = ">=0.34.0" },
     { name = "google-cloud-bigquery", specifier = ">=3.33.0" },
     { name = "google-cloud-storage", specifier = ">=2.4.0" },
@@ -594,6 +610,7 @@ requires-dist = [
     { name = "pytz", specifier = ">=2024.1" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "requests", specifier = ">=2.32.4" },
+    { name = "requests-oauthlib", specifier = ">=2.0.0" },
     { name = "spotipy", specifier = ">=2.25.1" },
     { name = "stravalib", specifier = ">=2.4" },
     { name = "types-requests", specifier = ">=2.32.4.20250611" },
@@ -661,14 +678,14 @@ wheels = [
 
 [[package]]
 name = "garminconnect"
-version = "0.2.28"
+version = "0.2.30"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "garth" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/06/1f/d5aee4c4ff0dac960938f912f5c422c818bf55402b9b12264f2de8c5948d/garminconnect-0.2.28.tar.gz", hash = "sha256:51852b8035dad8ef76c906e7bf4c64a8dc7530c745e5fa3bf0c1e85e67313bb8", size = 148205, upload-time = "2025-06-09T17:39:55.422Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/49/f04f4e5ae59d0e4e2e753bf4e5ffe8a5b8c6b8af5cc25b9d905caf32d9d5/garminconnect-0.2.30.tar.gz", hash = "sha256:15098c26ddb6651d9e11fee4acb8ae6faa5d089d5a0034fe0499c3f39afd5eb4", size = 31235, upload-time = "2025-09-06T10:53:43.406Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/95/f8/8e21a6d1e4e51ae6aae1ef0a65e0ae1ed6bfa114331ae1196376d37f6506/garminconnect-0.2.28-py3-none-any.whl", hash = "sha256:c3206f1c5d256b36d0498788b96275f344312968b5c415d48b6b7c7b7f68a5cd", size = 84413, upload-time = "2025-06-09T17:39:47.637Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/db/dc389f77e3dbbd40defe104645b6d1c201f4ebdfadbaa376d81f5aebd9b6/garminconnect-0.2.30-py3-none-any.whl", hash = "sha256:9256c1084853e016557c3669ae1180dc4cc15f2f722ab606fba0ecfa68fb2121", size = 26646, upload-time = "2025-09-06T10:53:41.506Z" },
 ]
 
 [[package]]
@@ -683,6 +700,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/37/ca/6a2b9dc95fd36bb098ec6318c21fd8e2419e5b770bd8c618b9d2d1077362/garth-0.5.17.tar.gz", hash = "sha256:48ede938c38b2fd70777e55c7025538775d93c1047f43cc7c4481f2a04b109cb", size = 1817853, upload-time = "2025-06-22T05:34:24.385Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ed/a5/7b22d90cc735abda0526aa708f54a729a966e50f7acef7d0b57dd48d0823/garth-0.5.17-py3-none-any.whl", hash = "sha256:4b109140dfacea6d96060bad8dead8da36699a0729cb0c4ca3b31fa49f860e88", size = 32973, upload-time = "2025-06-22T05:34:22.655Z" },
+]
+
+[[package]]
+name = "google"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/89/97/b49c69893cddea912c7a660a4b6102c6b02cd268f8c7162dd70b7c16f753/google-3.0.0.tar.gz", hash = "sha256:143530122ee5130509ad5e989f0512f7cb218b2d4eddbafbad40fd10e8d8ccbe", size = 44978, upload-time = "2020-07-11T14:50:45.678Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/35/17c9141c4ae21e9a29a43acdfd848e3e468a810517f862cad07977bf8fe9/google-3.0.0-py2.py3-none-any.whl", hash = "sha256:889cf695f84e4ae2c55fbc0cfdaf4c1e729417fa52ab1db0485202ba173e4935", size = 45258, upload-time = "2020-07-11T14:49:58.287Z" },
 ]
 
 [[package]]
@@ -2284,6 +2313,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ff/77/1ab6e5bafb9c80d8128f065a355377a04ac5b3c38eb719d920a9909d346e/snowplow_tracker-1.1.0.tar.gz", hash = "sha256:95d8fdc8bd542fd12a0b9a076852239cbaf0599eda8721deaf5f93f7138fe755", size = 34135, upload-time = "2025-02-21T10:58:48.112Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/10/1c76269cbf2d6e127f4415044d9ddb0295858230678bbf4bfba905593c82/snowplow_tracker-1.1.0-py3-none-any.whl", hash = "sha256:24ea32ddac9cca547421bf9ab162f5f33c00711c6ef118ad5f78093cee962224", size = 44128, upload-time = "2025-02-21T10:58:45.818Z" },
+]
+
+[[package]]
+name = "soupsieve"
+version = "2.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/e6/21ccce3262dd4889aa3332e5a119a3491a95e8f60939870a3a035aabac0d/soupsieve-2.8.tar.gz", hash = "sha256:e2dd4a40a628cb5f28f6d4b0db8800b8f581b65bb380b97de22ba5ca8d72572f", size = 103472, upload-time = "2025-08-27T15:39:51.78Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/a0/bb38d3b76b8cae341dad93a2dd83ab7462e6dbcdd84d43f54ee60a8dc167/soupsieve-2.8-py3-none-any.whl", hash = "sha256:0cc76456a30e20f5d7f2e14a98a4ae2ee4e5abdc7c5ea0aafe795f344bc7984c", size = 36679, upload-time = "2025-08-27T15:39:50.179Z" },
 ]
 
 [[package]]

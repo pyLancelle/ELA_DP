@@ -1,0 +1,617 @@
+# =============================================================================
+# SPOTIFY RECENTLY PLAYED - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Spotify recently played tracks.
+#
+# Structure (from Spotify API /v1/me/player/recently-played):
+# - Play context: playedAt timestamp
+# - Track info: id, name, duration, popularity, explicit
+# - Album info: id, name, releaseDate, images
+# - Artists: array of artist objects (id, name, genres)
+# - Audio features: tempo, energy, valence, etc. (if enriched)
+#
+# API Response: items[] array with track and context
+# =============================================================================
+
+data_type: recently_played
+description: "Spotify recently played tracks with full track/album/artist details"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-11-01"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "spotify/landing"
+  file_pattern: "*_recently_played.jsonl"
+  archive_path: "spotify/archive"
+  rejected_path: "spotify/rejected"
+  delete_after_archive: false
+  max_file_age_days: 90
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_spotify__normalized_recently_played"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null
+
+  clustering:
+    enabled: true
+    fields:
+      - "playedAt"
+      - "trackId"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # PLAY CONTEXT
+    # =========================================================================
+    - name: playedAt
+      json_path: "$.played_at"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "Timestamp when track was played (partition key)"
+      transform: "string_to_timestamp_iso"
+      validations:
+        - type: not_null
+
+    - name: contextType
+      json_path: "$.context.type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Context type (playlist, album, artist, collection) - null if not from a context"
+
+    - name: contextUri
+      json_path: "$.context.uri"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify URI of the context (spotify:playlist:xxx) - null if not from a context"
+
+    - name: contextHref
+      json_path: "$.context.href"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify API href for context"
+
+    - name: contextExternalUrl
+      json_path: "$.context.external_urls.spotify"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "External Spotify URL for context"
+
+    # =========================================================================
+    # TRACK INFO
+    # =========================================================================
+    - name: trackId
+      json_path: "$.track.id"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Spotify track ID"
+      validations:
+        - type: not_null
+
+    - name: trackName
+      json_path: "$.track.name"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Track name"
+      validations:
+        - type: not_null
+
+    - name: trackUri
+      json_path: "$.track.uri"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify track URI"
+
+    - name: trackExternalUrl
+      json_path: "$.track.external_urls.spotify"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "External Spotify URL for track"
+
+    - name: trackDurationMs
+      json_path: "$.track.duration_ms"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Track duration in milliseconds"
+      validations:
+        - type: range
+          min: 0
+          max: 7200000  # 2 hours max
+
+    - name: trackPopularity
+      json_path: "$.track.popularity"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Track popularity (0-100)"
+      validations:
+        - type: range
+          min: 0
+          max: 100
+
+    - name: trackExplicit
+      json_path: "$.track.explicit"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether track has explicit content"
+
+    - name: trackHref
+      json_path: "$.track.href"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify API href for track"
+
+    - name: trackType
+      json_path: "$.track.type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Object type (always 'track')"
+
+    - name: trackPreviewUrl
+      json_path: "$.track.preview_url"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Preview URL for track (30s sample)"
+
+    - name: trackDiscNumber
+      json_path: "$.track.disc_number"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Disc number"
+
+    - name: trackNumber
+      json_path: "$.track.track_number"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Track number on disc"
+
+    - name: trackIsLocal
+      json_path: "$.track.is_local"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether track is a local file"
+
+    - name: trackIsrc
+      json_path: "$.track.external_ids.isrc"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "International Standard Recording Code (ISRC)"
+
+    # =========================================================================
+    # ALBUM INFO
+    # =========================================================================
+    - name: albumId
+      json_path: "$.track.album.id"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify album ID"
+
+    - name: albumName
+      json_path: "$.track.album.name"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Album name"
+
+    - name: album_type
+      json_path: "$.track.album.album_type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Album type (album, single, compilation)"
+
+    - name: albumReleaseDate
+      json_path: "$.track.album.release_date"
+      bq_type: DATE
+      mode: NULLABLE
+      description: "Album release date"
+      transform: "string_to_date_flexible"
+
+    - name: albumReleaseDatePrecision
+      json_path: "$.track.album.release_date_precision"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Precision of release date (year, month, day)"
+
+    - name: albumTotalTracks
+      json_path: "$.track.album.total_tracks"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Total tracks in album"
+
+    - name: albumUri
+      json_path: "$.track.album.uri"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify album URI"
+
+    - name: albumExternalUrl
+      json_path: "$.track.album.external_urls.spotify"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "External Spotify URL for album"
+
+    - name: albumHref
+      json_path: "$.track.album.href"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify API href for album"
+
+    - name: albumType
+      json_path: "$.track.album.type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Object type (always 'album')"
+
+    - name: albumImageUrl
+      json_path: "$.track.album.images[0].url"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Album cover image URL (largest size)"
+
+    - name: albumImageHeight
+      json_path: "$.track.album.images[0].height"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Album cover image height (pixels)"
+
+    - name: albumImageWidth
+      json_path: "$.track.album.images[0].width"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Album cover image width (pixels)"
+
+    # =========================================================================
+    # ALBUM ARTISTS (REPEATED RECORD)
+    # =========================================================================
+    - name: albumArtists
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.track.album.artists"
+      description: "Album artists (array) - can differ from track artists"
+      fields:
+        - name: artistId
+          json_path: "$.id"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist ID"
+
+        - name: artistName
+          json_path: "$.name"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Artist name"
+
+        - name: artistUri
+          json_path: "$.uri"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist URI"
+
+        - name: artistHref
+          json_path: "$.href"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify API href for artist"
+
+        - name: artistType
+          json_path: "$.type"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Object type (always 'artist')"
+
+        - name: artistExternalUrl
+          json_path: "$.external_urls.spotify"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "External Spotify URL for artist"
+
+    # =========================================================================
+    # TRACK ARTISTS (REPEATED RECORD)
+    # =========================================================================
+    - name: artists
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.track.artists"
+      description: "Track artists (array)"
+      fields:
+        - name: artistId
+          json_path: "$.id"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist ID"
+
+        - name: artistName
+          json_path: "$.name"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Artist name"
+
+        - name: artistUri
+          json_path: "$.uri"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify artist URI"
+
+        - name: artistHref
+          json_path: "$.href"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify API href for artist"
+
+        - name: artistType
+          json_path: "$.type"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Object type (always 'artist')"
+
+        - name: artistExternalUrl
+          json_path: "$.external_urls.spotify"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "External Spotify URL for artist"
+
+  # ===========================================================================
+  # EXTENDED FIELDS
+  # ===========================================================================
+  extended_fields_reference:
+    note: "All 61 JSON paths mapped as core fields - no extended fields needed"
+    stored_in_raw_data: |
+      - available_markets arrays (track and album) - large arrays with country codes
+      - album.images full array (3 sizes: 640x640, 300x300, 64x64) - extracted only largest
+    additional_enrichments: |
+      - Audio features (tempo, energy, valence) can be enriched via /audio-features API
+      - Artist genres and popularity via /artists API
+      - Full album details via /albums API
+    query_access: "Use JSON_EXTRACT for additional fields in raw_data"
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete Spotify API response including all nested data"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key:
+    - playedAt
+    - trackId
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - playedAt
+    - trackId
+    - trackName
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp_iso:
+    description: "Convert ISO 8601 timestamp to TIMESTAMP"
+    logic: "datetime.fromisoformat(value.replace('Z', '+00:00'))"
+
+  string_to_date_flexible:
+    description: "Convert YYYY, YYYY-MM, or YYYY-MM-DD to DATE"
+    logic: |
+      if len(value) == 4: return datetime.strptime(value, '%Y').date()
+      elif len(value) == 7: return datetime.strptime(value, '%Y-%m').date()
+      else: return datetime.strptime(value, '%Y-%m-%d').date()
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 500
+  max_batch_size_mb: 10
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 2048
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Fetch recently played data"
+    command: "python -m src.connectors.spotify.spotify_fetch --data-type recently_played --output /path/to/output"
+
+  - name: "Ingest recently_played to dev"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev"
+
+  - name: "Ingest recently_played to prod"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env prd"
+
+  - name: "Dry run"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev --dry-run"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  SPOTIFY RECENTLY PLAYED:
+
+  Endpoint: GET /v1/me/player/recently-played
+  Rate limit: Standard Spotify API limits
+  History: Up to 50 most recent tracks (can paginate with cursors)
+  Timestamp precision: Milliseconds
+
+  Context types:
+  - playlist: Played from a playlist
+  - album: Played from an album
+  - artist: Played from artist radio
+  - collection: Played from user's library
+  - search: Played from search results
+
+  Album types:
+  - album: Standard album
+  - single: Single release
+  - compilation: Compilation album
+
+  Release date precision:
+  - year: Only year known (YYYY)
+  - month: Year and month known (YYYY-MM)
+  - day: Full date known (YYYY-MM-DD)
+
+  Data enrichment opportunities:
+  1. Audio features (via /audio-features): tempo, energy, danceability, valence, etc.
+  2. Artist details (via /artists): genres, popularity, followers
+  3. Track audio analysis (via /audio-analysis): detailed musical structure
+
+  Query examples:
+
+  # Recently played tracks with artist names
+  SELECT
+    playedAt,
+    trackName,
+    albumName,
+    ARRAY_TO_STRING(ARRAY_AGG(artist.artistName ORDER BY artist.artistName), ', ') AS artists,
+    trackDurationMs / 1000 AS duration_seconds,
+    trackPopularity
+  FROM `lake_spotify__recently_played_normalized`,
+  UNNEST(artists) AS artist
+  WHERE playedAt >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+  GROUP BY playedAt, trackName, albumName, trackDurationMs, trackPopularity
+  ORDER BY playedAt DESC;
+
+  # Most played tracks (last 30 days)
+  SELECT
+    trackId,
+    ANY_VALUE(trackName) AS trackName,
+    ANY_VALUE(albumName) AS albumName,
+    ARRAY_TO_STRING(ARRAY_AGG(DISTINCT artist.artistName ORDER BY artist.artistName), ', ') AS artists,
+    COUNT(*) AS play_count,
+    MAX(playedAt) AS last_played
+  FROM `lake_spotify__recently_played_normalized`,
+  UNNEST(artists) AS artist
+  WHERE playedAt >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  GROUP BY trackId
+  ORDER BY play_count DESC
+  LIMIT 20;
+
+  # Listening habits by hour of day
+  SELECT
+    EXTRACT(HOUR FROM playedAt) AS hour_of_day,
+    COUNT(*) AS tracks_played,
+    COUNT(DISTINCT trackId) AS unique_tracks,
+    AVG(trackDurationMs) / 60000 AS avg_duration_min
+  FROM `lake_spotify__recently_played_normalized`
+  WHERE playedAt >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  GROUP BY hour_of_day
+  ORDER BY hour_of_day;
+
+  # Favorite artists (by play count)
+  SELECT
+    artist.artistId,
+    artist.artistName,
+    COUNT(*) AS play_count,
+    COUNT(DISTINCT trackId) AS unique_tracks_played,
+    MAX(playedAt) AS last_played
+  FROM `lake_spotify__recently_played_normalized`,
+  UNNEST(artists) AS artist
+  WHERE playedAt >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+  GROUP BY artist.artistId, artist.artistName
+  ORDER BY play_count DESC
+  LIMIT 20;
+
+  # Context analysis (where tracks were played from)
+  SELECT
+    contextType,
+    COUNT(*) AS play_count,
+    COUNT(DISTINCT trackId) AS unique_tracks,
+    ROUND(AVG(trackDurationMs) / 60000, 1) AS avg_duration_min
+  FROM `lake_spotify__recently_played_normalized`
+  WHERE playedAt >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+    AND contextType IS NOT NULL
+  GROUP BY contextType
+  ORDER BY play_count DESC;
+
+  # Daily listening time
+  SELECT
+    DATE(playedAt) AS date,
+    COUNT(*) AS tracks_played,
+    ROUND(SUM(trackDurationMs) / 3600000, 2) AS hours_listened,
+    ROUND(AVG(trackPopularity), 1) AS avg_track_popularity
+  FROM `lake_spotify__recently_played_normalized`
+  WHERE playedAt >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  GROUP BY date
+  ORDER BY date DESC;

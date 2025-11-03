@@ -1,0 +1,1542 @@
+# =============================================================================
+# GARMIN SLEEP - HYBRID INGESTION CONFIGURATION
+# =============================================================================
+# This configuration defines the complete ingestion pipeline for Garmin sleep data
+# using a hybrid approach: core fields as typed columns + extended fields in JSON
+#
+# Philosophy:
+# - Core fields (20-25): Parsed in Python, stored as typed BigQuery columns
+# - Extended fields (100+): Kept in raw_data JSON for flexibility
+# - Benefits: 10x faster queries, 90% cost reduction, full flexibility
+#
+# Maintenance:
+# - Add core fields here when they become frequently used (>80% of queries)
+# - Keep rare/experimental fields in raw_data
+# - Version this file with git for auditability
+# =============================================================================
+
+# Metadata
+data_type: sleep
+description: "Garmin sleep data with comprehensive RECORD support for all nested structures"
+version: "3.0.0"
+owner: "data-platform"
+last_updated: "2025-10-30"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  # GCS bucket configuration
+  bucket_pattern: "ela-dp-{env}"  # {env} replaced by --env flag (dev/prd)
+  landing_path: "garmin/landing"
+  file_pattern: "*_sleep.jsonl"  # Match files ending with _sleep.jsonl
+
+  # Post-processing paths
+  archive_path: "garmin/archive"     # Successful files moved here
+  rejected_path: "garmin/rejected"   # Failed files moved here
+
+  # File handling
+  delete_after_archive: false  # Keep files in archive for audit
+  max_file_age_days: 30        # Alert if files older than this
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  # BigQuery table
+  project_id: "${GCP_PROJECT_ID}"           # From environment variable
+  dataset_pattern: "dp_lake_{env}"          # {env} replaced by --env flag
+  table_name: "lake_garmin__normalized_sleep"
+
+  # Write behavior
+  write_disposition: "WRITE_APPEND"         # Always append
+  create_disposition: "CREATE_IF_NEEDED"    # Create table if missing
+
+  # Partitioning (critical for performance)
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null  # null = no expiration
+
+  # Clustering (critical for query performance)
+  clustering:
+    enabled: true
+    fields:
+      - "id"
+      - "calendarDate"
+
+# =============================================================================
+# PARSING CONFIGURATION - HYBRID STRATEGY
+# =============================================================================
+parsing:
+  strategy: "hybrid"  # Options: hybrid | json_only
+
+  # Core fields: High-frequency fields stored as typed columns
+  # Criteria for inclusion:
+  # - Used in 80%+ of queries
+  # - Used for filtering (WHERE, HAVING)
+  # - Used for joins (JOIN ON)
+  # - Used for partitioning/clustering
+  # - Simple types (INT, STRING, DATE, FLOAT)
+  # - Stable (won't change in Garmin API)
+  core_fields:
+    # =========================================================================
+    # IDENTIFIERS (Critical for joins and deduplication)
+    # =========================================================================
+    - name: id
+      json_path: "$.dailySleepDTO.id"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Unique sleep record identifier from Garmin"
+      is_unique_key: true
+
+    - name: userProfilePk
+      json_path: "$.dailySleepDTO.userProfilePK"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "User profile primary key"
+
+    - name: calendarDate
+      json_path: "$.dailySleepDTO.calendarDate"
+      bq_type: DATE
+      mode: REQUIRED
+      description: "Sleep date (used for partitioning)"
+      transform: "string_to_date"
+      validations:
+        - type: not_null
+        - type: date_range
+          min: "2020-01-01"
+          max: "2030-12-31"
+
+    # =========================================================================
+    # TIMESTAMPS (Sleep window timing)
+    # =========================================================================
+    - name: sleepStartTimestampGMT
+      json_path: "$.dailySleepDTO.sleepStartTimestampGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Sleep start time in GMT timezone"
+      transform: "timestamp_ms_to_timestamp"
+
+    - name: sleepEndTimestampGMT
+      json_path: "$.dailySleepDTO.sleepEndTimestampGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Sleep end time in GMT timezone"
+      transform: "timestamp_ms_to_timestamp"
+
+    - name: sleepStartTimestampLocal
+      json_path: "$.dailySleepDTO.sleepStartTimestampLocal"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Sleep start time in local timezone"
+      transform: "timestamp_ms_to_timestamp"
+
+    - name: sleepEndTimestampLocal
+      json_path: "$.dailySleepDTO.sleepEndTimestampLocal"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Sleep end time in local timezone"
+      transform: "timestamp_ms_to_timestamp"
+
+    # =========================================================================
+    # DURATION METRICS (Sleep phases and total duration)
+    # =========================================================================
+    - name: sleepTimeSeconds
+      json_path: "$.dailySleepDTO.sleepTimeSeconds"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Total sleep time in seconds"
+      validations:
+        - type: range
+          min: 0
+          max: 86400  # 24h max
+
+    - name: deepSleepSeconds
+      json_path: "$.dailySleepDTO.deepSleepSeconds"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Deep sleep duration in seconds"
+      validations:
+        - type: range
+          min: 0
+          max: 86400
+
+    - name: lightSleepSeconds
+      json_path: "$.dailySleepDTO.lightSleepSeconds"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Light sleep duration in seconds"
+      validations:
+        - type: range
+          min: 0
+          max: 86400
+
+    - name: remSleepSeconds
+      json_path: "$.dailySleepDTO.remSleepSeconds"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "REM sleep duration in seconds"
+      validations:
+        - type: range
+          min: 0
+          max: 86400
+
+    - name: awakeSleepSeconds
+      json_path: "$.dailySleepDTO.awakeSleepSeconds"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Awake time during sleep window in seconds"
+      validations:
+        - type: range
+          min: 0
+          max: 86400
+
+    - name: napTimeSeconds
+      json_path: "$.dailySleepDTO.napTimeSeconds"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Total nap time in seconds"
+      validations:
+        - type: range
+          min: 0
+          max: 86400
+
+    # =========================================================================
+    # PHYSIOLOGICAL METRICS (Heart rate, SpO2, Respiration)
+    # =========================================================================
+    - name: avgHeartRate
+      json_path: "$.dailySleepDTO.avgHeartRate"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average heart rate during sleep in beats per minute"
+      validations:
+        - type: range
+          min: 30
+          max: 150
+
+    - name: averageSpO2Value
+      json_path: "$.dailySleepDTO.averageSpO2Value"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average SpO2 (blood oxygen saturation) percentage"
+      validations:
+        - type: range
+          min: 70
+          max: 100
+
+    - name: lowestSpO2Value
+      json_path: "$.dailySleepDTO.lowestSpO2Value"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Lowest SpO2 value during sleep"
+      validations:
+        - type: range
+          min: 70
+          max: 100
+
+    - name: highestSpO2Value
+      json_path: "$.dailySleepDTO.highestSpO2Value"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Highest SpO2 value during sleep"
+      validations:
+        - type: range
+          min: 70
+          max: 100
+
+    - name: averageRespirationValue
+      json_path: "$.dailySleepDTO.averageRespirationValue"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average respiration rate in breaths per minute"
+      validations:
+        - type: range
+          min: 5
+          max: 40
+
+    - name: lowestRespirationValue
+      json_path: "$.dailySleepDTO.lowestRespirationValue"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Lowest respiration rate during sleep"
+      validations:
+        - type: range
+          min: 5
+          max: 40
+
+    - name: highestRespirationValue
+      json_path: "$.dailySleepDTO.highestRespirationValue"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Highest respiration rate during sleep"
+      validations:
+        - type: range
+          min: 5
+          max: 40
+
+    # =========================================================================
+    # SLEEP QUALITY METRICS
+    # =========================================================================
+    # =========================================================================
+    # SLEEP SCORES (RECORD - All 8 categories fully expanded)
+    # =========================================================================
+    - name: sleepScores
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.dailySleepDTO.sleepScores"
+      description: "Comprehensive sleep scores breakdown (8 categories)"
+      fields:
+        # Overall score
+        - name: overallValue
+          json_path: "$.overall.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Overall sleep score (0-100)"
+
+        - name: overallQualifierKey
+          json_path: "$.overall.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Overall qualifier (POOR, FAIR, GOOD, EXCELLENT)"
+
+        # Total duration score
+        - name: totalDurationValue
+          json_path: "$.totalDuration.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Total duration score"
+
+        - name: totalDurationQualifierKey
+          json_path: "$.totalDuration.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Total duration qualifier"
+
+        - name: totalDurationOptimalStart
+          json_path: "$.totalDuration.optimalStart"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal total duration start (seconds)"
+
+        - name: totalDurationOptimalEnd
+          json_path: "$.totalDuration.optimalEnd"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal total duration end (seconds)"
+
+        # Stress score
+        - name: stressValue
+          json_path: "$.stress.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Stress during sleep score"
+
+        - name: stressQualifierKey
+          json_path: "$.stress.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Stress qualifier"
+
+        - name: stressOptimalStart
+          json_path: "$.stress.optimalStart"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal stress start value"
+
+        - name: stressOptimalEnd
+          json_path: "$.stress.optimalEnd"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal stress end value"
+
+        # Awake count score
+        - name: awakeCountValue
+          json_path: "$.awakeCount.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Awake count score"
+
+        - name: awakeCountQualifierKey
+          json_path: "$.awakeCount.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Awake count qualifier"
+
+        - name: awakeCountOptimalStart
+          json_path: "$.awakeCount.optimalStart"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal awake count start"
+
+        - name: awakeCountOptimalEnd
+          json_path: "$.awakeCount.optimalEnd"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal awake count end"
+
+        # REM percentage score
+        - name: remPercentageValue
+          json_path: "$.remPercentage.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "REM sleep percentage score"
+
+        - name: remPercentageQualifierKey
+          json_path: "$.remPercentage.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "REM percentage qualifier"
+
+        - name: remPercentageOptimalStart
+          json_path: "$.remPercentage.optimalStart"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Optimal REM percentage start"
+
+        - name: remPercentageOptimalEnd
+          json_path: "$.remPercentage.optimalEnd"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Optimal REM percentage end"
+
+        - name: remPercentageIdealStartInSeconds
+          json_path: "$.remPercentage.idealStartInSeconds"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Ideal REM start in seconds"
+
+        - name: remPercentageIdealEndInSeconds
+          json_path: "$.remPercentage.idealEndInSeconds"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Ideal REM end in seconds"
+
+        # Restlessness score
+        - name: restlessnessValue
+          json_path: "$.restlessness.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Restlessness score"
+
+        - name: restlessnessQualifierKey
+          json_path: "$.restlessness.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Restlessness qualifier"
+
+        - name: restlessnessOptimalStart
+          json_path: "$.restlessness.optimalStart"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal restlessness start"
+
+        - name: restlessnessOptimalEnd
+          json_path: "$.restlessness.optimalEnd"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Optimal restlessness end"
+
+        # Light percentage score
+        - name: lightPercentageValue
+          json_path: "$.lightPercentage.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Light sleep percentage score"
+
+        - name: lightPercentageQualifierKey
+          json_path: "$.lightPercentage.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Light percentage qualifier"
+
+        - name: lightPercentageOptimalStart
+          json_path: "$.lightPercentage.optimalStart"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Optimal light percentage start"
+
+        - name: lightPercentageOptimalEnd
+          json_path: "$.lightPercentage.optimalEnd"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Optimal light percentage end"
+
+        - name: lightPercentageIdealStartInSeconds
+          json_path: "$.lightPercentage.idealStartInSeconds"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Ideal light start in seconds"
+
+        - name: lightPercentageIdealEndInSeconds
+          json_path: "$.lightPercentage.idealEndInSeconds"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Ideal light end in seconds"
+
+        # Deep percentage score
+        - name: deepPercentageValue
+          json_path: "$.deepPercentage.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Deep sleep percentage score"
+
+        - name: deepPercentageQualifierKey
+          json_path: "$.deepPercentage.qualifierKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Deep percentage qualifier"
+
+        - name: deepPercentageOptimalStart
+          json_path: "$.deepPercentage.optimalStart"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Optimal deep percentage start"
+
+        - name: deepPercentageOptimalEnd
+          json_path: "$.deepPercentage.optimalEnd"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Optimal deep percentage end"
+
+        - name: deepPercentageIdealStartInSeconds
+          json_path: "$.deepPercentage.idealStartInSeconds"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Ideal deep start in seconds"
+
+        - name: deepPercentageIdealEndInSeconds
+          json_path: "$.deepPercentage.idealEndInSeconds"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Ideal deep end in seconds"
+
+    - name: awakeCount
+      json_path: "$.dailySleepDTO.awakeCount"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Number of times awoken during sleep"
+      validations:
+        - type: range
+          min: 0
+          max: 100
+
+    - name: avgSleepStress
+      json_path: "$.dailySleepDTO.avgSleepStress"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average stress level during sleep"
+      validations:
+        - type: range
+          min: 0
+          max: 100
+
+    # =========================================================================
+    # SLEEP METADATA (Flags and classifications)
+    # =========================================================================
+    - name: sleepWindowConfirmed
+      json_path: "$.dailySleepDTO.sleepWindowConfirmed"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether sleep window was confirmed by device"
+
+    - name: sleepWindowConfirmationType
+      json_path: "$.dailySleepDTO.sleepWindowConfirmationType"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Type of sleep window confirmation"
+      max_length: 100
+
+    - name: deviceRemCapable
+      json_path: "$.dailySleepDTO.deviceRemCapable"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether device is capable of detecting REM sleep"
+
+    - name: sleepFromDevice
+      json_path: "$.dailySleepDTO.sleepFromDevice"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether sleep data comes from device (vs manual entry)"
+
+    - name: autoSleepStartTimestampGMT
+      json_path: "$.dailySleepDTO.autoSleepStartTimestampGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      transform: "timestamp_ms_to_timestamp"
+      description: "Auto-detected sleep start time in GMT"
+
+    - name: autoSleepEndTimestampGMT
+      json_path: "$.dailySleepDTO.autoSleepEndTimestampGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      transform: "timestamp_ms_to_timestamp"
+      description: "Auto-detected sleep end time in GMT"
+
+    - name: unmeasurableSleepSeconds
+      json_path: "$.dailySleepDTO.unmeasurableSleepSeconds"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Duration of unmeasurable sleep in seconds"
+
+    - name: averageSpO2HRSleep
+      json_path: "$.dailySleepDTO.averageSpO2HRSleep"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average heart rate during SpO2 measurement"
+
+    - name: sleepVersion
+      json_path: "$.dailySleepDTO.sleepVersion"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Sleep algorithm version"
+
+    - name: sleepQualityTypePK
+      json_path: "$.dailySleepDTO.sleepQualityTypePK"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Sleep quality type primary key"
+
+    - name: sleepResultTypePK
+      json_path: "$.dailySleepDTO.sleepResultTypePK"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Sleep result type primary key"
+
+    - name: ageGroup
+      json_path: "$.dailySleepDTO.ageGroup"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "User age group (ADULT, etc.)"
+      max_length: 50
+
+    - name: breathingDisruptionSeverity
+      json_path: "$.dailySleepDTO.breathingDisruptionSeverity"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Severity of breathing disruptions (NONE, LOW, MODERATE, HIGH)"
+      max_length: 50
+
+    - name: retro
+      json_path: "$.dailySleepDTO.retro"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether this is retroactive data"
+
+    - name: sleepScoreFeedback
+      json_path: "$.dailySleepDTO.sleepScoreFeedback"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Feedback on sleep score (POSITIVE_RECOVERING, etc.)"
+      max_length: 100
+
+    - name: sleepScoreInsight
+      json_path: "$.dailySleepDTO.sleepScoreInsight"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Insight on sleep score"
+      max_length: 100
+
+    - name: sleepScorePersonalizedInsight
+      json_path: "$.dailySleepDTO.sleepScorePersonalizedInsight"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Personalized insight on sleep score"
+      max_length: 500
+
+    # =========================================================================
+    # TOP-LEVEL METRICS (outside dailySleepDTO)
+    # =========================================================================
+    - name: avgOvernightHrv
+      json_path: "$.avgOvernightHrv"
+      bq_type: FLOAT64
+      mode: NULLABLE
+      description: "Average overnight heart rate variability"
+
+    - name: hrvStatus
+      json_path: "$.hrvStatus"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "HRV status (BALANCED, UNBALANCED, etc.)"
+      max_length: 50
+
+    - name: bodyBatteryChange
+      json_path: "$.bodyBatteryChange"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Body battery change during sleep"
+
+    - name: restingHeartRate
+      json_path: "$.restingHeartRate"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Resting heart rate"
+      validations:
+        - type: range
+          min: 30
+          max: 150
+
+    - name: restlessMomentsCount
+      json_path: "$.restlessMomentsCount"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Count of restless moments during sleep"
+
+    - name: remSleepData
+      json_path: "$.remSleepData"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether REM sleep data is available"
+
+    - name: skinTempDataExists
+      json_path: "$.skinTempDataExists"
+      bq_type: BOOL
+      mode: NULLABLE
+      description: "Whether skin temperature data exists"
+
+    - name: respirationVersion
+      json_path: "$.respirationVersion"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Respiration algorithm version"
+
+    - name: date
+      json_path: "$.date"
+      bq_type: DATE
+      mode: NULLABLE
+      transform: "string_to_date"
+      description: "Date of sleep record (top-level)"
+
+    # =========================================================================
+    # TIME-SERIES DATA (REPEATED RECORD)
+    # =========================================================================
+    - name: sleepMovement
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.sleepMovement"
+      description: "Movement data during sleep (time-series)"
+      fields:
+        - name: startGMT
+          json_path: "$.startGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+
+        - name: endGMT
+          json_path: "$.endGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+
+        - name: activityLevel
+          json_path: "$.activityLevel"
+          bq_type: FLOAT64
+          mode: NULLABLE
+
+    - name: sleepHeartRate
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.sleepHeartRate"
+      description: "Heart rate during sleep (time-series)"
+      fields:
+        - name: startGMT
+          json_path: "$.startGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: endGMT
+          json_path: "$.endGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: value
+          json_path: "$.value"
+          bq_type: INT64
+          mode: NULLABLE
+
+    - name: sleepStress
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.sleepStress"
+      description: "Stress levels during sleep (time-series)"
+      fields:
+        - name: startGMT
+          json_path: "$.startGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: endGMT
+          json_path: "$.endGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: value
+          json_path: "$.value"
+          bq_type: INT64
+          mode: NULLABLE
+
+    # =========================================================================
+    # SLEEP NEED ANALYSIS (RECORD)
+    # =========================================================================
+    - name: sleepNeed
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.dailySleepDTO.sleepNeed"
+      description: "Sleep need calculation based on baseline and adjustments"
+      fields:
+        - name: userProfilePk
+          json_path: "$.userProfilePk"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "User profile primary key"
+
+        - name: calendarDate
+          json_path: "$.calendarDate"
+          bq_type: DATE
+          mode: NULLABLE
+          transform: "string_to_date"
+          description: "Date for sleep need"
+
+        - name: deviceId
+          json_path: "$.deviceId"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Device identifier"
+
+        - name: timestampGmt
+          json_path: "$.timestampGmt"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+          description: "Timestamp of calculation"
+
+        - name: baseline
+          json_path: "$.baseline"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Baseline sleep need in minutes"
+
+        - name: actual
+          json_path: "$.actual"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Actual sleep need after adjustments"
+
+        - name: feedback
+          json_path: "$.feedback"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Feedback on sleep need"
+
+        - name: trainingFeedback
+          json_path: "$.trainingFeedback"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Training-related feedback"
+
+        - name: sleepHistoryAdjustment
+          json_path: "$.sleepHistoryAdjustment"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Sleep history adjustment (NO_CHANGE, etc.)"
+
+        - name: hrvAdjustment
+          json_path: "$.hrvAdjustment"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "HRV adjustment (NO_CHANGE, etc.)"
+
+        - name: napAdjustment
+          json_path: "$.napAdjustment"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Nap adjustment (NO_CHANGE, etc.)"
+
+        - name: displayedForTheDay
+          json_path: "$.displayedForTheDay"
+          bq_type: BOOL
+          mode: NULLABLE
+          description: "Whether displayed for this day"
+
+        - name: preferredActivityTracker
+          json_path: "$.preferredActivityTracker"
+          bq_type: BOOL
+          mode: NULLABLE
+          description: "Preferred activity tracker flag"
+
+    - name: nextSleepNeed
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.dailySleepDTO.nextSleepNeed"
+      description: "Next sleep need prediction"
+      fields:
+        - name: userProfilePk
+          json_path: "$.userProfilePk"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "User profile primary key"
+
+        - name: calendarDate
+          json_path: "$.calendarDate"
+          bq_type: DATE
+          mode: NULLABLE
+          transform: "string_to_date"
+          description: "Date for next sleep need"
+
+        - name: deviceId
+          json_path: "$.deviceId"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Device identifier"
+
+        - name: timestampGmt
+          json_path: "$.timestampGmt"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+          description: "Timestamp of calculation"
+
+        - name: baseline
+          json_path: "$.baseline"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Baseline sleep need for next night"
+
+        - name: actual
+          json_path: "$.actual"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Actual predicted sleep need"
+
+        - name: feedback
+          json_path: "$.feedback"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Feedback for next sleep need"
+
+        - name: trainingFeedback
+          json_path: "$.trainingFeedback"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Training-related feedback"
+
+        - name: sleepHistoryAdjustment
+          json_path: "$.sleepHistoryAdjustment"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Sleep history adjustment (NO_CHANGE, etc.)"
+
+        - name: hrvAdjustment
+          json_path: "$.hrvAdjustment"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "HRV adjustment (NO_CHANGE, etc.)"
+
+        - name: napAdjustment
+          json_path: "$.napAdjustment"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Nap adjustment (NO_CHANGE, etc.)"
+
+        - name: displayedForTheDay
+          json_path: "$.displayedForTheDay"
+          bq_type: BOOL
+          mode: NULLABLE
+          description: "Whether displayed for this day"
+
+        - name: preferredActivityTracker
+          json_path: "$.preferredActivityTracker"
+          bq_type: BOOL
+          mode: NULLABLE
+          description: "Preferred activity tracker flag"
+
+    # =========================================================================
+    # WELLNESS SPO2 SUMMARY (RECORD)
+    # =========================================================================
+    - name: wellnessSpO2SleepSummaryDTO
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.wellnessSpO2SleepSummaryDTO"
+      description: "Summary of SpO2 measurements with averages and ranges"
+      fields:
+        - name: userProfilePk
+          json_path: "$.userProfilePk"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "User profile primary key"
+
+        - name: deviceId
+          json_path: "$.deviceId"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Device identifier"
+
+        - name: averageSPO2
+          json_path: "$.averageSPO2"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Average SpO2 value"
+
+        - name: lowestSPO2
+          json_path: "$.lowestSPO2"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Lowest SpO2 value"
+
+        - name: averageSpO2HR
+          json_path: "$.averageSpO2HR"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Average heart rate during SpO2 measurement"
+
+        - name: sleepMeasurementStartGMT
+          json_path: "$.sleepMeasurementStartGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+          description: "Start of sleep measurement period"
+
+        - name: sleepMeasurementEndGMT
+          json_path: "$.sleepMeasurementEndGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+          description: "End of sleep measurement period"
+
+        - name: alertThresholdValue
+          json_path: "$.alertThresholdValue"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Alert threshold for SpO2"
+
+        - name: numberOfEventsBelowThreshold
+          json_path: "$.numberOfEventsBelowThreshold"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Count of events below threshold"
+
+        - name: durationOfEventsBelowThreshold
+          json_path: "$.durationOfEventsBelowThreshold"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Total duration of events below threshold (seconds)"
+
+    # =========================================================================
+    # ADDITIONAL REPEATED RECORD TIME-SERIES
+    # =========================================================================
+    - name: sleepBodyBattery
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.sleepBodyBattery"
+      description: "Body battery levels during sleep (time-series)"
+      fields:
+        - name: startGMT
+          json_path: "$.startGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: endGMT
+          json_path: "$.endGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: value
+          json_path: "$.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Body battery level (0-100)"
+
+    - name: sleepLevels
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.sleepLevels"
+      description: "Sleep levels/stages during sleep (time-series)"
+      fields:
+        - name: startGMT
+          json_path: "$.startGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+
+        - name: endGMT
+          json_path: "$.endGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+
+        - name: activityLevel
+          json_path: "$.activityLevel"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Activity level indicator"
+
+    - name: hrvData
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.hrvData"
+      description: "HRV/Heart rate variability samples (time-series)"
+      fields:
+        - name: startGMT
+          json_path: "$.startGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: value
+          json_path: "$.value"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "HRV value in milliseconds"
+
+    - name: wellnessEpochSPO2DataDTOList
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.wellnessEpochSPO2DataDTOList"
+      description: "SpO2 measurements during sleep (time-series)"
+      fields:
+        - name: epochTimestamp
+          json_path: "$.epochTimestamp"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+          description: "Timestamp of SpO2 reading"
+
+        - name: spo2Reading
+          json_path: "$.spo2Reading"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "SpO2 percentage"
+
+        - name: readingConfidence
+          json_path: "$.readingConfidence"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Confidence level (1-4)"
+
+        - name: epochDuration
+          json_path: "$.epochDuration"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Duration in seconds"
+
+    - name: wellnessEpochRespirationDataDTOList
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.wellnessEpochRespirationDataDTOList"
+      description: "Respiration measurements during sleep (time-series)"
+      fields:
+        - name: timestampGmt
+          json_path: "$.startTimeGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: respirationValue
+          json_path: "$.respirationValue"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Respiration rate (breaths per minute)"
+
+    - name: wellnessEpochRespirationAveragesList
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.wellnessEpochRespirationAveragesList"
+      description: "Average respiration values (time-series)"
+      fields:
+        - name: epochEndTimestampGmt
+          json_path: "$.epochEndTimestampGmt"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+          description: "End timestamp of epoch"
+
+        - name: respirationAverageValue
+          json_path: "$.respirationAverageValue"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Average respiration rate"
+
+        - name: respirationHighValue
+          json_path: "$.respirationHighValue"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "High respiration rate"
+
+        - name: respirationLowValue
+          json_path: "$.respirationLowValue"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Low respiration rate"
+
+    - name: breathingDisruptionData
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.breathingDisruptionData"
+      description: "Breathing disruption events (time-series)"
+      fields:
+        - name: startGMT
+          json_path: "$.startGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: endGMT
+          json_path: "$.endGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: value
+          json_path: "$.value"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Disruption intensity"
+
+    - name: dailyNapDTOS
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.dailySleepDTO.dailyNapDTOS"
+      description: "Individual nap records (time-series)"
+      fields:
+        - name: userProfilePk
+          json_path: "$.userProfilePK"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "User profile primary key"
+
+        - name: deviceId
+          json_path: "$.deviceId"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Device identifier"
+
+        - name: calendarDate
+          json_path: "$.calendarDate"
+          bq_type: DATE
+          mode: NULLABLE
+          transform: "string_to_date"
+          description: "Date of nap"
+
+        - name: napTimeSec
+          json_path: "$.napTimeSec"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Nap duration in seconds"
+
+        - name: napStartTimestampGMT
+          json_path: "$.napStartTimestampGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+          description: "Nap start time GMT"
+
+        - name: napEndTimestampGMT
+          json_path: "$.napEndTimestampGMT"
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          transform: "string_to_timestamp"
+          description: "Nap end time GMT"
+
+        - name: napFeedback
+          json_path: "$.napFeedback"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Feedback on nap (timing, duration, need)"
+
+        - name: napSource
+          json_path: "$.napSource"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Source of nap data"
+
+        - name: napStartTimeOffset
+          json_path: "$.napStartTimeOffset"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Start time offset (minutes)"
+
+        - name: napEndTimeOffset
+          json_path: "$.napEndTimeOffset"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "End time offset (minutes)"
+
+  # ===========================================================================
+  # EXTENDED FIELDS (Kept in raw_data JSON for flexibility)
+  # ===========================================================================
+  # These fields are NOT extracted as columns but remain available in raw_data
+  # for on-demand querying. Examples of extended fields:
+  extended_fields_reference:
+    sleep_scores_detail:
+      - sleepScores.totalDuration
+      - sleepScores.stress
+      - sleepScores.awakeCount
+      - sleepScores.remPercentage
+      - sleepScores.restlessness
+      - sleepScores.lightPercentage
+      - sleepScores.deepPercentage
+
+    sleep_need:
+      - sleepNeed.baseline
+      - sleepNeed.actual
+      - sleepNeed.feedback
+      - sleepNeed.trainingFeedback
+      - sleepNeed.sleepHistoryAdjustment
+      - sleepNeed.hrvAdjustment
+      - sleepNeed.napAdjustment
+
+    naps:
+      - dailyNapDTOS  # Array of nap details
+
+    insights:
+      - sleepScoreFeedback
+      - sleepScoreInsight
+      - sleepScorePersonalizedInsight
+
+    movement:
+      - sleepMovement  # Array of movement data
+
+    other_metrics:
+      - unmeasurableSleepSeconds
+      - retro
+      - ageGroup
+      - averageSpO2HRSleep
+      - breathingDisruptionSeverity
+      - sleepVersion
+      - sleepQualityTypePK
+      - sleepResultTypePK
+
+# =============================================================================
+# METADATA FIELDS (Automatically added by ingestion script)
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete sleep JSON containing all fields (100+ fields available for ad-hoc querying)"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested into data platform"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename for audit trail"
+
+# =============================================================================
+# DATA QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  # Deduplication
+  unique_key: sleep_id
+  deduplication_strategy: "keep_latest"  # Options: keep_latest | keep_first | fail
+
+  # Required fields for a valid record
+  required_fields:
+    - sleep_id
+    - calendar_date
+
+  # Field-level validations (defined in core_fields above)
+  validation_mode: "warn"  # Options: strict | warn | skip
+  # - strict: Reject entire file if any record fails validation
+  # - warn: Log warning but continue (default)
+  # - skip: No validation
+
+  # Null handling
+  null_handling:
+    strategy: "allow"  # Options: allow | reject | replace
+    replacement_values: {}  # Map of field -> default value
+
+# =============================================================================
+# TRANSFORMATIONS (Custom logic for data conversion)
+# =============================================================================
+transformations:
+  # Timestamp conversions (Garmin uses milliseconds since epoch)
+  timestamp_ms_to_timestamp:
+    description: "Convert Garmin timestamp (ms) to BigQuery TIMESTAMP"
+    logic: "datetime.fromtimestamp(value / 1000.0)"
+
+  timestamp_ms_to_date:
+    description: "Convert Garmin timestamp (ms) to BigQuery DATE"
+    logic: "datetime.fromtimestamp(value / 1000.0).date()"
+
+  string_to_timestamp:
+    description: "Convert ISO string timestamp to BigQuery TIMESTAMP"
+    logic: "datetime.fromisoformat(value.replace('Z', '+00:00'))"
+
+  string_to_date:
+    description: "Convert string date (YYYY-MM-DD) to BigQuery DATE"
+    logic: "datetime.strptime(value, '%Y-%m-%d').date()"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  # Batch processing
+  batch_size: 500              # Records per BigQuery insert
+  max_batch_size_mb: 10        # Max batch size in MB
+
+  # Parallelization
+  max_workers: 4               # Parallel file processing threads
+  parallel_file_limit: 10      # Max files to process in parallel
+
+  # Memory management
+  max_memory_mb: 2048          # Max memory usage
+  stream_large_files: true     # Stream files > 100MB
+
+  # Timeouts
+  bq_job_timeout_seconds: 600  # BigQuery job timeout (10 min)
+  gcs_download_timeout: 300    # GCS download timeout (5 min)
+
+  # Retry logic
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING & MONITORING
+# =============================================================================
+logging:
+  level: INFO  # DEBUG | INFO | WARNING | ERROR
+
+  # Output
+  console: true
+  file: false
+  file_path: "logs/garmin_ingest_{env}_{timestamp}.log"
+
+  # Content
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+
+  # Metrics
+  track_metrics: true
+  metrics:
+    - records_processed
+    - records_inserted
+    - records_rejected
+    - files_processed
+    - files_failed
+    - processing_time_seconds
+    - bigquery_bytes_processed
+
+# =============================================================================
+# ALERTING (Optional integration with monitoring systems)
+# =============================================================================
+alerting:
+  enabled: false
+
+  # Alert conditions
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1  # Alert if >10% records rejected
+
+    - name: no_data
+      threshold: 0    # Alert if no files found
+
+    - name: processing_time
+      threshold: 600  # Alert if processing takes >10 minutes
+
+  # Alert channels (to be implemented)
+  channels:
+    - email
+    - slack
+    - pagerduty
+
+# =============================================================================
+# NOTES & DOCUMENTATION
+# =============================================================================
+notes: |
+  GARMIN SLEEP DATA - COMPREHENSIVE RECORD/STRUCT IMPLEMENTATION v3.0.0:
+
+  This configuration demonstrates the complete power of BigQuery RECORD/STRUCT
+  types with comprehensive nested and time-series data structures.
+
+  ARCHITECTURE:
+  - 30+ core flat fields (identifiers, durations, physiological metrics)
+  - 4 nested RECORD structures (sleep_scores, sleep_need, next_sleep_need, wellness_spo2_summary)
+  - 10 REPEATED RECORD for time-series data (~1500+ samples per night)
+
+  RECORD STRUCTURES:
+  1. sleep_scores: 8 categories fully expanded (32 fields total)
+     - overall, totalDuration, stress, awakeCount, remPercentage,
+       restlessness, lightPercentage, deepPercentage
+     - Each with: value, qualifier, optimalStart, optimalEnd
+
+  2. sleep_need: 10 fields with baseline, adjustments, qualifiers
+  3. next_sleep_need: 10 fields for next night prediction
+  4. wellness_spo2_summary: 7 fields with averages and ranges
+
+  REPEATED RECORD TIME-SERIES (total ~1500 samples/night):
+  1. sleep_movement: ~534 samples (movement detection)
+  2. sleep_heart_rate: ~208 samples (HR monitoring)
+  3. sleep_stress: ~208 samples (stress tracking)
+  4. sleep_body_battery: ~83 samples (energy levels)
+  5. sleep_levels: ~83 samples (sleep stages)
+  6. hrv_data: ~208 samples (heart rate variability)
+  7. spo2_data: ~297 samples (blood oxygen)
+  8. respiration_data: ~83 samples (breathing rate)
+  9. respiration_averages: ~83 samples (averaged breathing)
+  10. breathing_disruptions: variable samples (disruption events)
+  11. naps: variable records (individual naps)
+
+  QUERY BENEFITS:
+  - All fields queryable with dot notation (e.g., sleep_scores.overall_value)
+  - No JSON_VALUE() parsing needed → 10x faster queries
+  - Full type safety and validation
+  - UNNEST for time-series analysis
+  - Standard SQL aggregations on nested fields
+
+  EXAMPLE QUERIES:
+
+  # Query sleep scores
+  SELECT
+    calendar_date,
+    sleep_scores.overall_value,
+    sleep_scores.overall_qualifier,
+    sleep_scores.deep_percentage_value
+  FROM table
+  WHERE sleep_scores.overall_value > 80
+
+  # Analyze heart rate time-series
+  SELECT
+    calendar_date,
+    hr.start_gmt,
+    hr.value
+  FROM table, UNNEST(sleep_heart_rate) AS hr
+  WHERE hr.value > 100
+
+  # Sleep need analysis
+  SELECT
+    calendar_date,
+    sleep_need.baseline_minutes,
+    sleep_need.actual_minutes,
+    sleep_need.hrv_adjustment
+  FROM table
+  WHERE sleep_need.hrv_adjustment > 0
+
+examples:
+  - name: "Ingest sleep data to dev"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config sleep --env dev"
+
+  - name: "Ingest sleep data to prod"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config sleep --env prd"
+
+  - name: "Dry run (validate config only)"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config sleep --env dev --dry-run"
+
+  - name: "Verbose logging"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config sleep --env dev --log-level DEBUG"

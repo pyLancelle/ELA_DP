@@ -5,8 +5,48 @@ sources:
     database: polar-scene-465223-f7
     schema: "{{ 'dp_lake_' ~ target.name }}"
     tables:
+      - name: lake_garmin__stg_raw_activities
+        description: "Garmin activities with hybrid parsing (core fields typed + raw_data JSON)"
+        columns:
+          # Core typed fields (parsed in Python)
+          - name: activity_id
+            description: "Unique identifier for the activity"
+          - name: activity_name
+            description: "User-defined or auto-generated activity name"
+          - name: activity_date
+            description: "Date of activity (for partitioning)"
+          - name: start_time_gmt
+            description: "Activity start time in GMT"
+          - name: start_time_local
+            description: "Activity start time in local timezone"
+          - name: end_time_gmt
+            description: "Activity end time in GMT"
+          - name: activity_type_id
+            description: "Garmin activity type ID"
+          - name: activity_type_key
+            description: "Garmin activity type key (running, cycling, etc.)"
+          - name: sport_type_id
+            description: "Sport type identifier"
+          - name: distance_meters
+            description: "Total distance in meters"
+          - name: duration_seconds
+            description: "Total duration in seconds"
+          - name: elevation_gain_meters
+            description: "Total elevation gain in meters"
+          - name: average_hr_bpm
+            description: "Average heart rate in BPM"
+          - name: calories
+            description: "Total calories burned"
+          # Extended fields
+          - name: raw_data
+            description: "Complete activity JSON for extended fields (splits, training effect, etc.)"
+          - name: dp_inserted_at
+            description: "Data platform ingestion timestamp"
+          - name: source_file
+            description: "Source JSONL filename"
+
       - name: lake_garmin__stg_garmin_raw
-        description: "Universal Garmin raw data table storing all data types as JSON"
+        description: "[DEPRECATED] Universal Garmin raw data table - migrating to separate tables per data type"
         columns:
           - name: raw_data
             description: "Complete original record as JSON from Garmin Connect API"
@@ -19,14 +59,32 @@ sources:
 
 models:
   - name: lake_garmin__svc_activities
-    description: "Service layer - Garmin activities with raw JSON data and deduplication only"
+    description: "Service layer - Garmin activities with hybrid parsing (core typed fields + extended JSON) and deduplication"
     columns:
+      # Core typed fields
       - name: activity_id
-        description: "Unique identifier for the activity"
+        description: "Unique identifier for the activity (partitioning key)"
+      - name: activity_name
+        description: "User-defined or auto-generated activity name"
+      - name: activity_date
+        description: "Date of activity (partition column)"
+      - name: start_time_gmt
+        description: "Activity start time in GMT"
+      - name: activity_type_key
+        description: "Activity type key - used for filtering (running, cycling, etc.)"
+      - name: distance_meters
+        description: "Total distance in meters"
+      - name: duration_seconds
+        description: "Total duration in seconds"
+      - name: average_hr_bpm
+        description: "Average heart rate in BPM"
+      - name: calories
+        description: "Total calories burned"
+      # Extended fields
       - name: raw_data
-        description: "Complete original record as JSON"
-      - name: data_type
-        description: "Data type identifier"
+        description: "Complete activity JSON for extended fields (100+ fields available)"
+      - name: dp_inserted_at
+        description: "Data platform ingestion timestamp"
         
   - name: lake_garmin__svc_body_battery
     description: "Service layer - Garmin body battery with raw JSON data and deduplication only"

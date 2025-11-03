@@ -65,11 +65,11 @@ job_groups:
   # Data Ingestion Groups (Step 2)
   ingestion_only:
     description: "Run only ingestion jobs - GCS → BigQuery (Step 2/2)"
-    jobs: ["garmin_ingest", "strava_ingest", "spotify_ingest", "chess_ingest"]
-  
+    jobs: ["garmin_ingest_auto", "strava_ingest", "spotify_ingest", "chess_ingest"]
+
   garmin_ingest_only:
-    description: "Ingest Garmin data only - GCS → BigQuery"
-    jobs: ["garmin_ingest"]
+    description: "Ingest Garmin data only - GCS → BigQuery (auto-detection)"
+    jobs: ["garmin_ingest_auto"]
 
   # Data Transformation Groups (Step 3)
   garmin_dbt_only:
@@ -95,7 +95,7 @@ job_groups:
   # Legacy Combined Pipelines (runs in parallel - use with caution)
   garmin_pipeline:
     description: "Complete Garmin pipeline (parallel execution - may have timing issues)"
-    jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_endurance_score", "garmin_hill_score", "garmin_ingest", "garmin_dbt_lake_run"]
+    jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight", "garmin_endurance_score", "garmin_hill_score", "garmin_ingest_activities", "garmin_ingest_sleep", "garmin_ingest_floors", "garmin_ingest_weight", "garmin_dbt_lake_run"]
   
   strava_pipeline:
     description: "Complete Strava pipeline (parallel execution - may have timing issues)"
@@ -419,14 +419,67 @@ jobs:
 
 
   # =================== INGESTION JOBS (DEV) ===================
+  # Auto-ingestion: single job that detects and processes all data types
+  garmin_ingest_auto:
+    service: "garmin"
+    data_type: "auto"
+    description: "Auto-ingest all Garmin data types (smart detection from filenames)"
+    cron: "30 */2 * * *"  # 30 minutes after data fetch
+    command: "python -m src.connectors.garmin.garmin_ingest_auto --env dev"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  # Individual jobs (disabled by default - use for manual/targeted ingestion)
+  garmin_ingest_activities:
+    service: "garmin"
+    data_type: "activities"
+    description: "[MANUAL] Ingest Garmin activities only"
+    cron: "35 */2 * * *"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activities --env dev"
+    environment: "dev"
+    enabled: false
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  garmin_ingest_sleep:
+    service: "garmin"
+    data_type: "sleep"
+    description: "[MANUAL] Ingest Garmin sleep data only"
+    cron: "40 */2 * * *"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config sleep --env dev"
+    environment: "dev"
+    enabled: false
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  garmin_ingest_floors:
+    service: "garmin"
+    data_type: "floors"
+    description: "[MANUAL] Ingest Garmin floors data only"
+    cron: "45 */2 * * *"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config floors --env dev"
+    environment: "dev"
+    enabled: false
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  garmin_ingest_weight:
+    service: "garmin"
+    data_type: "weight"
+    description: "[MANUAL] Ingest Garmin weight data only"
+    cron: "50 */2 * * *"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config weight --env dev"
+    environment: "dev"
+    enabled: false
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
+  # Legacy job (disabled) - kept for reference
   garmin_ingest:
     service: "garmin"
     data_type: "ingest"
-    description: "Ingest Garmin data from GCS to BigQuery (DEV)"
-    cron: "30 */2 * * *"  # 30 minutes after data fetch
+    description: "[DEPRECATED] Legacy Garmin ingestion (replaced by auto)"
+    cron: "30 */2 * * *"
     command: "python -m src.connectors.garmin.garmin_ingest --env dev"
     environment: "dev"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   garmin_dbt_lake_run:
