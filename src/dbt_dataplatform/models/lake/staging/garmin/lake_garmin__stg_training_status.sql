@@ -1,0 +1,15 @@
+SELECT
+	userId,
+	`date`,
+	vo2Max,
+	heatAltitudeAcclimation,
+	trainingStatus,
+	loadBalance,
+	recordedDevices,
+	recordedDevicesLoadBalance,
+	lastPrimarySyncDate,
+	showSelector,
+	raw_data,
+	dp_inserted_at,
+	source_file,
+FROM {{ source('garmin','training_status') }}

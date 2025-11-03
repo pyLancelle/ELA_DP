@@ -1,0 +1,19 @@
+SELECT
+	samplePk, 
+	`date`,
+	calendarDate, 
+	weight, 
+	bmi, 
+	bodyFat, 
+	bodyWater, 
+	boneMass, 
+	muscleMass, 
+	physiqueRating, 
+	visceralFat, 
+	metabolicAge, 
+	sourceType, 
+	timestampGMT, 
+	weightDelta, 
+	summaryDate,
+	dp_inserted_at
+FROM {{ source('garmin','weight') }}

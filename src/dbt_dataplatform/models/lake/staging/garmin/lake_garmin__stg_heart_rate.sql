@@ -1,0 +1,17 @@
+SELECT
+	userProfilePK,
+	calendarDate,
+	`date`,
+	startTimestampGMT,
+	endTimestampGMT,
+	startTimestampLocal,
+	endTimestampLocal,
+	maxHeartRate,
+	minHeartRate,
+	restingHeartRate,
+	lastSevenDaysAvgRestingHeartRate,
+	heartRateValues,
+	raw_data,
+	dp_inserted_at,
+	source_file,
+FROM {{ source('garmin','heart_rate') }}
