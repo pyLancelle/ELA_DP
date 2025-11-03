@@ -1,0 +1,437 @@
+# =============================================================================
+# GARMIN ACTIVITY HR ZONES - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Garmin activity heart rate zones data.
+#
+# Structure:
+# - Activity info: activityId, activityName, startTimeLocal
+# - Activity type: typeId, typeKey, parentTypeId, flags
+# - HR zones: 5 zones with time spent in each zone
+#
+# HR Zones (typical):
+# - Zone 1: Recovery (50-60% max HR)
+# - Zone 2: Aerobic/Easy (60-70% max HR)
+# - Zone 3: Tempo/Moderate (70-80% max HR)
+# - Zone 4: Threshold/Hard (80-90% max HR)
+# - Zone 5: Maximum/Sprint (90-100% max HR)
+# =============================================================================
+
+data_type: activity_hr_zones
+description: "Garmin activity heart rate zones with time spent per zone"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-11-01"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "garmin/landing"
+  file_pattern: "*_activity_hr_zones.jsonl"
+  archive_path: "garmin/archive"
+  rejected_path: "garmin/rejected"
+  delete_after_archive: false
+  max_file_age_days: 30
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_garmin__normalized_activity_hr_zones"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null
+
+  clustering:
+    enabled: true
+    fields:
+      - "activityId"
+      - "startTimeLocal"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # ACTIVITY IDENTIFICATION
+    # =========================================================================
+    - name: activityId
+      json_path: "$.activityId"
+      bq_type: INT64
+      mode: REQUIRED
+      description: "Garmin activity ID (foreign key to activities table)"
+      validations:
+        - type: not_null
+        - type: positive
+
+    - name: activityName
+      json_path: "$.activityName"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Activity name (user-defined)"
+
+    - name: startTimeLocal
+      json_path: "$.startTimeLocal"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "Activity start time in local timezone (used for partitioning)"
+      transform: "string_to_timestamp_space"
+      validations:
+        - type: not_null
+
+    - name: data_type
+      json_path: "$.data_type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Data type identifier (always 'activity_hr_zones')"
+
+    # =========================================================================
+    # ACTIVITY TYPE (RECORD)
+    # =========================================================================
+    - name: activityType
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.activityType"
+      description: "Activity type details"
+      fields:
+        - name: typeId
+          json_path: "$.typeId"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Activity type ID (1=running, 2=cycling, etc.)"
+
+        - name: typeKey
+          json_path: "$.typeKey"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Activity type key (running, cycling, swimming, etc.)"
+
+        - name: parentTypeId
+          json_path: "$.parentTypeId"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Parent activity type ID"
+
+        - name: isHidden
+          json_path: "$.isHidden"
+          bq_type: BOOL
+          mode: NULLABLE
+          description: "Whether activity type is hidden"
+
+        - name: restricted
+          json_path: "$.restricted"
+          bq_type: BOOL
+          mode: NULLABLE
+          description: "Whether activity type is restricted"
+
+        - name: trimmable
+          json_path: "$.trimmable"
+          bq_type: BOOL
+          mode: NULLABLE
+          description: "Whether activity can be trimmed"
+
+    # =========================================================================
+    # HR ZONES DATA (REPEATED RECORD)
+    # =========================================================================
+    - name: hrZonesData
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.hr_zones_data"
+      description: "Heart rate zones with time spent in each zone"
+      fields:
+        - name: zoneNumber
+          json_path: "$.zoneNumber"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "HR zone number (1=Recovery, 2=Easy, 3=Moderate, 4=Hard, 5=Maximum)"
+          validations:
+            - type: range
+              min: 1
+              max: 5
+
+        - name: secsInZone
+          json_path: "$.secsInZone"
+          bq_type: FLOAT64
+          mode: NULLABLE
+          description: "Time spent in this zone in seconds"
+          validations:
+            - type: range
+              min: 0
+              max: 86400
+
+        - name: zoneLowBoundary
+          json_path: "$.zoneLowBoundary"
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Lower heart rate boundary for this zone (bpm)"
+          validations:
+            - type: range
+              min: 30
+              max: 250
+
+  # ===========================================================================
+  # EXTENDED FIELDS
+  # ===========================================================================
+  extended_fields_reference:
+    note: "All 16 JSON paths are mapped as core fields - no extended fields needed"
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete activity HR zones JSON"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key: activityId
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - activityId
+    - startTimeLocal
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp_space:
+    description: "Convert 'YYYY-MM-DD HH:MM:SS' string to TIMESTAMP"
+    logic: "datetime.strptime(value, '%Y-%m-%d %H:%M:%S')"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 500
+  max_batch_size_mb: 10
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 2048
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Ingest activity_hr_zones to dev"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activity_hr_zones --env dev"
+
+  - name: "Ingest activity_hr_zones to prod"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activity_hr_zones --env prd"
+
+  - name: "Dry run"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activity_hr_zones --env dev --dry-run"
+
+  - name: "Verbose logging"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activity_hr_zones --env dev --log-level DEBUG"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  GARMIN ACTIVITY HR ZONES:
+
+  Heart rate zones represent different training intensities based on percentage
+  of maximum heart rate. Each activity is split into time spent in each zone.
+
+  Standard HR Zones:
+  - Zone 1 (Recovery): 50-60% max HR - Very light, recovery pace
+  - Zone 2 (Aerobic/Easy): 60-70% max HR - Comfortable, conversational pace
+  - Zone 3 (Tempo/Moderate): 70-80% max HR - Moderate effort, tempo pace
+  - Zone 4 (Threshold/Hard): 80-90% max HR - Hard effort, lactate threshold
+  - Zone 5 (Maximum/Sprint): 90-100% max HR - Maximum effort, VO2 max
+
+  Typical training distribution (80/20 rule):
+  - 80% in Zones 1-2 (easy training)
+  - 20% in Zones 4-5 (hard training)
+  - Minimal time in Zone 3 (gray zone)
+
+  Zone boundaries are personalized based on:
+  - Age-predicted max HR (220 - age)
+  - Lactate threshold test
+  - Manual configuration
+  - Historical data
+
+  Use cases:
+  1. Training intensity analysis
+  2. Verify training plan compliance (80/20 rule)
+  3. Identify overtraining (too much Zone 4-5)
+  4. Track fitness progression (same pace at lower HR)
+  5. Compare activities by training zones
+
+  Query examples:
+
+  # Activity HR zones summary
+  SELECT
+    activityId,
+    activityName,
+    startTimeLocal,
+    activityType.typeKey AS activity_type,
+    zone.zoneNumber,
+    zone.zoneLowBoundary AS min_hr,
+    zone.secsInZone,
+    ROUND(zone.secsInZone / 60, 1) AS minutes_in_zone,
+    CASE zone.zoneNumber
+      WHEN 1 THEN 'Recovery'
+      WHEN 2 THEN 'Easy'
+      WHEN 3 THEN 'Moderate'
+      WHEN 4 THEN 'Hard'
+      WHEN 5 THEN 'Maximum'
+    END AS zone_name
+  FROM `lake_garmin__activity_hr_zones_normalized`,
+  UNNEST(hrZonesData) AS zone
+  WHERE startTimeLocal >= '2025-10-01'
+  ORDER BY activityId, zone.zoneNumber;
+
+  # Zone distribution per activity
+  SELECT
+    activityId,
+    activityName,
+    SUM(zone.secsInZone) AS total_seconds,
+    ROUND(SUM(zone.secsInZone) / 60, 1) AS total_minutes,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (1,2) THEN zone.secsInZone ELSE 0 END) * 100.0 / SUM(zone.secsInZone), 1) AS pct_easy,
+    ROUND(SUM(CASE WHEN zone.zoneNumber = 3 THEN zone.secsInZone ELSE 0 END) * 100.0 / SUM(zone.secsInZone), 1) AS pct_moderate,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (4,5) THEN zone.secsInZone ELSE 0 END) * 100.0 / SUM(zone.secsInZone), 1) AS pct_hard
+  FROM `lake_garmin__activity_hr_zones_normalized`,
+  UNNEST(hrZonesData) AS zone
+  WHERE startTimeLocal >= '2025-10-01'
+  GROUP BY activityId, activityName
+  ORDER BY startTimeLocal DESC;
+
+  # Training intensity distribution (80/20 analysis)
+  SELECT
+    DATE_TRUNC(startTimeLocal, WEEK) AS week,
+    COUNT(DISTINCT activityId) AS activity_count,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (1,2) THEN zone.secsInZone ELSE 0 END) / 3600, 1) AS hours_easy,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (4,5) THEN zone.secsInZone ELSE 0 END) / 3600, 1) AS hours_hard,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (1,2) THEN zone.secsInZone ELSE 0 END) * 100.0 / SUM(zone.secsInZone), 1) AS pct_easy,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (4,5) THEN zone.secsInZone ELSE 0 END) * 100.0 / SUM(zone.secsInZone), 1) AS pct_hard
+  FROM `lake_garmin__activity_hr_zones_normalized`,
+  UNNEST(hrZonesData) AS zone
+  WHERE startTimeLocal >= '2025-09-01'
+  GROUP BY week
+  ORDER BY week DESC;
+
+  # Most time in each zone
+  SELECT
+    zone.zoneNumber,
+    CASE zone.zoneNumber
+      WHEN 1 THEN 'Recovery'
+      WHEN 2 THEN 'Easy'
+      WHEN 3 THEN 'Moderate'
+      WHEN 4 THEN 'Hard'
+      WHEN 5 THEN 'Maximum'
+    END AS zone_name,
+    COUNT(DISTINCT activityId) AS activity_count,
+    ROUND(SUM(zone.secsInZone) / 3600, 1) AS total_hours,
+    ROUND(AVG(zone.secsInZone) / 60, 1) AS avg_minutes_per_activity,
+    MIN(zone.zoneLowBoundary) AS min_boundary,
+    MAX(zone.zoneLowBoundary) AS max_boundary
+  FROM `lake_garmin__activity_hr_zones_normalized`,
+  UNNEST(hrZonesData) AS zone
+  WHERE startTimeLocal >= '2025-10-01'
+  GROUP BY zone.zoneNumber
+  ORDER BY zone.zoneNumber;
+
+  # Activities with most time in Zone 4-5 (hard training)
+  SELECT
+    activityId,
+    activityName,
+    startTimeLocal,
+    activityType.typeKey AS activity_type,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (4,5) THEN zone.secsInZone ELSE 0 END) / 60, 1) AS hard_minutes,
+    ROUND(SUM(CASE WHEN zone.zoneNumber IN (4,5) THEN zone.secsInZone ELSE 0 END) * 100.0 / SUM(zone.secsInZone), 1) AS hard_percentage
+  FROM `lake_garmin__activity_hr_zones_normalized`,
+  UNNEST(hrZonesData) AS zone
+  WHERE startTimeLocal >= '2025-10-01'
+  GROUP BY activityId, activityName, startTimeLocal, activityType.typeKey
+  HAVING hard_minutes > 0
+  ORDER BY hard_percentage DESC
+  LIMIT 20;
+
+  # HR zone boundaries by activity type
+  SELECT
+    activityType.typeKey AS activity_type,
+    zone.zoneNumber,
+    AVG(zone.zoneLowBoundary) AS avg_zone_boundary,
+    MIN(zone.zoneLowBoundary) AS min_boundary,
+    MAX(zone.zoneLowBoundary) AS max_boundary
+  FROM `lake_garmin__activity_hr_zones_normalized`,
+  UNNEST(hrZonesData) AS zone
+  WHERE startTimeLocal >= '2025-10-01'
+  GROUP BY activity_type, zone.zoneNumber
+  ORDER BY activity_type, zone.zoneNumber;

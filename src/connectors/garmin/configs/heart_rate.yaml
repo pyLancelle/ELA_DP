@@ -1,0 +1,394 @@
+# =============================================================================
+# GARMIN HEART RATE - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Garmin heart rate data with time-series arrays.
+#
+# Structure:
+# - Top-level: userProfilePK, calendarDate, date, timestamps
+# - Daily aggregates: maxHeartRate, minHeartRate, restingHeartRate
+# - 7-day average: lastSevenDaysAvgRestingHeartRate
+# - heartRateValuesArray: Time-series data (timestamp, heart rate)
+# - heartRateValueDescriptors: Array metadata (stored in raw_data)
+# =============================================================================
+
+data_type: heart_rate
+description: "Garmin heart rate data with time-series measurements"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-10-31"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "garmin/landing"
+  file_pattern: "*_heart_rate.jsonl"
+  archive_path: "garmin/archive"
+  rejected_path: "garmin/rejected"
+  delete_after_archive: false
+  max_file_age_days: 30
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_garmin__normalized_heart_rate"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+  partition:
+    enabled: true
+    field: "dp_inserted_at"
+    type: "DAY"
+    expiration_days: null
+
+  clustering:
+    enabled: true
+    fields:
+      - "userProfilePK"
+      - "calendarDate"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # IDENTIFIERS
+    # =========================================================================
+    - name: userProfilePK
+      json_path: "$.userProfilePK"
+      bq_type: INT64
+      mode: REQUIRED
+      description: "Garmin user profile primary key"
+      validations:
+        - type: not_null
+        - type: positive
+
+    - name: calendarDate
+      json_path: "$.calendarDate"
+      bq_type: DATE
+      mode: REQUIRED
+      description: "Date of heart rate data (used for partitioning)"
+      transform: "string_to_date"
+      validations:
+        - type: not_null
+
+    - name: date
+      json_path: "$.date"
+      bq_type: DATE
+      mode: NULLABLE
+      description: "Alternative date field (same as calendarDate)"
+      transform: "string_to_date"
+
+    # =========================================================================
+    # TIMESTAMPS
+    # =========================================================================
+    - name: startTimestampGMT
+      json_path: "$.startTimestampGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Start timestamp GMT"
+      transform: "string_to_timestamp"
+
+    - name: endTimestampGMT
+      json_path: "$.endTimestampGMT"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "End timestamp GMT"
+      transform: "string_to_timestamp"
+
+    - name: startTimestampLocal
+      json_path: "$.startTimestampLocal"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "Start timestamp local"
+      transform: "string_to_timestamp"
+
+    - name: endTimestampLocal
+      json_path: "$.endTimestampLocal"
+      bq_type: TIMESTAMP
+      mode: NULLABLE
+      description: "End timestamp local"
+      transform: "string_to_timestamp"
+
+    # =========================================================================
+    # DAILY AGGREGATES
+    # =========================================================================
+    - name: maxHeartRate
+      json_path: "$.maxHeartRate"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Maximum heart rate during the day (bpm)"
+      validations:
+        - type: range
+          min: 30
+          max: 250
+
+    - name: minHeartRate
+      json_path: "$.minHeartRate"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Minimum heart rate during the day (bpm)"
+      validations:
+        - type: range
+          min: 30
+          max: 250
+
+    - name: restingHeartRate
+      json_path: "$.restingHeartRate"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Resting heart rate for the day (bpm)"
+      validations:
+        - type: range
+          min: 30
+          max: 120
+
+    - name: lastSevenDaysAvgRestingHeartRate
+      json_path: "$.lastSevenDaysAvgRestingHeartRate"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "7-day moving average of resting heart rate (bpm)"
+      validations:
+        - type: range
+          min: 30
+          max: 120
+
+    # =========================================================================
+    # HEART RATE VALUES (REPEATED RECORD with array_index)
+    # =========================================================================
+    - name: heartRateValues
+      bq_type: RECORD
+      mode: REPEATED
+      json_path: "$.heartRateValues"
+      description: "Heart rate time-series measurements"
+      fields:
+        - name: timestamp
+          array_index: 0
+          bq_type: TIMESTAMP
+          mode: NULLABLE
+          description: "Measurement timestamp (epoch milliseconds)"
+          transform: "timestamp_ms_to_timestamp"
+
+        - name: heartRate
+          array_index: 1
+          bq_type: INT64
+          mode: NULLABLE
+          description: "Heart rate in beats per minute (bpm)"
+          validations:
+            - type: range
+              min: 30
+              max: 250
+
+  # ===========================================================================
+  # EXTENDED FIELDS
+  # ===========================================================================
+  extended_fields_reference:
+    note: "All 17 paths are included as core fields - no extended fields needed"
+    descriptor_fields: "heartRateValueDescriptors is metadata, stored in raw_data"
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete heart rate JSON including descriptors"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key: userProfilePK
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - userProfilePK
+    - calendarDate
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp:
+    description: "Convert ISO string to TIMESTAMP"
+    logic: "datetime.fromisoformat(value.replace('.0', ''))"
+
+  string_to_date:
+    description: "Convert YYYY-MM-DD string to DATE"
+    logic: "datetime.strptime(value, '%Y-%m-%d').date()"
+
+  timestamp_ms_to_timestamp:
+    description: "Convert milliseconds epoch to TIMESTAMP"
+    logic: "datetime.fromtimestamp(value / 1000)"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 500
+  max_batch_size_mb: 10
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 2048
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Ingest heart_rate to dev"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config heart_rate --env dev"
+
+  - name: "Ingest heart_rate to prod"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config heart_rate --env prd"
+
+  - name: "Dry run"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config heart_rate --env dev --dry-run"
+
+  - name: "Verbose logging"
+    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config heart_rate --env dev --log-level DEBUG"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  GARMIN HEART RATE DATA:
+
+  Heart rate is measured continuously throughout the day using optical sensors.
+
+  Data includes:
+  1. Daily aggregates (max/min/resting heart rate)
+  2. 7-day moving average of resting heart rate
+  3. Time-series measurements (typically every 1-5 minutes during activity, every 15-30 minutes at rest)
+
+  Heart rate zones (typical adult):
+  - Resting: 40-60 bpm (athletes) or 60-100 bpm (general population)
+  - Fat burn: 50-70% of max HR
+  - Cardio: 70-85% of max HR
+  - Peak: 85-100% of max HR
+  - Max HR estimate: 220 - age
+
+  Query examples:
+
+  # Daily heart rate summary
+  SELECT
+    calendarDate,
+    userProfilePK,
+    restingHeartRate,
+    minHeartRate,
+    maxHeartRate,
+    lastSevenDaysAvgRestingHeartRate,
+    COUNT(*) as measurement_count
+  FROM `lake_garmin__heart_rate_normalized`,
+  UNNEST(heartRateValues) AS hr
+  WHERE calendarDate >= '2025-10-01'
+  GROUP BY 1, 2, 3, 4, 5, 6
+  ORDER BY calendarDate DESC;
+
+  # Heart rate time-series
+  SELECT
+    calendarDate,
+    hr.timestamp,
+    hr.heartRate,
+    CASE
+      WHEN hr.heartRate < 60 THEN 'RESTING'
+      WHEN hr.heartRate BETWEEN 60 AND 100 THEN 'NORMAL'
+      WHEN hr.heartRate BETWEEN 100 AND 140 THEN 'ELEVATED'
+      WHEN hr.heartRate BETWEEN 140 AND 170 THEN 'HIGH'
+      WHEN hr.heartRate > 170 THEN 'VERY_HIGH'
+    END AS hr_zone
+  FROM `lake_garmin__heart_rate_normalized`,
+  UNNEST(heartRateValues) AS hr
+  WHERE calendarDate = '2025-10-29'
+  ORDER BY hr.timestamp;
+
+  # Resting heart rate trends
+  SELECT
+    calendarDate,
+    restingHeartRate,
+    lastSevenDaysAvgRestingHeartRate,
+    restingHeartRate - lastSevenDaysAvgRestingHeartRate AS deviation_from_avg
+  FROM `lake_garmin__heart_rate_normalized`
+  WHERE calendarDate >= '2025-09-01'
+    AND restingHeartRate IS NOT NULL
+  ORDER BY calendarDate;
+
+  # Heart rate variability throughout day
+  SELECT
+    calendarDate,
+    EXTRACT(HOUR FROM hr.timestamp) AS hour_of_day,
+    AVG(hr.heartRate) AS avg_hr,
+    MIN(hr.heartRate) AS min_hr,
+    MAX(hr.heartRate) AS max_hr,
+    STDDEV(hr.heartRate) AS hr_stddev
+  FROM `lake_garmin__heart_rate_normalized`,
+  UNNEST(heartRateValues) AS hr
+  WHERE calendarDate >= '2025-10-01'
+  GROUP BY calendarDate, hour_of_day
+  ORDER BY calendarDate, hour_of_day;
