@@ -1,4 +1,15 @@
-WITH latest_version AS (
+WITH 
+stats AS (
+    SELECT
+        trackId,
+        count(*) AS play_count,
+        sum(trackDurationMs) AS total_listen_duration,
+        min(playedAt) AS first_played_at,
+        max(playedAt) AS last_played_at
+    FROM {{ ref('lake_spotify__svc_recently_played') }}
+    GROUP BY trackId
+),
+latest_version AS (
 	SELECT 
 		trackId,
 	    trackName,
@@ -23,8 +34,13 @@ SELECT DISTINCT
     trackExplicit,
     trackHref,
     STRING_AGG(artist.artistName, ', ' ORDER BY artist_offset) as all_artist_names,
-    albumId
+    albumId,
+    stats.play_count,
+    stats.total_listen_duration,
+    stats.first_played_at,
+    stats.last_played_at
 FROM
     latest_version,
     UNNEST(artists) as artist WITH OFFSET as artist_offset
+    LEFT JOIN stats USING (trackId)
 GROUP BY ALL
