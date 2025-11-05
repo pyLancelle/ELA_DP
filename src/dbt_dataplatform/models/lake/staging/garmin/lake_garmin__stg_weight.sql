@@ -1,3 +1,9 @@
+{{
+  config(
+      tags=['garmin', 'lake']
+  )
+}}
+
 SELECT
     SAMPLEPK,
     `date`,

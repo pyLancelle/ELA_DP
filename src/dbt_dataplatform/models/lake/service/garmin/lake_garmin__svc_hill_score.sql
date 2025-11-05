@@ -2,7 +2,8 @@
   config(
       materialized='incremental',
       incremental_strategy='merge',
-      unique_key='startDate'
+      unique_key='startDate',
+      tags=['garmin', 'lake']
   )
 }}
 
