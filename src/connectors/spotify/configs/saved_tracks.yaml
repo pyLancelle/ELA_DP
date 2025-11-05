@@ -41,7 +41,7 @@ destination:
   create_disposition: "CREATE_IF_NEEDED"
 
   partition:
-    enabled: true
+    enabled: false
     field: "dp_inserted_at"
     type: "DAY"
     expiration_days: null
