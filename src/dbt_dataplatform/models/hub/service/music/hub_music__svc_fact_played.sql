@@ -2,11 +2,11 @@
     config(
         materialized='incremental',
         incremental_strategy='merge',
-        unique_key=['trackId', 'artistId']
+        unique_key=['playedAt']
     )
 }}
 SELECT
     *,
     CURRENT_TIMESTAMP() AS dp_updated_at
 FROM
-    {{ ref('hub_music__stg_bridge_tracks_artists') }}
+    {{ ref('hub_music__stg_fact_played') }}

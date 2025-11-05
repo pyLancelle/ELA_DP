@@ -1,55 +1,58 @@
-WITH 
+WITH
 stats AS (
     SELECT
-        albumId,
+        albumid,
         count(*) AS play_count,
-        sum(trackDurationMs) AS total_listen_duration,
-        min(playedAt) AS first_played_at,
-        max(playedAt) AS last_played_at
+        sum(trackdurationms) AS total_listen_duration,
+        min(playedat) AS first_played_at,
+        max(playedat) AS last_played_at
     FROM {{ ref('lake_spotify__svc_recently_played') }}
-    GROUP BY albumId
+    GROUP BY albumid
 ),
+
 latest_version AS (
     SELECT DISTINCT
-        albumId,
-        albumName,
+        albumid,
+        albumname,
         album_type,
-        albumReleaseDate,
-        albumReleaseDatePrecision,
-        albumTotalTracks,
-        albumUri,
-        albumExternalUrl,
-        albumHref,
-        albumType,
-        albumImageUrl,
-        albumImageHeight,
-        albumImageWidth,
-        albumArtists
+        albumreleasedate,
+        albumreleasedateprecision,
+        albumtotaltracks,
+        albumuri,
+        albumexternalurl,
+        albumhref,
+        albumtype,
+        albumimageurl,
+        albumimageheight,
+        albumimagewidth,
+        albumartists
     FROM
         {{ ref('lake_spotify__svc_recently_played') }}
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY albumId ORDER BY playedAt DESC) = 1
+    QUALIFY row_number() OVER (PARTITION BY albumid ORDER BY playedat DESC) = 1
 )
+
 SELECT
-    latest_version.albumId,
-    latest_version.albumName,
+    latest_version.albumid,
+    latest_version.albumname,
     latest_version.album_type,
-    latest_version.albumReleaseDate,
-    latest_version.albumReleaseDatePrecision,
-    latest_version.albumTotalTracks,
-    latest_version.albumUri,
-    latest_version.albumExternalUrl,
-    latest_version.albumHref,
-    latest_version.albumType,
-    latest_version.albumImageUrl,
-    latest_version.albumImageHeight,
-    latest_version.albumImageWidth,
-    STRING_AGG(albumArtist.artistName, ', ' ORDER BY artist_offset) as all_artist_names,
+    latest_version.albumreleasedate,
+    latest_version.albumreleasedateprecision,
+    latest_version.albumtotaltracks,
+    latest_version.albumuri,
+    latest_version.albumexternalurl,
+    latest_version.albumhref,
+    latest_version.albumtype,
+    latest_version.albumimageurl,
+    latest_version.albumimageheight,
+    latest_version.albumimagewidth,
     stats.play_count,
     stats.total_listen_duration,
     stats.first_played_at,
-    stats.last_played_at
+    stats.last_played_at,
+    string_agg(albumartist.artistname, ', ' ORDER BY artist_offset)
+        AS all_artist_names
 FROM
     latest_version,
-    UNNEST(albumArtists) as albumArtist WITH OFFSET as artist_offset
-    LEFT JOIN stats USING (albumId)
+    unnest(albumartists) AS albumartist WITH OFFSET AS artist_offset
+LEFT JOIN stats ON latest_version.albumid = stats.albumid
 GROUP BY ALL

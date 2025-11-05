@@ -28,6 +28,7 @@ dependencies = [
     "stravalib>=2.4",
     "types-requests>=2.32.4.20250611",
     "google>=3.0.0",
+    "sqlfluff>=3.5.0",
 ]
 [tool.setuptools.packages.find]
 where = ["src"]

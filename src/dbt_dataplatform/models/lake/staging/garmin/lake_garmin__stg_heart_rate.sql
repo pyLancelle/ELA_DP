@@ -1,17 +1,20 @@
 SELECT
-	userProfilePK,
-	calendarDate,
-	`date`,
-	startTimestampGMT,
-	endTimestampGMT,
-	startTimestampLocal,
-	endTimestampLocal,
-	maxHeartRate,
-	minHeartRate,
-	restingHeartRate,
-	lastSevenDaysAvgRestingHeartRate,
-	heartRateValues,
-	raw_data,
-	dp_inserted_at,
-	source_file,
+    USERPROFILEPK,
+    CALENDARDATE,
+    `date`,
+    STARTTIMESTAMPGMT,
+    ENDTIMESTAMPGMT,
+    STARTTIMESTAMPLOCAL,
+    ENDTIMESTAMPLOCAL,
+    MAXHEARTRATE,
+    MINHEARTRATE,
+    RESTINGHEARTRATE,
+    LASTSEVENDAYSAVGRESTINGHEARTRATE,
+    HEARTRATEVALUES,
+    RAW_DATA,
+    DP_INSERTED_AT,
+    SOURCE_FILE
 FROM {{ source('garmin','heart_rate') }}
+QUALIFY
+    ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY dp_inserted_at DESC)
+    = 1

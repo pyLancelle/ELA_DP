@@ -2,16 +2,16 @@
   config(
       materialized='incremental',
       incremental_strategy='merge',
-      unique_key='calendarDate'
+      unique_key='calendardate'
   )
 }}
 
 SELECT
-	*,
-	CURRENT_TIMESTAMP() AS dp_updated_at
-FROM {{ ref('lake_garmin__stg_sleep')}}
-WHERE id is not null
-{% if is_incremental() %}
-  AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
-{% endif %}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY dp_inserted_at DESC) = 1
+    *,
+    CURRENT_TIMESTAMP() AS dp_updated_at
+FROM {{ ref('lake_garmin__stg_sleep') }}
+WHERE
+    id IS NOT null
+    {% if is_incremental() %}
+        AND dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+    {% endif %}

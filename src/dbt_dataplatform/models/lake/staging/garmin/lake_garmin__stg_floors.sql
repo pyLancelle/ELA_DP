@@ -1,9 +1,12 @@
 SELECT
-	startTimestampGMT,
-	endTimestampGMT,
-	startTimestampLocal,
-	endTimestampLocal,
-	calendarDate,
-	floorIntervals,
-	dp_inserted_at
+    STARTTIMESTAMPGMT,
+    ENDTIMESTAMPGMT,
+    STARTTIMESTAMPLOCAL,
+    ENDTIMESTAMPLOCAL,
+    CALENDARDATE,
+    FLOORINTERVALS,
+    DP_INSERTED_AT
 FROM {{ source('garmin','floors') }}
+QUALIFY
+    ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY dp_inserted_at DESC)
+    = 1

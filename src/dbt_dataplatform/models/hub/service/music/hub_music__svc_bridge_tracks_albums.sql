@@ -7,6 +7,6 @@
 }}
 SELECT
     *,
-    CURRENT_TIMESTAMP() as dp_updated_at
+    CURRENT_TIMESTAMP() AS dp_updated_at
 FROM
-    {{ ref('hub_music__stg_bridge_albums_artists') }} AS bta
+    {{ ref('hub_music__stg_bridge_albums_artists') }}

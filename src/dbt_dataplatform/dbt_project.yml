@@ -22,3 +22,7 @@ models:
       service:
         +schema: hub_{{ target.name }}
         +materialized: incremental
+    product:
+      data4:
+        +schema: product_{{ target.name }}
+        +materialized: view

@@ -7,10 +7,9 @@
 }}
 
 SELECT
-	*,
-	CURRENT_TIMESTAMP() AS dp_updated_at
-FROM {{ ref('lake_garmin__stg_activity_details')}}
+    *,
+    CURRENT_TIMESTAMP() AS dp_updated_at
+FROM {{ ref('lake_garmin__stg_activity_details') }}
 {% if is_incremental() %}
-  WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
+    WHERE dp_inserted_at > (SELECT MAX(dp_inserted_at) FROM {{ this }})
 {% endif %}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY activityId ORDER BY dp_inserted_at DESC) = 1

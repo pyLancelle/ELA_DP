@@ -1,15 +1,16 @@
 SELECT
-	userProfilePk,
-	`date`,
-	startTimestampGMT,
-	endTimestampGMT,
-	startTimestampLocal,
-	endTimestampLocal,
-	sleepStartTimestampGMT,
-	sleepEndTimestampGMT,
-	sleepStartTimestampLocal,
-	sleepEndTimestampLocal,
-	hrvSummary,
-	hrvReadings,
-	dp_inserted_at
+    USERPROFILEPK,
+    `date`,
+    STARTTIMESTAMPGMT,
+    ENDTIMESTAMPGMT,
+    STARTTIMESTAMPLOCAL,
+    ENDTIMESTAMPLOCAL,
+    SLEEPSTARTTIMESTAMPGMT,
+    SLEEPENDTIMESTAMPGMT,
+    SLEEPSTARTTIMESTAMPLOCAL,
+    SLEEPENDTIMESTAMPLOCAL,
+    HRVSUMMARY,
+    HRVREADINGS,
+    DP_INSERTED_AT
 FROM {{ source('garmin','hrv') }}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY dp_inserted_at DESC) = 1

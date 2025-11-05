@@ -1,14 +1,15 @@
 SELECT
-	`date`,
-	startTimestampGMT,
-	endTimestampGMT,
-	startTimestampLocal,
-	endTimestampLocal,
-	charged,
-	drained,
-	bodyBatteryValues,
-	bodyBatteryDynamicFeedbackEvent,
-	endOfDayBodyBatteryDynamicFeedbackEvent,
-	bodyBatteryActivityEvent,
-	dp_inserted_at
+    `date`,
+    STARTTIMESTAMPGMT,
+    ENDTIMESTAMPGMT,
+    STARTTIMESTAMPLOCAL,
+    ENDTIMESTAMPLOCAL,
+    CHARGED,
+    DRAINED,
+    BODYBATTERYVALUES,
+    BODYBATTERYDYNAMICFEEDBACKEVENT,
+    ENDOFDAYBODYBATTERYDYNAMICFEEDBACKEVENT,
+    BODYBATTERYACTIVITYEVENT,
+    DP_INSERTED_AT
 FROM {{ source('garmin','body_battery') }}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY dp_inserted_at DESC) = 1
