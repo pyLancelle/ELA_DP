@@ -9,35 +9,20 @@ model-paths: ["models"]
 models:
   dbt_dataplatform:
     lake:
-      garmin:
+      staging:
+        +schema: lake_{{ target.name }}
+        +materialized: view
+      service:
+        +schema: lake_{{ target.name }}
         +materialized: incremental
-        +incremental_strategy: merge
-        +on_schema_change: sync_all_columns
-        +tags: ["garmin", "lake"]
-      spotify:
-        +materialized: incremental
-        +incremental_strategy: merge
-        +on_schema_change: sync_all_columns
-        +tags: ["spotify", "lake"]
-      chess:
-        +materialized: incremental
-        +incremental_strategy: merge
-        +on_schema_change: sync_all_columns
-        +tags: ["chess", "lake"]
-      +materialized: table
     hub:
-      garmin:
+      staging:
+        +schema: hub_{{ target.name }}
         +materialized: view
-        +tags: ["garmin", "hub"]
-      spotify:
-        +materialized: view
-        +tags: ["spotify", "hub"]
-      chess:
-        +materialized: view
-        +tags: ["chess", "hub"]
-      +materialized: view
+      service:
+        +schema: hub_{{ target.name }}
+        +materialized: incremental
     product:
-      daily_recap:
+      data4:
+        +schema: product_{{ target.name }}
         +materialized: view
-        +tags: ["product", "daily_recap"]
-      +materialized: view

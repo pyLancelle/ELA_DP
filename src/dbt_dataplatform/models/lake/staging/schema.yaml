@@ -1,0 +1,52 @@
+version: 2
+
+sources:
+  - name: spotify
+    database: polar-scene-465223-f7
+    schema: "{{ 'dp_lake_' ~ target.name }}"
+    tables:
+      - name: recently_played
+        identifier: lake_spotify__normalized_recently_played
+      - name: saved_albums
+        identifier: lake_spotify__normalized_saved_albums
+      - name: saved_tracks
+        identifier: lake_spotify__normalized_saved_tracks
+  - name: garmin
+    database: polar-scene-465223-f7
+    schema: "{{ 'dp_lake_' ~ target.name }}"
+    tables:
+      - name: activities
+        identifier: lake_garmin__normalized_activities
+      - name: activity_details
+        identifier: lake_garmin__normalized_activity_details
+      - name: activity_hr_zones
+        identifier: lake_garmin__normalized_activity_hr_zones
+      - name: activity_splits
+        identifier: lake_garmin__normalized_activity_splits
+      - name: activity_weather
+        identifier: lake_garmin__normalized_activity_weather
+      - name: body_battery
+        identifier: lake_garmin__normalized_body_battery
+      - name: endurance_score 
+        identifier: lake_garmin__normalized_endurance_score
+      - name: floors
+        identifier: lake_garmin__normalized_floors
+      - name: heart_rate
+        identifier: lake_garmin__normalized_heart_rate
+      - name: hill_score
+        identifier: lake_garmin__normalized_hill_score
+      - name: hrv
+        identifier: lake_garmin__normalized_hrv
+      - name: race_predictions
+        identifier: lake_garmin__normalized_race_predictions
+      - name: sleep
+        identifier: lake_garmin__normalized_sleep
+      - name: stress
+        identifier: lake_garmin__normalized_stress
+      - name: steps
+        identifier: lake_garmin__normalized_steps
+      - name: training_status
+        identifier: lake_garmin__normalized_training_status
+      - name: weight
+        identifier: lake_garmin__normalized_weight
+        

@@ -5,7 +5,7 @@ dbt_dataplatform:
       type: bigquery
       method: service-account
       project: polar-scene-465223-f7
-      schema: dp  # Valeur placeholder
+      dataset: dp
       location: US
       threads: 2
       keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '../../gcs_key.json') }}"
@@ -14,7 +14,7 @@ dbt_dataplatform:
       type: bigquery
       method: service-account
       project: polar-scene-465223-f7
-      schema: dp
+      dataset: dp
       location: US
       threads: 2
       keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '../../gcs_key.json') }}"

@@ -1,0 +1,15 @@
+SELECT
+    USERID,
+    CALENDARDATE,
+    FROMCALENDARDATE,
+    TOCALENDARDATE,
+    TIME5K,
+    TIME10K,
+    TIMEHALFMARATHON,
+    TIMEMARATHON,
+    DP_INSERTED_AT
+FROM {{ source('garmin','race_predictions') }}
+QUALIFY
+    ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY dp_inserted_at DESC)
+    = 1
+
