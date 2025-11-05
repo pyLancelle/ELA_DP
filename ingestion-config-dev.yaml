@@ -509,7 +509,7 @@ jobs:
     data_type: "dbt_lake_hub"
     description: "Run DBT transformations for Spotify lake + Hub music (30min after ingestion)"
     cron: "0 * * * *"  # Every hour at :00 (30min after ingestion at :30)
-    command: "python -m src.services.dbt.dbt_run --env dev --select lake.service.spotify hub.service.music"
+    command: "python -m src.services.dbt.dbt_run --env dev --select tag:spotify,tag:music"
     environment: "dev"
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]

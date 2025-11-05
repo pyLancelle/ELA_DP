@@ -2,7 +2,8 @@
   config(
       materialized='incremental',
       incremental_strategy='merge',
-      unique_key='addedAt'
+      unique_key='addedAt',
+      tags=['spotify', 'lake']
   )
 }}
 

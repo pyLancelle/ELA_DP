@@ -2,7 +2,8 @@
     config(
         materialized='incremental',
         incremental_strategy='merge',
-        unique_key=['playedAt']
+        unique_key=['playedAt'],
+        tags=['music', 'hub']
     )
 }}
 SELECT
