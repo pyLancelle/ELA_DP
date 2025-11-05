@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 """
-Spotify DBT Lake Models Automation
-----------------------------------
-Automates the execution of dbt run for Spotify lake models.
+Generic DBT Run Script
+======================
 
-This script runs the dbt transformations to load data from 
-lake_spotify__stg_spotify_raw to the dedicated lake service tables.
+Universal script for running DBT transformations with flexible model selection.
+All configuration is passed via command-line arguments.
 
 Usage:
-    python -m src.connectors.spotify.spotify_dbt_run --env dev
-    python -m src.connectors.spotify.spotify_dbt_run --env prd
-    python -m src.connectors.spotify.spotify_dbt_run --env dev --models lake_spotify__svc_recently_played
+    # Run specific models/paths
+    python -m src.services.dbt.dbt_run --env dev --select "models/lake/service/spotify/"
+
+    # Run with tags
+    python -m src.services.dbt.dbt_run --env dev --select "tag:garmin,tag:lake"
+
+    # Run multiple selectors
+    python -m src.services.dbt.dbt_run --env dev --select "models/lake/service/spotify/ models/hub/service/music/"
+
+    # Dry run to see what would be executed
+    python -m src.services.dbt.dbt_run --env dev --select "tag:spotify" --dry-run
 """
 
 import argparse
@@ -48,14 +55,14 @@ def validate_environment(env: str):
         raise ValueError("Environment must be 'dev' or 'prd'")
 
 
-def run_dbt_command(dbt_dir: str, env: str, models: str = None) -> bool:
+def run_dbt_command(dbt_dir: str, env: str, select: str) -> bool:
     """
-    Execute dbt run command for Spotify lake models.
+    Execute dbt run command with provided selectors.
 
     Args:
         dbt_dir: Path to DBT project directory
         env: Target environment (dev/prd)
-        models: Optional specific models to run
+        select: DBT select argument (models, tags, paths, etc.)
 
     Returns:
         bool: True if successful, False otherwise
@@ -63,38 +70,23 @@ def run_dbt_command(dbt_dir: str, env: str, models: str = None) -> bool:
     logger = logging.getLogger(__name__)
 
     # Build dbt command
-    if models:
-        # Run specific models
-        cmd = [
-            "uv",
-            "run",
-            "dbt",
-            "run",
-            "--target",
-            env,
-            "--select",
-            models,
-            "--project-dir",
-            dbt_dir,
-        ]
-    else:
-        # Run all Spotify lake models
-        cmd = [
-            "uv",
-            "run",
-            "dbt",
-            "run",
-            "--target",
-            env,
-            "--select",
-            "models/lake/spotify/",
-            "--project-dir",
-            dbt_dir,
-        ]
+    cmd = [
+        "uv",
+        "run",
+        "dbt",
+        "run",
+        "--target",
+        env,
+        "--select",
+        select,
+        "--project-dir",
+        dbt_dir,
+    ]
 
     logger.info(f"Executing DBT command: {' '.join(cmd)}")
     logger.info(f"Target environment: {env.upper()}")
     logger.info(f"Working directory: {dbt_dir}")
+    logger.info(f"Model selector: {select}")
 
     try:
         # Execute the command
@@ -135,7 +127,7 @@ def run_dbt_command(dbt_dir: str, env: str, models: str = None) -> bool:
         return False
 
 
-def get_models_summary(dbt_dir: str, env: str) -> dict:
+def get_models_summary(dbt_dir: str, env: str, select: str) -> dict:
     """Get a summary of models that would be run."""
     logger = logging.getLogger(__name__)
 
@@ -147,7 +139,7 @@ def get_models_summary(dbt_dir: str, env: str) -> dict:
         "--target",
         env,
         "--select",
-        "models/lake/spotify/",
+        select,
         "--project-dir",
         dbt_dir,
     ]
@@ -174,7 +166,22 @@ def get_models_summary(dbt_dir: str, env: str) -> dict:
 def main():
     """Main execution function."""
     parser = argparse.ArgumentParser(
-        description="Run DBT transformations for Spotify lake models"
+        description="Generic DBT run script with flexible model selection",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run Spotify lake models
+  python -m src.services.dbt.dbt_run --env dev --select "models/lake/service/spotify/"
+
+  # Run Garmin models by tags
+  python -m src.services.dbt.dbt_run --env dev --select "tag:garmin,tag:lake"
+
+  # Run Spotify lake + Hub music
+  python -m src.services.dbt.dbt_run --env dev --select "models/lake/service/spotify/ models/hub/service/music/"
+
+  # Dry run to see what would be executed
+  python -m src.services.dbt.dbt_run --env dev --select "tag:spotify" --dry-run
+        """
     )
     parser.add_argument(
         "--env",
@@ -183,13 +190,19 @@ def main():
         help="Target environment (dev or prd)",
     )
     parser.add_argument(
-        "--models",
-        help="Specific models to run (optional, defaults to all Spotify lake models)",
+        "--select",
+        required=True,
+        help="DBT select argument (models, tags, paths, etc.)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what models would be run without executing",
+    )
+    parser.add_argument(
+        "--description",
+        default="DBT transformations",
+        help="Description of what this run does (for logging)",
     )
 
     args = parser.parse_args()
@@ -198,7 +211,7 @@ def main():
     logger = setup_logging()
     start_time = datetime.now(timezone.utc)
 
-    logger.info("🎵 Starting Spotify DBT Lake Models automation")
+    logger.info(f"🚀 Starting DBT run: {args.description}")
     logger.info(f"📅 Execution time: {start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
     try:
@@ -210,8 +223,8 @@ def main():
         logger.info(f"📁 DBT directory: {dbt_dir}")
 
         # Get models summary
-        summary = get_models_summary(dbt_dir, args.env)
-        logger.info(f"📊 Found {summary['total_models']} Spotify lake models:")
+        summary = get_models_summary(dbt_dir, args.env, args.select)
+        logger.info(f"📊 Found {summary['total_models']} models:")
         for model in summary["models"]:
             logger.info(f"  - {model}")
 
@@ -224,7 +237,7 @@ def main():
             return True
 
         # Execute DBT run
-        success = run_dbt_command(dbt_dir, args.env, args.models)
+        success = run_dbt_command(dbt_dir, args.env, args.select)
 
         # Final summary
         end_time = datetime.now(timezone.utc)
@@ -232,11 +245,11 @@ def main():
 
         if success:
             logger.info(
-                f"✅ Spotify DBT automation completed successfully in {duration:.1f}s"
+                f"✅ DBT run completed successfully in {duration:.1f}s"
             )
             return True
         else:
-            logger.error(f"❌ Spotify DBT automation failed after {duration:.1f}s")
+            logger.error(f"❌ DBT run failed after {duration:.1f}s")
             return False
 
     except Exception as e:

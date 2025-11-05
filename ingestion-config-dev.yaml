@@ -15,23 +15,7 @@ global:
 job_groups:
   spotify_all:
     description: "All Spotify data sources (DEV)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_playlists", "spotify_top_tracks", "spotify_top_artists"]
-  
-  fitness_all:
-    description: "All fitness data sources (DEV)"
-    jobs: ["strava_activities", "strava_athlete", "garmin_activities", "garmin_sleep", "garmin_heart_rate"]
-  
-  productivity_all:
-    description: "All productivity data sources (DEV)"
-    jobs: ["todoist_tasks", "todoist_projects"]
-  
-  chess_all:
-    description: "All Chess.com data sources (DEV)"
-    jobs: ["chess_player_stats", "chess_games"]
-  
-  frequent_jobs:
-    description: "Frequently running jobs for development testing"
-    jobs: ["spotify_recently_played", "strava_activities", "garmin_activities", "todoist_tasks"]
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums"]
   
   daily_jobs:
     description: "Jobs that run daily (DEV)"
@@ -46,14 +30,6 @@ job_groups:
     description: "Fetch all Garmin data (Step 1/2)"
     jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight", "garmin_endurance_score", "garmin_hill_score"]
   
-  garmin_backfill_1year:
-    description: "Backfill 1 year of Garmin data"
-    jobs: ["garmin_backfill_1year"]
-  
-  strava_fetch_all:
-    description: "Fetch all Strava data (Step 1/2)"
-    jobs: ["strava_activities", "strava_athlete"]
-  
   spotify_fetch_all:
     description: "Fetch all Spotify data (Step 1/2)"
     jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums"]
@@ -65,7 +41,7 @@ job_groups:
   # Data Ingestion Groups (Step 2)
   ingestion_only:
     description: "Run only ingestion jobs - GCS → BigQuery (Step 2/2)"
-    jobs: ["garmin_ingest_auto", "strava_ingest", "spotify_ingest", "chess_ingest"]
+    jobs: ["garmin_ingest_auto", "spotify_ingest_auto", "chess_ingest"]
 
   garmin_ingest_only:
     description: "Ingest Garmin data only - GCS → BigQuery (auto-detection)"
@@ -77,7 +53,7 @@ job_groups:
     jobs: ["garmin_dbt_lake_run"]
   
   spotify_dbt_only:
-    description: "Run DBT transformations for Spotify lake models only"
+    description: "Run DBT transformations for Spotify lake + Hub music models"
     jobs: ["spotify_dbt_lake_run"]
   
   chess_ingest_only:
@@ -101,9 +77,13 @@ job_groups:
     description: "Complete Strava pipeline (parallel execution - may have timing issues)"
     jobs: ["strava_activities", "strava_athlete", "strava_ingest"]
   
+  spotify_ingest_only:
+    description: "Ingest Spotify data only - GCS → BigQuery (auto-detection)"
+    jobs: ["spotify_ingest_auto"]
+
   spotify_pipeline:
     description: "Complete Spotify pipeline (parallel execution - may have timing issues)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_ingest", "spotify_dbt_lake_run"]
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_ingest_auto", "spotify_dbt_lake_run"]
   
   chess_pipeline:
     description: "Complete Chess.com pipeline (parallel execution - may have timing issues)"
@@ -198,7 +178,7 @@ jobs:
     service: "garmin"
     data_type: "activities"
     description: "Fetch activities from Garmin (DEV - frequent testing)"
-    cron: "0 11 * * *"  # Every 2 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activities --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -208,7 +188,7 @@ jobs:
     service: "garmin"
     data_type: "activity_details"
     description: "Fetch detailed activity data with GPS from Garmin (DEV - daily)"
-    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_details --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -218,7 +198,7 @@ jobs:
     service: "garmin"
     data_type: "activity_splits"
     description: "Fetch activity splits/laps data from Garmin (DEV - daily)"
-    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_splits --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -228,7 +208,7 @@ jobs:
     service: "garmin"
     data_type: "activity_weather"
     description: "Fetch activity weather data from Garmin (DEV - daily)"
-    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_weather --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -238,7 +218,7 @@ jobs:
     service: "garmin"
     data_type: "activity_hr_zones"
     description: "Fetch activity heart rate zones data from Garmin (DEV - daily)"
-    cron: "0 11 * * *"  # Daily at 11:00 UTC for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_hr_zones --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -248,7 +228,7 @@ jobs:
     service: "garmin"
     data_type: "sleep"
     description: "Fetch sleep data from Garmin (DEV - daily testing)"
-    cron: "0 11 * * *"  # Daily at 13:00 UTC for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types sleep --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -258,7 +238,7 @@ jobs:
     service: "garmin"
     data_type: "steps"
     description: "Fetch steps data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Daily at 12:00 UTC for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types steps --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -268,7 +248,7 @@ jobs:
     service: "garmin"
     data_type: "heart_rate"
     description: "Fetch heart rate data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types heart_rate --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -278,7 +258,7 @@ jobs:
     service: "garmin"
     data_type: "body_battery"
     description: "Fetch body battery data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types body_battery --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -288,7 +268,7 @@ jobs:
     service: "garmin"
     data_type: "stress"
     description: "Fetch stress data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types stress --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -298,7 +278,7 @@ jobs:
     service: "garmin"
     data_type: "training_status"
     description: "Fetch training status data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types training_status --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -308,7 +288,7 @@ jobs:
     service: "garmin"
     data_type: "hrv"
     description: "Fetch hrv data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types hrv --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -318,7 +298,7 @@ jobs:
     service: "garmin"
     data_type: "race_predictions"
     description: "Fetch race predictions data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types race_predictions --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -328,7 +308,7 @@ jobs:
     service: "garmin"
     data_type: "floors"
     description: "Fetch floors data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"  # Every 4 hours for testing
+    cron: "0 11 * * *"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types floors --days 2 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -358,7 +338,7 @@ jobs:
     service: "garmin"
     data_type: "hill_score"
     description: "Fetch hill score data from Garmin (DEV - weekly on Sunday)"
-    cron: "0 10 * * 0"  # Sundays at 10:00 UTC (11:00 Paris)
+    cron: "0 10 * * 0"
     command: "python -m src.connectors.garmin.garmin_fetch --data-types hill_score --days 7 --no-withings-sync"
     environment: "dev"
     enabled: true
@@ -485,9 +465,9 @@ jobs:
   garmin_dbt_lake_run:
     service: "garmin"
     data_type: "dbt_lake"
-    description: "Run DBT transformations for Garmin lake models (DEV)"
-    cron: "0 7,12,16,20,23 * * *"  # 5 times per day at specific hours: 7h, 12h, 16h, 20h, 23h UTC
-    command: "python -m src.connectors.garmin.garmin_dbt_run --env dev"
+    description: "Run DBT transformations for Garmin lake models (30min after ingestion)"
+    cron: "0 */2 * * *"  # Every 2 hours at :00 (30min after ingestion at :30)
+    command: "python -m src.services.dbt.dbt_run --env dev --select 'lake.service.garmin' --description 'Garmin lake models'"
     environment: "dev"
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
@@ -502,22 +482,34 @@ jobs:
     enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
-  spotify_ingest:
+  # Auto-ingestion: single job that detects and processes all data types
+  spotify_ingest_auto:
     service: "spotify"
-    data_type: "ingest"
-    description: "Ingest Spotify data from GCS to BigQuery (DEV)"
+    data_type: "auto"
+    description: "Auto-ingest all Spotify data types (smart detection from filenames)"
     cron: "30 * * * *"  # 30 minutes after hourly fetch
-    command: "python -m src.connectors.spotify.spotify_ingest --env dev"
+    command: "python -m src.connectors.spotify.spotify_ingest_auto --env dev"
     environment: "dev"
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
+  # Legacy job (disabled) - kept for reference
+  spotify_ingest:
+    service: "spotify"
+    data_type: "ingest"
+    description: "[DEPRECATED] Legacy Spotify ingestion (replaced by auto)"
+    cron: "30 * * * *"  # 30 minutes after hourly fetch
+    command: "python -m src.connectors.spotify.spotify_ingest --env dev"
+    environment: "dev"
+    enabled: false
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
+
   spotify_dbt_lake_run:
     service: "spotify"
-    data_type: "dbt_lake"
-    description: "Run DBT transformations for Spotify lake models (DEV)"
-    cron: "0 7,12,16,20,23 * * *"  # 5 times per day at specific hours: 7h, 12h, 16h, 20h, 23h UTC
-    command: "python -m src.connectors.spotify.spotify_dbt_run --env dev"
+    data_type: "dbt_lake_hub"
+    description: "Run DBT transformations for Spotify lake + Hub music (30min after ingestion)"
+    cron: "0 * * * *"  # Every hour at :00 (30min after ingestion at :30)
+    command: "python -m src.services.dbt.dbt_run --env dev --select 'lake.service.spotify hub.service.music' --description 'Spotify lake + Hub music'"
     environment: "dev"
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
