@@ -1,3 +1,9 @@
+{{
+  config(
+      tags=['music', 'hub']
+  )
+}}
+
 SELECT
     PLAYEDAT,
     TRACKID,

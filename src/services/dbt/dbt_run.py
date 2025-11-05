@@ -55,14 +55,14 @@ def validate_environment(env: str):
         raise ValueError("Environment must be 'dev' or 'prd'")
 
 
-def run_dbt_command(dbt_dir: str, env: str, select: str) -> bool:
+def run_dbt_command(dbt_dir: str, env: str, select: list) -> bool:
     """
     Execute dbt run command with provided selectors.
 
     Args:
         dbt_dir: Path to DBT project directory
         env: Target environment (dev/prd)
-        select: DBT select argument (models, tags, paths, etc.)
+        select: DBT select argument (models, tags, paths, etc.) - can be a list
 
     Returns:
         bool: True if successful, False otherwise
@@ -78,15 +78,15 @@ def run_dbt_command(dbt_dir: str, env: str, select: str) -> bool:
         "--target",
         env,
         "--select",
-        select,
-        "--project-dir",
-        dbt_dir,
     ]
+    # Add all select arguments
+    cmd.extend(select)
+    cmd.extend(["--project-dir", dbt_dir])
 
     logger.info(f"Executing DBT command: {' '.join(cmd)}")
     logger.info(f"Target environment: {env.upper()}")
     logger.info(f"Working directory: {dbt_dir}")
-    logger.info(f"Model selector: {select}")
+    logger.info(f"Model selector: {' '.join(select)}")
 
     try:
         # Execute the command
@@ -127,7 +127,7 @@ def run_dbt_command(dbt_dir: str, env: str, select: str) -> bool:
         return False
 
 
-def get_models_summary(dbt_dir: str, env: str, select: str) -> dict:
+def get_models_summary(dbt_dir: str, env: str, select: list) -> dict:
     """Get a summary of models that would be run."""
     logger = logging.getLogger(__name__)
 
@@ -139,10 +139,9 @@ def get_models_summary(dbt_dir: str, env: str, select: str) -> dict:
         "--target",
         env,
         "--select",
-        select,
-        "--project-dir",
-        dbt_dir,
     ]
+    cmd.extend(select)
+    cmd.extend(["--project-dir", dbt_dir])
 
     try:
         result = subprocess.run(
@@ -192,7 +191,8 @@ Examples:
     parser.add_argument(
         "--select",
         required=True,
-        help="DBT select argument (models, tags, paths, etc.)",
+        nargs="+",
+        help="DBT select argument (models, tags, paths, etc.). Can accept multiple values.",
     )
     parser.add_argument(
         "--dry-run",

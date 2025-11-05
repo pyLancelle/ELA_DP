@@ -1,3 +1,9 @@
+{{
+  config(
+      tags=['music', 'hub']
+  )
+}}
+
 WITH
 stats AS (
     SELECT

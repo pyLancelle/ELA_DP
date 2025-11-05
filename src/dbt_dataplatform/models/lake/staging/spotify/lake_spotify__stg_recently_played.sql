@@ -1,3 +1,9 @@
+{{
+  config(
+      tags=['spotify', 'lake']
+  )
+}}
+
 SELECT
     PLAYEDAT,
     CONTEXTTYPE,
