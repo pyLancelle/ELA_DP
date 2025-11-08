@@ -26,3 +26,6 @@ models:
       data4:
         +schema: product_{{ target.name }}
         +materialized: view
+      homepage:
+        +schema: product_{{ target.name }}
+        +materialized: view
