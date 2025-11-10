@@ -15,7 +15,7 @@ WITH ranking AS (
         ON fact_played.trackid = dim_tracks.trackid
     LEFT JOIN {{ ref('hub_music__svc_dim_albums')}} AS dim_albums
         ON dim_tracks.albumid = dim_albums.albumid
-    WHERE bridge_artists.artist_role = 'primary'
+    -- WHERE bridge_artists.artist_role = 'primary'
     GROUP BY ALL
     ORDER BY total_duration_ms DESC
     LIMIT 20
