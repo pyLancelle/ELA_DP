@@ -29,3 +29,6 @@ models:
       homepage:
         +schema: product_{{ target.name }}
         +materialized: view
+      classement:
+        +schema: product_{{ target.name }}
+        +materialized: view
