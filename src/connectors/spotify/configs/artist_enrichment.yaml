@@ -1,0 +1,449 @@
+# =============================================================================
+# SPOTIFY ARTIST ENRICHMENT - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Spotify artist enrichment data with detailed
+# metadata fetched from the Spotify Artists API.
+#
+# Structure:
+# - Artist identification: id, name, uri, href
+# - Artist metadata: genres (array), popularity, followers
+# - Artist images: profile pictures in various sizes (array)
+# - External URLs: Spotify web player link
+# - Enrichment timestamp: when data was fetched
+# =============================================================================
+
+data_type: artist_enrichment
+description: "Spotify artist enrichment data with genres, popularity, followers, and images"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-11-11"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "spotify/landing"
+  file_pattern: "*_artist_enrichment.jsonl"
+  archive_path: "spotify/archive"
+  rejected_path: "spotify/rejected"
+  delete_after_archive: false
+  max_file_age_days: 90
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_spotify__normalized_artist_enrichment"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # ARTIST IDENTIFICATION
+    # =========================================================================
+    - name: artistId
+      json_path: "$.id"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Spotify artist ID (unique identifier)"
+      validations:
+        - type: not_null
+
+    - name: artistName
+      json_path: "$.name"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Artist name"
+      validations:
+        - type: not_null
+
+    - name: type
+      json_path: "$.type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Object type (always 'artist')"
+
+    - name: uri
+      json_path: "$.uri"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify URI (spotify:artist:xxx)"
+
+    - name: href
+      json_path: "$.href"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify API URL for this artist"
+
+    # =========================================================================
+    # ARTIST METADATA
+    # =========================================================================
+    - name: popularity
+      json_path: "$.popularity"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Artist popularity score (0-100)"
+      validations:
+        - type: range
+          min: 0
+          max: 100
+
+    - name: followerCount
+      json_path: "$.followers.total"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Total number of followers"
+      validations:
+        - type: range
+          min: 0
+          max: 100000000
+
+    # =========================================================================
+    # GENRES (JSON ARRAY)
+    # =========================================================================
+    - name: genres
+      json_path: "$.genres"
+      bq_type: JSON
+      mode: NULLABLE
+      description: "List of genres associated with the artist (stored as JSON array, e.g., ['indie rock', 'alternative'])"
+
+    # =========================================================================
+    # EXTERNAL URLS (RECORD)
+    # =========================================================================
+    - name: externalUrls
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.external_urls"
+      description: "External URLs for this artist"
+      fields:
+        - name: spotify
+          json_path: "$.spotify"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify web player URL"
+
+    # =========================================================================
+    # ARTIST IMAGES (JSON ARRAY)
+    # =========================================================================
+    - name: images
+      bq_type: JSON
+      mode: NULLABLE
+      json_path: "$.images"
+      description: "Artist profile images in various sizes (stored as JSON array)"
+
+    # =========================================================================
+    # ENRICHMENT TIMESTAMP
+    # =========================================================================
+    - name: enrichedAt
+      json_path: "$.enriched_at"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "Timestamp when artist data was enriched from Spotify API"
+      transform: "string_to_timestamp_iso"
+      validations:
+        - type: not_null
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete artist enrichment JSON"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested into BigQuery"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key: artistId
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - artistId
+    - artistName
+    - enrichedAt
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp_iso:
+    description: "Convert ISO 8601 timestamp to Python datetime"
+    logic: "datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 500
+  max_batch_size_mb: 10
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 2048
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Backfill all artists (dev)"
+    command: "python src/connectors/spotify/spotify_artist_enrichment.py --mode backfill --env dev"
+
+  - name: "Incremental enrichment (weekly run)"
+    command: "python src/connectors/spotify/spotify_artist_enrichment.py --mode incremental --env prd"
+
+  - name: "Ingest enrichment data to dev"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config artist_enrichment --env dev"
+
+  - name: "Ingest enrichment data to prod"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config artist_enrichment --env prd"
+
+  - name: "Dry run (query only)"
+    command: "python src/connectors/spotify/spotify_artist_enrichment.py --mode backfill --dry-run"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  SPOTIFY ARTIST ENRICHMENT:
+
+  This dataset contains enriched metadata for Spotify artists, fetched via the
+  Spotify Artists API endpoint (GET /v1/artists/{ids}). It supplements the basic
+  artist data derived from listening history with detailed metadata including:
+  - Genres (array of genre tags)
+  - Popularity (0-100 score, updated by Spotify)
+  - Follower count
+  - Profile images in multiple sizes
+  - External links
+
+  Data Freshness Strategy:
+  - Backfill mode: Enrich all artists in hub_music__svc_dim_artists that don't
+    have enrichment data yet (run once initially or after major data migrations)
+  - Incremental mode: Enrich only artists discovered in the last 7 days (run weekly)
+  - Enrichment timestamp tracks when data was fetched for staleness detection
+
+  Recommended Schedule:
+  - Weekly run on Sunday mornings to enrich new artists
+  - Optional: Monthly refresh of top artists to update popularity/follower counts
+
+  Artist Genres:
+  - Returned as an array of strings (e.g., ["indie rock", "alternative"])
+  - Some artists may have no genres (instrumental, classical, very new artists)
+  - Genres are Spotify's curated tags, can be used for music discovery
+
+  Popularity Score:
+  - Calculated by Spotify based on recent play counts globally
+  - Updates frequently, good indicator of current trending artists
+  - Score of 0-100 (100 = most popular)
+
+  Images:
+  - Usually 3 sizes: large (640x640), medium (320x320), small (160x160)
+  - Some artists may have no images (very new, unclaimed profiles)
+  - Images are CDN URLs, always available for display
+
+  Use Cases:
+  1. Enhance artist dimensions with rich metadata
+  2. Genre-based music recommendations
+  3. Popularity trends over time
+  4. Artist profile displays with images
+  5. Genre distribution analysis
+  6. Follower count tracking
+
+  Integration with Hub:
+  - Join with hub_music__svc_dim_artists on artistId
+  - Use LEFT JOIN to preserve artists without enrichment data
+  - Consider enrichment data as supplementary, not required
+
+  Query Examples:
+
+  # Artists by genre
+  SELECT
+    artistName,
+    popularity,
+    followerCount,
+    ARRAY_TO_STRING(genres, ', ') AS genre_list
+  FROM `lake_spotify__normalized_artist_enrichment`
+  WHERE 'indie rock' IN UNNEST(genres)
+  ORDER BY popularity DESC
+  LIMIT 20;
+
+  # Artists without enrichment data (for backfill identification)
+  SELECT
+    artists.artistId,
+    artists.artistName,
+    artists.play_count
+  FROM `hub_music__svc_dim_artists` artists
+  LEFT JOIN `lake_spotify__normalized_artist_enrichment` enrich
+    ON artists.artistId = enrich.artistId
+  WHERE enrich.artistId IS NULL
+  ORDER BY artists.play_count DESC;
+
+  # Top genres in library
+  SELECT
+    genre,
+    COUNT(DISTINCT artistId) AS artist_count,
+    ROUND(AVG(popularity), 1) AS avg_popularity,
+    SUM(followerCount) AS total_followers
+  FROM `lake_spotify__normalized_artist_enrichment`,
+  UNNEST(genres) AS genre
+  GROUP BY genre
+  ORDER BY artist_count DESC
+  LIMIT 30;
+
+  # Artists with largest profile image
+  SELECT
+    artistName,
+    popularity,
+    followerCount,
+    image.url AS profile_image,
+    image.height,
+    image.width
+  FROM `lake_spotify__normalized_artist_enrichment`,
+  UNNEST(images) AS image
+  WHERE image.height >= 640  -- Large images only
+  ORDER BY popularity DESC
+  LIMIT 20;
+
+  # Enrichment staleness check (artists enriched > 90 days ago)
+  SELECT
+    artistId,
+    artistName,
+    enrichedAt,
+    DATE_DIFF(CURRENT_DATE(), DATE(enrichedAt), DAY) AS days_since_enrichment,
+    popularity,
+    followerCount
+  FROM `lake_spotify__normalized_artist_enrichment`
+  WHERE enrichedAt < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+  ORDER BY popularity DESC
+  LIMIT 100;
+
+  # Popularity distribution
+  SELECT
+    CASE
+      WHEN popularity >= 80 THEN '80-100 (Very Popular)'
+      WHEN popularity >= 60 THEN '60-79 (Popular)'
+      WHEN popularity >= 40 THEN '40-59 (Moderate)'
+      WHEN popularity >= 20 THEN '20-39 (Niche)'
+      ELSE '0-19 (Emerging)'
+    END AS popularity_tier,
+    COUNT(*) AS artist_count,
+    ROUND(AVG(followerCount), 0) AS avg_followers,
+    ARRAY_AGG(artistName ORDER BY popularity DESC LIMIT 3) AS sample_artists
+  FROM `lake_spotify__normalized_artist_enrichment`
+  GROUP BY popularity_tier
+  ORDER BY MIN(popularity) DESC;
+
+  # Artists with no genres (for data quality monitoring)
+  SELECT
+    artistName,
+    artistId,
+    popularity,
+    followerCount,
+    enrichedAt
+  FROM `lake_spotify__normalized_artist_enrichment`
+  WHERE ARRAY_LENGTH(genres) = 0
+  ORDER BY popularity DESC;
+
+  # Genre co-occurrence (genres that appear together)
+  WITH artist_genres AS (
+    SELECT
+      artistId,
+      artistName,
+      genre
+    FROM `lake_spotify__normalized_artist_enrichment`,
+    UNNEST(genres) AS genre
+  )
+  SELECT
+    a.genre AS genre_1,
+    b.genre AS genre_2,
+    COUNT(DISTINCT a.artistId) AS artist_count
+  FROM artist_genres a
+  JOIN artist_genres b
+    ON a.artistId = b.artistId
+    AND a.genre < b.genre  -- Avoid duplicates
+  GROUP BY genre_1, genre_2
+  HAVING artist_count >= 3
+  ORDER BY artist_count DESC
+  LIMIT 50;
+
+  # Follower growth potential (high popularity but low followers)
+  SELECT
+    artistName,
+    popularity,
+    followerCount,
+    ROUND(popularity / NULLIF(followerCount, 0) * 1000000, 2) AS popularity_per_million_followers,
+    ARRAY_TO_STRING(genres, ', ') AS genres,
+    externalUrls.spotify AS spotify_url
+  FROM `lake_spotify__normalized_artist_enrichment`
+  WHERE popularity >= 50
+    AND followerCount < 100000
+  ORDER BY popularity DESC
+  LIMIT 20;

@@ -5,6 +5,8 @@ sources:
     database: polar-scene-465223-f7
     schema: "{{ 'dp_lake_' ~ target.name }}"
     tables:
+      - name: artist_enrichment
+        identifier: lake_spotify__normalized_artist_enrichment
       - name: recently_played
         identifier: lake_spotify__normalized_recently_played
       - name: saved_albums
