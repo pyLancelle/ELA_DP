@@ -3,7 +3,7 @@
       materialized='incremental',
       incremental_strategy='merge',
       unique_key='artistId',
-      tags=['spotify', 'lake', 'artist_enrichment']
+      tags=['spotify', 'lake']
   )
 }}
 
