@@ -31,6 +31,19 @@ latest_artist AS (
     QUALIFY
         row_number() OVER (PARTITION BY artist.artistid ORDER BY playedat DESC)
         = 1
+),
+
+enrichment AS (
+    SELECT
+        artistid,
+        genres,
+        popularity,
+        followercount,
+        imageurllarge,
+        imageurlmedium,
+        imageurlsmall,
+        enrichedat
+    FROM {{ ref('lake_spotify__svc_artist_enrichment') }}
 )
 
 SELECT
@@ -43,6 +56,15 @@ SELECT
     stats.play_count,
     stats.total_listen_duration,
     stats.first_played_at,
-    stats.last_played_at
+    stats.last_played_at,
+    -- Enrichment fields
+    enrichment.genres,
+    enrichment.popularity,
+    enrichment.followercount,
+    enrichment.imageurllarge,
+    enrichment.imageurlmedium,
+    enrichment.imageurlsmall,
+    enrichment.enrichedat
 FROM latest_artist
 LEFT JOIN stats ON latest_artist.artistid = stats.artistid
+LEFT JOIN enrichment ON latest_artist.artistid = enrichment.artistid

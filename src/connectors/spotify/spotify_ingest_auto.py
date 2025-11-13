@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import logging
+import os
 import re
 import sys
 from collections import defaultdict
@@ -32,6 +33,7 @@ from google.api_core import exceptions as gcp_exceptions
 
 # Mapping: filename pattern → config name
 FILE_PATTERNS = {
+    r'.*_artist_enrichment\.jsonl$': 'artist_enrichment',
     r'.*_recently_played\.jsonl$': 'recently_played',
     r'.*_saved_tracks\.jsonl$': 'saved_tracks',
     r'.*_saved_albums\.jsonl$': 'saved_albums',
@@ -39,6 +41,7 @@ FILE_PATTERNS = {
 
 # Configs that are ready for ingest_v2
 SUPPORTED_CONFIGS = {
+    'artist_enrichment',
     'recently_played',
     'saved_tracks',
     'saved_albums',
@@ -269,6 +272,35 @@ def run_auto_ingestion(env: str, dry_run: bool = False) -> int:
 
 
 # =============================================================================
+# ENVIRONMENT SETUP
+# =============================================================================
+
+def load_env_and_setup_credentials() -> None:
+    """Load .env file and setup GCP credentials with absolute path."""
+    try:
+        from dotenv import load_dotenv
+
+        # Find .env file at project root
+        env_path = Path(__file__).parent.parent.parent.parent / ".env"
+
+        if env_path.exists():
+            load_dotenv(env_path)
+            logging.debug(f"Loaded .env from {env_path}")
+
+            # Fix GOOGLE_APPLICATION_CREDENTIALS to use absolute path
+            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            if credentials_path and not os.path.isabs(credentials_path):
+                # Convert relative path to absolute
+                abs_credentials_path = env_path.parent / credentials_path
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(abs_credentials_path)
+                logging.debug(f"Set GOOGLE_APPLICATION_CREDENTIALS to: {abs_credentials_path}")
+        else:
+            logging.warning(f".env file not found at {env_path}")
+    except ImportError:
+        logging.warning("python-dotenv not installed, skipping .env file loading")
+
+
+# =============================================================================
 # CLI
 # =============================================================================
 
@@ -318,6 +350,9 @@ Examples:
         format='%(asctime)s [%(levelname)s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
+
+    # Load .env and setup credentials
+    load_env_and_setup_credentials()
 
     # Run auto-ingestion
     exit_code = run_auto_ingestion(args.env, args.dry_run)
