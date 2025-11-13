@@ -34,6 +34,7 @@ from google.api_core import exceptions as gcp_exceptions
 # Mapping: filename pattern → config name
 FILE_PATTERNS = {
     r'.*_artist_enrichment\.jsonl$': 'artist_enrichment',
+    r'.*_album_enrichment\.jsonl$': 'album_enrichment',
     r'.*_recently_played\.jsonl$': 'recently_played',
     r'.*_saved_tracks\.jsonl$': 'saved_tracks',
     r'.*_saved_albums\.jsonl$': 'saved_albums',
@@ -42,6 +43,7 @@ FILE_PATTERNS = {
 # Configs that are ready for ingest_v2
 SUPPORTED_CONFIGS = {
     'artist_enrichment',
+    'album_enrichment',
     'recently_played',
     'saved_tracks',
     'saved_albums',
