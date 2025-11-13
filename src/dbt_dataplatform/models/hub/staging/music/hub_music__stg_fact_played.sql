@@ -5,7 +5,7 @@
 }}
 
 SELECT
-    PLAYEDAT,
+    PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%S', PLAYEDAT, 'Europe/Paris')) AS PLAYEDAT,
     TRACKID,
     CONTEXTTYPE,
     CONTEXTURI,
