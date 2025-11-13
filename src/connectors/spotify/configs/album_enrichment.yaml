@@ -1,0 +1,581 @@
+# =============================================================================
+# SPOTIFY ALBUM ENRICHMENT - COMPLETE INGESTION CONFIGURATION
+# =============================================================================
+# This configuration handles Spotify album enrichment data with detailed
+# metadata fetched from the Spotify Albums API.
+#
+# Structure:
+# - Album identification: id, name, uri, href
+# - Album metadata: artists, genres, release date, label, popularity
+# - Album tracks: total track count, album type
+# - Album images: cover art in various sizes (array)
+# - External URLs & IDs: Spotify web player link, external IDs (UPC, EAN, ISRC)
+# - Enrichment timestamp: when data was fetched
+# =============================================================================
+
+data_type: album_enrichment
+description: "Spotify album enrichment data with artists, genres, release info, popularity, and cover art"
+version: "1.0.0"
+owner: "data-platform"
+last_updated: "2025-11-14"
+
+# =============================================================================
+# SOURCE CONFIGURATION
+# =============================================================================
+source:
+  bucket_pattern: "ela-dp-{env}"
+  landing_path: "spotify/landing"
+  file_pattern: "*_album_enrichment.jsonl"
+  archive_path: "spotify/archive"
+  rejected_path: "spotify/rejected"
+  delete_after_archive: false
+  max_file_age_days: 90
+
+# =============================================================================
+# DESTINATION CONFIGURATION
+# =============================================================================
+destination:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_pattern: "dp_lake_{env}"
+  table_name: "lake_spotify__normalized_album_enrichment"
+  write_disposition: "WRITE_APPEND"
+  create_disposition: "CREATE_IF_NEEDED"
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+parsing:
+  strategy: "hybrid"
+
+  core_fields:
+    # =========================================================================
+    # ALBUM IDENTIFICATION
+    # =========================================================================
+    - name: albumId
+      json_path: "$.id"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Spotify album ID (unique identifier)"
+      validations:
+        - type: not_null
+
+    - name: albumName
+      json_path: "$.name"
+      bq_type: STRING
+      mode: REQUIRED
+      description: "Album name"
+      validations:
+        - type: not_null
+
+    - name: type
+      json_path: "$.type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Object type (always 'album')"
+
+    - name: uri
+      json_path: "$.uri"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify URI (spotify:album:xxx)"
+
+    - name: href
+      json_path: "$.href"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Spotify API URL for this album"
+
+    # =========================================================================
+    # RELEASE INFORMATION
+    # =========================================================================
+    - name: releaseDate
+      json_path: "$.release_date"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Album release date (format varies: YYYY, YYYY-MM, YYYY-MM-DD)"
+
+    - name: releaseDatePrecision
+      json_path: "$.release_date_precision"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Precision of release date (year, month, day)"
+
+    - name: albumType
+      json_path: "$.album_type"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Album type: album, single, compilation"
+
+    - name: totalTrackCount
+      json_path: "$.total_tracks"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Total number of tracks in the album"
+      validations:
+        - type: range
+          min: 0
+          max: 500
+
+    # =========================================================================
+    # ARTISTS (JSON ARRAY)
+    # =========================================================================
+    - name: artists
+      bq_type: JSON
+      mode: NULLABLE
+      json_path: "$.artists"
+      description: "List of artists on the album (stored as JSON array with id, name, type, uri, href)"
+
+    # =========================================================================
+    # GENRES (JSON ARRAY)
+    # =========================================================================
+    - name: genres
+      json_path: "$.genres"
+      bq_type: JSON
+      mode: NULLABLE
+      description: "List of genres associated with the album (stored as JSON array, e.g., ['rock', 'alternative'])"
+
+    # =========================================================================
+    # AVAILABILITY
+    # =========================================================================
+    - name: availableMarkets
+      bq_type: JSON
+      mode: NULLABLE
+      json_path: "$.available_markets"
+      description: "List of country codes where album is available (ISO 3166-1 alpha-2)"
+
+    # =========================================================================
+    # EXTERNAL URLS (RECORD)
+    # =========================================================================
+    - name: externalUrls
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.external_urls"
+      description: "External URLs for this album"
+      fields:
+        - name: spotify
+          json_path: "$.spotify"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Spotify web player URL"
+
+    # =========================================================================
+    # EXTERNAL IDs (RECORD)
+    # =========================================================================
+    - name: externalIds
+      bq_type: RECORD
+      mode: NULLABLE
+      json_path: "$.external_ids"
+      description: "External identifiers for this album (UPC, EAN, ISRC)"
+      fields:
+        - name: upc
+          json_path: "$.upc"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "Universal Product Code"
+        - name: ean
+          json_path: "$.ean"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "European Article Number"
+        - name: isrc
+          json_path: "$.isrc"
+          bq_type: STRING
+          mode: NULLABLE
+          description: "International Standard Recording Code"
+
+    # =========================================================================
+    # ALBUM IMAGES (JSON ARRAY)
+    # =========================================================================
+    - name: images
+      bq_type: JSON
+      mode: NULLABLE
+      json_path: "$.images"
+      description: "Album cover art in various sizes (stored as JSON array)"
+
+    # =========================================================================
+    # ALBUM TRACKS (JSON OBJECT)
+    # =========================================================================
+    - name: tracks
+      bq_type: JSON
+      mode: NULLABLE
+      json_path: "$.tracks"
+      description: "Album tracks object containing track list with pagination info (href, limit, next, offset, previous, total, items array)"
+
+    # =========================================================================
+    # ALBUM METADATA
+    # =========================================================================
+    - name: popularity
+      json_path: "$.popularity"
+      bq_type: INT64
+      mode: NULLABLE
+      description: "Album popularity score (0-100)"
+      validations:
+        - type: range
+          min: 0
+          max: 100
+
+    - name: label
+      json_path: "$.label"
+      bq_type: STRING
+      mode: NULLABLE
+      description: "Record label that released the album"
+
+    - name: copyrights
+      bq_type: JSON
+      mode: NULLABLE
+      json_path: "$.copyrights"
+      description: "Copyright statements for the album (stored as JSON array)"
+
+    # =========================================================================
+    # ENRICHMENT TIMESTAMP
+    # =========================================================================
+    - name: enrichedAt
+      json_path: "$.enriched_at"
+      bq_type: TIMESTAMP
+      mode: REQUIRED
+      description: "Timestamp when album data was enriched from Spotify API"
+      transform: "string_to_timestamp_iso"
+      validations:
+        - type: not_null
+
+# =============================================================================
+# METADATA FIELDS
+# =============================================================================
+metadata_fields:
+  - name: raw_data
+    bq_type: JSON
+    mode: NULLABLE
+    description: "Complete album enrichment JSON"
+
+  - name: dp_inserted_at
+    bq_type: TIMESTAMP
+    mode: REQUIRED
+    description: "Timestamp when record was ingested into BigQuery"
+    default: "CURRENT_TIMESTAMP"
+
+  - name: source_file
+    bq_type: STRING
+    mode: NULLABLE
+    description: "Source JSONL filename"
+
+# =============================================================================
+# QUALITY CHECKS
+# =============================================================================
+quality_checks:
+  unique_key: albumId
+  deduplication_strategy: "keep_latest"
+
+  required_fields:
+    - albumId
+    - albumName
+    - enrichedAt
+
+  validation_mode: "warn"
+
+  null_handling:
+    strategy: "allow"
+    replacement_values: {}
+
+# =============================================================================
+# TRANSFORMATIONS
+# =============================================================================
+transformations:
+  string_to_timestamp_iso:
+    description: "Convert ISO 8601 timestamp to Python datetime"
+    logic: "datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)"
+
+# =============================================================================
+# PERFORMANCE CONFIGURATION
+# =============================================================================
+performance:
+  batch_size: 500
+  max_batch_size_mb: 10
+  max_workers: 4
+  parallel_file_limit: 10
+  max_memory_mb: 2048
+  stream_large_files: true
+  bq_job_timeout_seconds: 600
+  gcs_download_timeout: 300
+
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5
+    backoff_multiplier: 2
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  console: true
+  file: false
+  include_sample_records: true
+  max_sample_records: 3
+  log_rejected_records: true
+  log_validation_failures: true
+  track_metrics: true
+
+# =============================================================================
+# ALERTING
+# =============================================================================
+alerting:
+  enabled: false
+
+  conditions:
+    - name: high_rejection_rate
+      threshold: 0.1
+
+    - name: no_data
+      threshold: 0
+
+    - name: processing_time
+      threshold: 600
+
+  channels:
+    - email
+    - slack
+
+# =============================================================================
+# EXAMPLES
+# =============================================================================
+examples:
+  - name: "Backfill all albums (dev)"
+    command: "python src/connectors/spotify/spotify_album_enrichment.py --mode backfill --env dev"
+
+  - name: "Incremental enrichment (weekly run)"
+    command: "python src/connectors/spotify/spotify_album_enrichment.py --mode incremental --env prd"
+
+  - name: "Ingest enrichment data to dev"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config album_enrichment --env dev"
+
+  - name: "Ingest enrichment data to prod"
+    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config album_enrichment --env prd"
+
+  - name: "Dry run (query only)"
+    command: "python src/connectors/spotify/spotify_album_enrichment.py --mode backfill --dry-run"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  SPOTIFY ALBUM ENRICHMENT:
+
+  This dataset contains enriched metadata for Spotify albums, fetched via the
+  Spotify Albums API endpoint (GET /v1/albums/{ids}). It supplements the basic
+  album data derived from listening history with detailed metadata including:
+  - Artists (array of artist objects)
+  - Genres (array of genre tags)
+  - Release date and precision
+  - Album type (album, single, compilation)
+  - Popularity (0-100 score, updated by Spotify)
+  - Label information
+  - Cover art images in multiple sizes
+  - External links and identifiers (UPC, EAN, ISRC)
+  - Copyright information
+
+  Data Source:
+  - Albums are identified from tracks in lake_spotify__svc_recently_played
+  - Only albums from played tracks are enriched (not saved albums)
+  - This ensures enrichment focuses on actively listened music
+
+  Data Freshness Strategy:
+  - Backfill mode: Enrich all albums from played tracks that don't have
+    enrichment data yet (run once initially or after major data migrations)
+  - Incremental mode: Enrich only albums from tracks played in the last 7 days
+    (run weekly)
+  - Enrichment timestamp tracks when data was fetched for staleness detection
+
+  Recommended Schedule:
+  - Weekly run on Sunday mornings (15min after artist enrichment)
+  - Optional: Monthly refresh of popular albums to update popularity scores
+
+  Album Artists:
+  - Returned as an array of artist objects
+  - Primary artist is typically first in the array
+  - Multiple artists common for collaborations, compilations, soundtracks
+
+  Album Genres:
+  - Returned as an array of strings (e.g., ["rock", "alternative"])
+  - Many albums may have no genres (inherit from artist genres instead)
+  - Genres are Spotify's curated tags
+
+  Release Date:
+  - Format varies: YYYY, YYYY-MM, or YYYY-MM-DD
+  - releaseDatePrecision indicates the precision level
+  - Older albums often only have year precision
+
+  Album Types:
+  - album: Standard album release
+  - single: Single track or EP (typically 1-4 tracks)
+  - compilation: Compilation album (various artists, greatest hits, etc.)
+
+  Popularity Score:
+  - Calculated by Spotify based on recent play counts globally
+  - Updates frequently, good indicator of current trending albums
+  - Score of 0-100 (100 = most popular)
+
+  Images:
+  - Usually 3 sizes: large (640x640), medium (320x320), small (64x64)
+  - All albums should have cover art
+  - Images are CDN URLs, always available for display
+
+  Label:
+  - Record label that released the album
+  - Can be major labels, indie labels, or self-released
+
+  External IDs:
+  - UPC (Universal Product Code): North American barcode
+  - EAN (European Article Number): European barcode
+  - ISRC (International Standard Recording Code): Per-track identifier
+  - Not all albums have all IDs
+
+  Use Cases:
+  1. Enhance album dimensions with rich metadata
+  2. Genre-based music recommendations
+  3. Popularity trends over time
+  4. Album display with cover art
+  5. Label distribution analysis
+  6. Release timeline analysis
+
+  Integration with Lake:
+  - Join with lake_spotify__svc_recently_played on albumId
+  - Use LEFT JOIN to preserve albums without enrichment data
+  - Consider enrichment data as supplementary, not required
+
+  Query Examples:
+
+  # Albums by genre
+  SELECT
+    albumName,
+    popularity,
+    releaseDate,
+    label,
+    ARRAY_TO_STRING(genres, ', ') AS genre_list
+  FROM `lake_spotify__normalized_album_enrichment`
+  WHERE 'rock' IN UNNEST(genres)
+  ORDER BY popularity DESC
+  LIMIT 20;
+
+  # Albums without enrichment data (for backfill identification)
+  SELECT DISTINCT
+    rp.albumId,
+    rp.albumName,
+    COUNT(*) AS play_count
+  FROM `lake_spotify__svc_recently_played` rp
+  LEFT JOIN `lake_spotify__normalized_album_enrichment` enrich
+    ON rp.albumId = enrich.albumId
+  WHERE enrich.albumId IS NULL
+  GROUP BY rp.albumId, rp.albumName
+  ORDER BY play_count DESC;
+
+  # Most played albums with enrichment
+  SELECT
+    rp.albumName,
+    enrich.popularity,
+    enrich.releaseDate,
+    enrich.label,
+    enrich.albumType,
+    COUNT(*) AS play_count,
+    ARRAY_TO_STRING(enrich.genres, ', ') AS genres
+  FROM `lake_spotify__svc_recently_played` rp
+  JOIN `lake_spotify__normalized_album_enrichment` enrich
+    ON rp.albumId = enrich.albumId
+  GROUP BY
+    rp.albumName,
+    enrich.popularity,
+    enrich.releaseDate,
+    enrich.label,
+    enrich.albumType,
+    enrich.genres
+  ORDER BY play_count DESC
+  LIMIT 30;
+
+  # Albums by label
+  SELECT
+    label,
+    COUNT(DISTINCT albumId) AS album_count,
+    ROUND(AVG(popularity), 1) AS avg_popularity,
+    ARRAY_AGG(albumName ORDER BY popularity DESC LIMIT 3) AS top_albums
+  FROM `lake_spotify__normalized_album_enrichment`
+  WHERE label IS NOT NULL
+  GROUP BY label
+  ORDER BY album_count DESC
+  LIMIT 20;
+
+  # Album release timeline
+  SELECT
+    EXTRACT(YEAR FROM PARSE_DATE('%Y-%m-%d', releaseDate)) AS release_year,
+    albumType,
+    COUNT(*) AS album_count,
+    ROUND(AVG(popularity), 1) AS avg_popularity
+  FROM `lake_spotify__normalized_album_enrichment`
+  WHERE releaseDatePrecision = 'day'
+  GROUP BY release_year, albumType
+  ORDER BY release_year DESC;
+
+  # Albums with multiple artists (collaborations)
+  SELECT
+    albumName,
+    albumType,
+    popularity,
+    releaseDate,
+    JSON_ARRAY_LENGTH(artists) AS artist_count,
+    artists
+  FROM `lake_spotify__normalized_album_enrichment`
+  WHERE JSON_ARRAY_LENGTH(artists) > 1
+  ORDER BY popularity DESC
+  LIMIT 20;
+
+  # Enrichment staleness check (albums enriched > 90 days ago)
+  SELECT
+    albumId,
+    albumName,
+    enrichedAt,
+    DATE_DIFF(CURRENT_DATE(), DATE(enrichedAt), DAY) AS days_since_enrichment,
+    popularity,
+    releaseDate
+  FROM `lake_spotify__normalized_album_enrichment`
+  WHERE enrichedAt < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+  ORDER BY popularity DESC
+  LIMIT 100;
+
+  # Popularity distribution by album type
+  SELECT
+    albumType,
+    CASE
+      WHEN popularity >= 80 THEN '80-100 (Very Popular)'
+      WHEN popularity >= 60 THEN '60-79 (Popular)'
+      WHEN popularity >= 40 THEN '40-59 (Moderate)'
+      WHEN popularity >= 20 THEN '20-39 (Niche)'
+      ELSE '0-19 (Emerging)'
+    END AS popularity_tier,
+    COUNT(*) AS album_count,
+    ARRAY_AGG(albumName ORDER BY popularity DESC LIMIT 3) AS sample_albums
+  FROM `lake_spotify__normalized_album_enrichment`
+  GROUP BY albumType, popularity_tier
+  ORDER BY albumType, MIN(popularity) DESC;
+
+  # Albums with no genres (for data quality monitoring)
+  SELECT
+    albumName,
+    albumId,
+    albumType,
+    popularity,
+    releaseDate,
+    label,
+    enrichedAt
+  FROM `lake_spotify__normalized_album_enrichment`
+  WHERE JSON_ARRAY_LENGTH(genres) = 0
+  ORDER BY popularity DESC;
+
+  # Singles vs Albums comparison
+  SELECT
+    albumType,
+    COUNT(*) AS count,
+    ROUND(AVG(popularity), 1) AS avg_popularity,
+    ROUND(AVG(totalTrackCount), 1) AS avg_tracks,
+    COUNT(DISTINCT label) AS unique_labels
+  FROM `lake_spotify__normalized_album_enrichment`
+  GROUP BY albumType
+  ORDER BY count DESC;

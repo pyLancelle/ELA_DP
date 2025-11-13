@@ -15,7 +15,7 @@ global:
 job_groups:
   spotify_all:
     description: "All Spotify data sources (DEV)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment"]
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment", "spotify_album_enrichment"]
   
   daily_jobs:
     description: "Jobs that run daily (DEV)"
@@ -32,7 +32,7 @@ job_groups:
   
   spotify_fetch_all:
     description: "Fetch all Spotify data (Step 1/2)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment"]
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment", "spotify_album_enrichment"]
   
   chess_fetch_all:
     description: "Fetch all Chess.com data (Step 1/2)"
@@ -83,7 +83,7 @@ job_groups:
 
   spotify_pipeline:
     description: "Complete Spotify pipeline (parallel execution - may have timing issues)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment", "spotify_ingest_auto", "spotify_dbt_lake_run"]
+    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment", "spotify_album_enrichment", "spotify_ingest_auto", "spotify_dbt_lake_run"]
   
   chess_pipeline:
     description: "Complete Chess.com pipeline (parallel execution - may have timing issues)"
@@ -158,6 +158,16 @@ jobs:
     description: "Fetch artist enrichment data from Spotify (weekly on Sunday at 11:00 Paris time)"
     cron: "0 10 * * 0"  # Weekly on Sundays at 10:00 UTC (11:00 Paris time)
     command: "python -m src.connectors.spotify.spotify_artist_enrichment --mode incremental --dataset dp_lake_dev --gcs-bucket ela-dp-dev"
+    environment: "dev"
+    enabled: true
+    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN", "GCP_PROJECT_ID", "GCP_SERVICE_ACCOUNT_KEY"]
+
+  spotify_album_enrichment:
+    service: "spotify"
+    data_type: "album_enrichment"
+    description: "Fetch album enrichment data from Spotify (weekly on Sunday at 11:15 Paris time)"
+    cron: "15 10 * * 0"  # Weekly on Sundays at 10:15 UTC (11:15 Paris time) - 15min after artists
+    command: "python -m src.connectors.spotify.spotify_album_enrichment --mode incremental --dataset dp_lake_dev --gcs-bucket ela-dp-dev"
     environment: "dev"
     enabled: true
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN", "GCP_PROJECT_ID", "GCP_SERVICE_ACCOUNT_KEY"]
@@ -592,7 +602,7 @@ services:
     base_path: "src/connectors/spotify"
     fetch_script: "spotify_fetch.py"
     default_limit: 20  # Smaller limits for DEV
-    supported_data_types: ["recently_played", "saved_tracks", "saved_albums", "playlists", "top_tracks", "top_artists", "artist_enrichment"]
+    supported_data_types: ["recently_played", "saved_tracks", "saved_albums", "playlists", "top_tracks", "top_artists", "artist_enrichment", "album_enrichment"]
   
   strava:
     base_path: "src/connectors/strava"
