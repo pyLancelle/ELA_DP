@@ -36,7 +36,7 @@ latest_artist AS (
 enrichment AS (
     SELECT
         artistid,
-        genres,
+        genres_json,
         popularity,
         followercount,
         imageurllarge,
@@ -58,7 +58,7 @@ SELECT
     stats.first_played_at,
     stats.last_played_at,
     -- Enrichment fields
-    enrichment.genres,
+    enrichment.genres_json,
     enrichment.popularity,
     enrichment.followercount,
     enrichment.imageurllarge,
