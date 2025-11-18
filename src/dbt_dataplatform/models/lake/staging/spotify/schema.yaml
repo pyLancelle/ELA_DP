@@ -1,0 +1,245 @@
+models:
+  - name: lake_spotify__stg_artist_enrichment
+    description: ""
+    columns:
+      - name: artistId
+        description: "ID de l'artiste Spotify"
+        tests:
+          - unique
+          - not_null
+      - name: artistName
+        description: "Nom de l'artiste Spotify"
+      - name: uri
+        description: "Lien interne à Spotify"
+      - name: href
+        description: "Lien vers l'artiste sur Spotify"
+      - name: popularity
+        description: "Valeur de popularité de l'artiste (0-100)"
+      - name: followerCount
+        description: "Nombre de followers de l'artiste"
+      - name: genres
+        description: "Genres musicaux associés à l'artiste"
+      - name: image_large
+        description: "Lien, hauteur et largeur de l'image principale de l'artiste"
+      - name: image_medium
+        description: "Lien, hauteur et largeur de l'image moyenne de l'artiste"
+      - name: image_small
+        description: "Lien, hauteur et largeur de l'image petite de l'artiste"
+      - name: enrichedAt
+        description: "Date d'enrichissement des données"
+      - name: dp_inserted_at
+        description: "Date d'insertion dans la table de staging"
+
+
+  - name: lake_spotify__stg_recently_played
+    description: ""
+    columns:
+      - name: PLAYEDAT
+        description: ""
+      - name: CONTEXTTYPE
+        description: ""
+      - name: CONTEXTURI
+        description: ""
+      - name: CONTEXTHREF
+        description: ""
+      - name: CONTEXTEXTERNALURL
+        description: ""
+      - name: TRACKID
+        description: ""
+      - name: TRACKNAME
+        description: ""
+      - name: TRACKURI
+        description: ""
+      - name: TRACKEXTERNALURL
+        description: ""
+      - name: TRACKDURATIONMS
+        description: ""
+      - name: TRACKPOPULARITY
+        description: ""
+      - name: TRACKEXPLICIT
+        description: ""
+      - name: TRACKHREF
+        description: ""
+      - name: TRACKTYPE
+        description: ""
+      - name: TRACKPREVIEWURL
+        description: ""
+      - name: TRACKDISCNUMBER
+        description: ""
+      - name: TRACKNUMBER
+        description: ""
+      - name: TRACKISLOCAL
+        description: ""
+      - name: TRACKISRC
+        description: ""
+      - name: ALBUMID
+        description: ""
+      - name: ALBUMNAME
+        description: "df"
+      - name: ALBUM_TYPE
+        description: ""
+      - name: ALBUMRELEASEDATE
+        description: ""
+      - name: ALBUMRELEASEDATEPRECISION
+        description: ""
+      - name: ALBUMTOTALTRACKS
+        description: ""
+      - name: ALBUMURI
+        description: ""
+      - name: ALBUMEXTERNALURL
+        description: ""
+      - name: ALBUMHREF
+        description: ""
+      - name: ALBUMTYPE
+        description: ""
+      - name: ALBUMIMAGEURL
+        description: ""
+      - name: ALBUMIMAGEHEIGHT
+        description: ""
+      - name: ALBUMIMAGEWIDTH
+        description: ""
+      - name: ALBUMIMAGEURLMEDIUM
+        description: ""
+      - name: ALBUMIMAGEURLSMALL
+        description: ""
+      - name: ALBUMARTISTS
+        description: ""
+      - name: ARTISTS
+        description: ""
+      - name: DP_INSERTED_AT
+
+  - name: lake_spotify__stg_saved_albums
+    description: ""
+    columns:
+      - name: ADDEDAT
+        description: ""
+      - name: ALBUMID
+        description: ""
+      - name: ALBUMNAME
+        description: ""
+      - name: ALBUMTYPE
+        description: ""
+      - name: type
+        description: ""
+      - name: URI
+        description: ""
+      - name: HREF
+        description: ""
+      - name: TOTALTRACKS
+        description: ""
+      - name: RELEASEDATE
+        description: ""
+      - name: RELEASEDATEPRECISION
+        description: ""
+      - name: POPULARITY
+        description: ""
+      - name: LABEL
+        description: ""
+      - name: AVAILABLEMARKETS
+        description: ""
+      - name: GENRES
+        description: ""
+      - name: EXTERNALURLS
+        description: ""
+      - name: EXTERNALIDS
+        description: ""
+      - name: ALBUMARTISTS
+        description: ""
+      - name: IMAGES
+        description: ""
+      - name: imageUrlLarge
+        description: ""
+      - name: imageUrlMedium
+        description: ""
+      - name: imageUrlSmall
+        description: ""
+      - name: COPYRIGHTS
+        description: ""
+      - name: TRACKSSUMMARY
+        description: ""
+      - name: TRACKS
+        description: ""
+      - name: RAW_DATA
+        description: ""
+      - name: DP_INSERTED_AT
+        description: ""
+      - name: SOURCE_FILE
+
+  - name: lake_spotify__stg_saved_tracks
+    description: ""
+    columns:
+      - name: ADDEDAT
+        description: ""
+      - name: TRACKID
+        description: ""
+      - name: TRACKNAME
+        description: ""
+      - name: type
+        description: ""
+      - name: URI
+        description: ""
+      - name: HREF
+        description: ""
+      - name: DURATIONMS
+        description: ""
+      - name: EXPLICIT
+        description: ""
+      - name: POPULARITY
+        description: ""
+      - name: TRACKNUMBER
+        description: ""
+      - name: DISCNUMBER
+        description: ""
+      - name: ISLOCAL
+        description: ""
+      - name: ISPLAYABLE
+        description: ""
+      - name: PREVIEWURL
+        description: ""
+      - name: AVAILABLEMARKETS
+        description: ""
+      - name: EXTERNALURLS
+        description: ""
+      - name: EXTERNALIDS
+        description: ""
+      - name: ARTISTS
+        description: ""
+      - name: ALBUMID
+        description: ""
+      - name: ALBUMNAME
+        description: ""
+      - name: ALBUMTYPE
+        description: ""
+      - name: ALBUMRELEASEDATE
+        description: ""
+      - name: ALBUMRELEASEDATEPRECISION
+        description: ""
+      - name: ALBUMTOTALTRACKS
+        description: ""
+      - name: ALBUMTYPE2
+        description: ""
+      - name: ALBUMURI
+        description: ""
+      - name: ALBUMHREF
+        description: ""
+      - name: ALBUMISPLAYABLE
+        description: ""
+      - name: ALBUMAVAILABLEMARKETS
+        description: ""
+      - name: ALBUMEXTERNALURLS
+        description: ""
+      - name: ALBUMARTISTS
+        description: ""
+      - name: ALBUMIMAGES
+        description: ""
+      - name: albumImageUrlLarge
+        description: ""
+      - name: albumImageUrlMedium
+        description: ""
+      - name: albumImageUrlSmall
+        description: ""
+      - name: RAW_DATA
+        description: ""
+      - name: DP_INSERTED_AT
+        description: ""
+      - name: SOURCE_FILE
