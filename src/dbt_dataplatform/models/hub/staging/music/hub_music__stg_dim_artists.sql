@@ -5,46 +5,45 @@
 }}
 
 WITH
-stats AS (
-    SELECT
-        artist.artistid,
-        count(*) AS play_count,
-        sum(trackdurationms) AS total_listen_duration,
-        min(playedat) AS first_played_at,
-        max(playedat) AS last_played_at
-    FROM {{ ref('lake_spotify__svc_recently_played') }},
-        unnest(artists) AS artist
-    GROUP BY artistid
-),
+    stats AS (
+        SELECT
+            artist.artistid,
+            count(*) AS play_count,
+            sum(trackdurationms) AS total_listen_duration,
+            min(playedat) AS first_played_at,
+            max(playedat) AS last_played_at
+        FROM {{ ref('lake_spotify__svc_recently_played') }},
+            UNNEST(artists) AS artist
+        GROUP BY artistid
+    ),
 
-latest_artist AS (
-    SELECT DISTINCT
-        artist.artistid,
-        artist.artistname,
-        artist.artisturi,
-        artist.artisttype,
-        artist.artistexternalurl,
-        artist.artisthref
-    FROM
-        {{ ref('lake_spotify__svc_recently_played') }},
-        unnest(artists) AS artist
-    QUALIFY
-        row_number() OVER (PARTITION BY artist.artistid ORDER BY playedat DESC)
-        = 1
-),
+    latest_artist AS (
+        SELECT DISTINCT
+            artist.artistid,
+            artist.artistname,
+            artist.artisturi,
+            artist.artisttype,
+            artist.artistexternalurl,
+            artist.artisthref
+        FROM
+            {{ ref('lake_spotify__svc_recently_played') }},
+            unnest(artists) AS artist
+        QUALIFY
+            ROW_NUMBER() OVER (PARTITION BY artist.artistid ORDER BY playedat DESC) = 1
+    ),
 
-enrichment AS (
-    SELECT
-        artistid,
-        genres,
-        popularity,
-        followercount,
-        image_large.url AS imageurllarge,
-        image_medium.url AS imageurlmedium,
-        image_small.url AS imageurlsmall,
-        enrichedat
-    FROM {{ ref('lake_spotify__svc_artist_enrichment') }}
-)
+    enrichment AS (
+        SELECT
+            artistid,
+            genres,
+            popularity,
+            followercount,
+            image_large.url AS imageurllarge,
+            image_medium.url AS imageurlmedium,
+            image_small.url AS imageurlsmall,
+            enrichedat
+        FROM {{ ref('lake_spotify__svc_artist_enrichment') }}
+    )
 
 SELECT
     latest_artist.artistid,
@@ -57,7 +56,6 @@ SELECT
     stats.total_listen_duration,
     stats.first_played_at,
     stats.last_played_at,
-    -- Enrichment fields
     enrichment.genres,
     enrichment.popularity,
     enrichment.followercount,
