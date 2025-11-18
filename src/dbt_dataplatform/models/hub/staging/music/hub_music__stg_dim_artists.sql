@@ -36,12 +36,12 @@ latest_artist AS (
 enrichment AS (
     SELECT
         artistid,
-        genres_json,
+        genres,
         popularity,
         followercount,
-        imageurllarge,
-        imageurlmedium,
-        imageurlsmall,
+        image_large.url AS imageurllarge,
+        image_medium.url AS imageurlmedium,
+        image_small.url AS imageurlsmall,
         enrichedat
     FROM {{ ref('lake_spotify__svc_artist_enrichment') }}
 )
@@ -58,7 +58,7 @@ SELECT
     stats.first_played_at,
     stats.last_played_at,
     -- Enrichment fields
-    enrichment.genres_json,
+    enrichment.genres,
     enrichment.popularity,
     enrichment.followercount,
     enrichment.imageurllarge,
