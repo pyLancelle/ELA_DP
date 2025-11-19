@@ -1,0 +1,120 @@
+activities:
+  method: get_activities_by_date
+  type: range
+  description: Basic activity list
+activity_details:
+  method: get_activity_details
+  type: activity_detail
+  description: Detailed GPS and sensor data for activities
+activity_splits:
+  method: get_activity_splits
+  type: activity_subdata
+  description: Splits and laps
+activity_weather:
+  method: get_activity_weather
+  type: activity_subdata
+  description: Weather data for activities
+activity_hr_zones:
+  method: get_activity_hr_in_timezones
+  type: activity_subdata
+  description: Heart rate zones
+activity_exercise_sets:
+  method: get_activity_exercise_sets
+  type: activity_subdata
+  description: Strength training sets
+sleep:
+  method: get_sleep_data
+  type: daily
+  description: Sleep tracking data
+steps:
+  method: get_steps_data
+  type: daily
+  description: Daily step counts
+heart_rate:
+  method: get_heart_rates
+  type: daily
+  description: All day heart rate
+body_battery:
+  method: get_body_battery
+  type: range
+  description: Body battery energy monitoring
+stress:
+  method: get_all_day_stress
+  type: daily
+  description: Stress level monitoring
+weight:
+  method: get_weigh_ins
+  type: range
+  description: Weight measurements
+body_composition:
+  method: get_body_composition
+  type: range
+  description: Detailed body composition
+user_summary:
+  method: get_user_summary
+  type: daily
+  description: Daily user summary
+# daily_summary:
+#   method: get_daily_summary
+#   type: daily
+#   description: Daily stats summary (method not available in current garminconnect version)
+stats_and_body:
+  method: get_stats_and_body
+  type: daily
+  description: Combined stats and body metrics
+training_readiness:
+  method: get_training_readiness
+  type: daily
+  description: Training readiness score
+rhr_daily:
+  method: get_rhr_day
+  type: daily
+  description: Resting Heart Rate
+spo2:
+  method: get_spo2_data
+  type: daily
+  description: Blood Oxygen Saturation
+respiration:
+  method: get_respiration_data
+  type: daily
+  description: Respiration rate
+intensity_minutes:
+  method: get_intensity_minutes_data
+  type: daily
+  description: Intensity minutes
+max_metrics:
+  method: get_max_metrics
+  type: daily
+  description: VO2 Max and other max metrics
+all_day_events:
+  method: get_all_day_events
+  type: daily
+  description: Wellness events
+device_info:
+  method: get_devices
+  type: simple
+  description: Registered devices
+training_status:
+  method: get_training_status
+  type: daily
+  description: Training status
+hrv:
+  method: get_hrv_data
+  type: daily
+  description: Heart Rate Variability
+race_predictions:
+  method: get_race_predictions
+  type: simple
+  description: Race time predictions
+floors:
+  method: get_floors
+  type: daily
+  description: Floors climbed
+endurance_score:
+  method: get_endurance_score
+  type: range
+  description: Endurance score
+hill_score:
+  method: get_hill_score
+  type: range
+  description: Hill score
