@@ -394,7 +394,7 @@ jobs:
         if: success() && env.SKIP_GCS == 'true'
         run: |
           echo "📁 Generated files (GCS upload was skipped):"
-          find . -name "*.jsonl" -type f 2>/dev/null | head -10 || echo "No JSONL files found"
+          find . -name "*.jsonl" -type f 2>/dev/null | head -30 || echo "No JSONL files found"
           echo ""
           echo "💡 To enable GCS upload:"
           echo "   1. Verify GCP_SERVICE_ACCOUNT_KEY secret contains valid JSON"
