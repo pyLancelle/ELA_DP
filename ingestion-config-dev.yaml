@@ -194,6 +194,16 @@ jobs:
     dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
 
   # =================== GARMIN JOBS (DEV) ===================
+  garmin_fetch:
+    service: "garmin"
+    data_type: "activities"
+    description: "Fetch activities from Garmin (DEV - frequent testing)"
+    cron: "* * * * *"
+    command: "python -m src.connectors.garmin.garmin --days 3"
+    environment: "dev"
+    enabled: true
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+
   garmin_activities:
     service: "garmin"
     data_type: "activities"
