@@ -60,22 +60,7 @@ def parse_args() -> argparse.Namespace:
         default=list(DATA_TYPES.keys()) if isinstance(DATA_TYPES, dict) else DATA_TYPES,
         help="Data types to fetch",
     )
-    parser.add_argument(
-        "--no-withings-sync",
-        action="store_true",
-        help="Skip automatic Withings to Garmin synchronization before fetching data",
-    )
-    parser.add_argument(
-        "--user-height",
-        type=float,
-        help="User height in meters for BMI calculation (e.g., 1.72). Overrides USER_HEIGHT_M env var.",
-    )
-    parser.add_argument(
-        "--withings-dedupe-hours",
-        type=int,
-        default=24,
-        help="Deduplication window in hours for Withings measurements (default: 24 = one per day)",
-    )
+
 
     return parser.parse_args()
 
@@ -99,58 +84,7 @@ def validate_env_vars() -> dict:
         raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
     return {var: os.getenv(var) for var in required}
 
-def sync_withings(client, args):
-    """Handle Withings sync logic."""
-    # Check if Withings credentials are available
-    withings_client_id = os.getenv("WITHINGS_CLIENT_ID")
-    withings_client_secret = os.getenv("WITHINGS_CLIENT_SECRET")
 
-    if not withings_client_id or not withings_client_secret:
-        logging.info("ℹ️ No Withings credentials found, skipping automatic sync")
-        return
-
-    try:
-        logging.info("🔄 Starting automatic Withings to Garmin sync...")
-        
-        # Import our Withings client dynamically to avoid circular imports or path issues
-        # Assuming it's in src.services.withings or similar, but original script had:
-        # sys.path.insert(0, str(Path(__file__).parent.parent))
-        # from withings import sync_withings_to_garmin
-        # We need to locate where 'withings' module is.
-        # Based on file list: src/withings exists? No, src/connectors/withings?
-        # Original script: sys.path.append(str(Path(__file__).parent.parent)) -> src/connectors
-        # and then `from withings import sync_withings_to_garmin`
-        # So there is likely a src/connectors/withings folder or file?
-        # Let's assume src.connectors.withings based on structure.
-        
-        from src.connectors.withings import sync_withings_to_garmin
-
-        # Fallback to env var if user_height_m not provided via argument
-        user_height_m = args.user_height
-        if user_height_m is None:
-            env_height = os.getenv("USER_HEIGHT_M")
-            user_height_m = float(env_height) if env_height else None
-
-        success = sync_withings_to_garmin(
-            garmin_client=client,
-            withings_client_id=withings_client_id,
-            withings_client_secret=withings_client_secret,
-            days_back=args.days,
-            user_height_m=user_height_m,
-            deduplicate_window_hours=args.withings_dedupe_hours,
-        )
-
-        if success:
-            logging.info("✅ Withings sync completed successfully")
-            logging.info("⏳ Waiting 10 seconds for Garmin to process data...")
-            import time
-            time.sleep(10)
-        else:
-            logging.warning("⚠️ Withings sync had issues but continuing anyway")
-
-    except Exception as e:
-        logging.warning(f"⚠️ Withings sync error: {e}")
-        logging.info("🔄 Continuing with Garmin fetch anyway...")
 
 def main():
     """Main entry point."""
@@ -165,12 +99,7 @@ def main():
         client_wrapper = GarminClient(env_vars)
         client = client_wrapper.get_client()
         
-        # Sync Withings if needed
-        if not args.no_withings_sync:
-            sync_withings(client, args)
-        else:
-            logging.info("ℹ️ Withings sync disabled via --no-withings-sync flag")
-            
+
         # Initialize fetcher
         fetcher = GarminFetcher(client)
         
