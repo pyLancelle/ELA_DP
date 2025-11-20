@@ -565,48 +565,6 @@ jobs:
     enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
-  # =================== EMAIL SERVICES (DEV) ===================
-  spotify_email_weekly:
-    service: "mail"
-    data_type: "spotify_email"
-    description: "Send weekly Spotify top artists/tracks email (DEV - more frequent for testing)"
-    cron: "0 10,16 * * 1,3,5"  # Monday, Wednesday, Friday at 10:00 and 16:00 UTC for testing
-    command: "python -m src.services.mail.main --perimeter spotify_weekly --env dev"
-    environment: "dev"
-    enabled: false  # Disabled by default to avoid spam during development
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-  spotify_email_test:
-    service: "mail"
-    data_type: "spotify_email"
-    description: "Test Spotify email (DEV - manual trigger only)"
-    cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.mail.main --perimeter spotify_weekly --env dev --destinataires etiennelancelle@outlook.fr --dry-run"
-    environment: "dev"
-    enabled: true  # Enabled for manual testing
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-  garmin_email_test:
-    service: "mail"
-    data_type: "garmin_email"
-    description: "Test Garmin email (DEV - manual trigger only, mock data)"
-    cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.mail.main --perimeter garmin_weekly --env dev --dry-run"
-    environment: "dev"
-    enabled: true  # Enabled for manual testing with mock data
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-  strava_email_test:
-    service: "mail"
-    data_type: "strava_email"
-    description: "Test Strava email (DEV - manual trigger only, mock data)"
-    cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.mail.main --perimeter strava_weekly --env dev --dry-run"
-    environment: "dev"
-    enabled: true  # Enabled for manual testing with mock data
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-
 # Service-specific configuration
 services:
   spotify:
