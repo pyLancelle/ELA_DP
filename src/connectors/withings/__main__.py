@@ -113,9 +113,6 @@ def main():
         
         if success:
             logging.info("✅ Withings sync completed successfully")
-            logging.info("⏳ Waiting 10 seconds for Garmin to process data...")
-            import time
-            time.sleep(10)
             sys.exit(0)
         else:
             logging.warning("⚠️ Withings sync had issues")
