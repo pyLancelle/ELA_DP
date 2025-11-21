@@ -180,6 +180,7 @@ jobs:
     description: "Run complete Garmin pipeline sequentially"
     cron: "0 11 * * *"  # Daily at 11:00 UTC
     steps:
+      - "withings_sync"
       - "garmin_fetch"
       - "move_to_gcs"
       - "garmin_ingest"
@@ -195,7 +196,7 @@ jobs:
     data_type: "sync"
     description: "Sync Withings body composition to Garmin (DEV - daily before weight fetch)"
     cron: "55 10 * * *"  # Daily at 10:55 UTC (11:55 Paris time) - 5min before garmin_weight
-    command: "python -m src.connectors.withings --days 7 --user-height 1.72 --dedupe-hours 24"
+    command: "python -m src.connectors.withings --days 2 --user-height 1.72 --dedupe-hours 24"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET", "WITHINGS_CREDENTIALS_JSON"]
