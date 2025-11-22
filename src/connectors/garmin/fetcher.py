@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Callable
 
 from .config import METRICS_CONFIG
+from .utils import flatten_nested_arrays
 
 class GarminFetcher:
     """Generic fetcher for Garmin Connect data."""
@@ -80,6 +81,9 @@ class GarminFetcher:
             try:
                 data = method(date_str)
                 if data:
+                    # Transform nested arrays first
+                    data = flatten_nested_arrays(data, path=f"{metric_name}.{date_str}")
+                    
                     # Normalize data structure
                     if isinstance(data, list):
                         for item in data:
@@ -130,6 +134,9 @@ class GarminFetcher:
 
             if not data:
                 return []
+
+            # Transform nested arrays
+            data = flatten_nested_arrays(data, path=metric_name)
                 
             results = []
             if isinstance(data, list):
@@ -156,6 +163,9 @@ class GarminFetcher:
             data = method()
             if not data:
                 return []
+
+            # Transform nested arrays
+            data = flatten_nested_arrays(data, path=metric_name)
                 
             results = []
             if isinstance(data, list):
@@ -199,9 +209,14 @@ class GarminFetcher:
                     
                 try:
                     details = client.get_activity_details(activity_id, maxchart=2000, maxpoly=4000)
+                    
+                    # Transform nested arrays in activity and details
+                    clean_activity = flatten_nested_arrays(activity, path=f"activity_{activity_id}")
+                    clean_details = flatten_nested_arrays(details, path=f"details_{activity_id}")
+                    
                     enriched = {
-                        **activity,
-                        "detailed_data": details,
+                        **clean_activity,
+                        "detailed_data": clean_details,
                         "data_type": "activity_details"
                     }
                     results.append(enriched)
@@ -250,26 +265,34 @@ class GarminFetcher:
                         typed_splits = client.get_activity_typed_splits(activity_id)
                         split_summaries = client.get_activity_split_summaries(activity_id)
                         
+                        # Transform nested arrays
+                        clean_splits = flatten_nested_arrays(splits, path=f"splits_{activity_id}")
+                        clean_typed = flatten_nested_arrays(typed_splits, path=f"typed_splits_{activity_id}")
+                        clean_summaries = flatten_nested_arrays(split_summaries, path=f"summaries_{activity_id}")
+                        
                         data = {
                             "activityId": activity_id,
                             "activityName": activity.get("activityName", ""),
                             "activityType": activity.get("activityType", ""),
                             "startTimeLocal": activity.get("startTimeLocal", ""),
-                            "splits": splits,
-                            "typed_splits": typed_splits,
-                            "split_summaries": split_summaries,
+                            "splits": clean_splits,
+                            "typed_splits": clean_typed,
+                            "split_summaries": clean_summaries,
                             "data_type": metric_name
                         }
                     else:
                         # Standard subdata (weather, hr_zones, etc)
                         subdata = method(activity_id)
                         if subdata:
+                            # Transform nested arrays
+                            clean_subdata = flatten_nested_arrays(subdata, path=f"{metric_name}_{activity_id}")
+                            
                             data = {
                                 "activityId": activity_id,
                                 "activityName": activity.get("activityName", ""),
                                 "activityType": activity.get("activityType", ""),
                                 "startTimeLocal": activity.get("startTimeLocal", ""),
-                                f"{metric_name}_data": subdata, # Naming convention from original script varies...
+                                f"{metric_name}_data": clean_subdata, # Naming convention from original script varies...
                                 # Original: weather_data, hr_zones_data, exercise_sets_data
                                 # We might need a mapping for the data key too.
                                 "data_type": metric_name
