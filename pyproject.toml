@@ -29,6 +29,8 @@ dependencies = [
     "types-requests>=2.32.4.20250611",
     "google>=3.0.0",
     "sqlfluff>=3.5.0",
+    "gcloud>=0.18.3",
+    "bq>=0.8.0",
 ]
 [tool.setuptools.packages.find]
 where = ["src"]
