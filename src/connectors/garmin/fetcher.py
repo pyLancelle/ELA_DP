@@ -119,36 +119,86 @@ class GarminFetcher:
         start_date: datetime, 
         end_date: datetime
     ) -> List[Dict[str, Any]]:
-        """Fetch data using a date range."""
+        """Fetch data using a date range, chunking if necessary."""
         try:
-            start_str = start_date.strftime("%Y-%m-%d")
-            end_str = end_date.strftime("%Y-%m-%d")
-            
-            # Some methods might not take args if they are "max metrics" fallback
-            try:
-                data = method(start_str, end_str)
-            except TypeError:
-                # Fallback for methods that might have changed signature or behave differently
-                logging.debug(f"Method {method.__name__} rejected range args, trying without")
-                data = method()
-
-            if not data:
-                return []
-
-            # Transform nested arrays
-            data = flatten_nested_arrays(data, path=metric_name)
-                
             results = []
-            if isinstance(data, list):
-                for item in data:
-                    if isinstance(item, dict):
-                        item["data_type"] = metric_name
-                    results.append(item)
-            elif isinstance(data, dict):
-                data["data_type"] = metric_name
-                results.append(data)
-            else:
-                results.append({"data": data, "data_type": metric_name})
+            
+            # Chunking logic: split into chunks to avoid API limits
+            # Some endpoints limit to 1 year or less (e.g. bodyBattery, enduranceScore)
+            config = METRICS_CONFIG.get(metric_name, {})
+            CHUNK_SIZE_DAYS = config.get("chunk_days", 364) # Default to 52 weeks
+            
+            current_start = start_date
+            while current_start <= end_date:
+                current_end = min(current_start + timedelta(days=CHUNK_SIZE_DAYS), end_date)
+                
+                start_str = current_start.strftime("%Y-%m-%d")
+                end_str = current_end.strftime("%Y-%m-%d")
+                
+                logging.info(f"  Fetching chunk: {start_str} to {end_str}")
+                
+                chunk_data = None
+                # Some methods might not take args if they are "max metrics" fallback
+                try:
+                    chunk_data = method(start_str, end_str)
+                except TypeError:
+                    # Fallback for methods that might have changed signature or behave differently
+                    # If method doesn't accept args, we can't chunk it effectively in this loop
+                    # so we just call it once and break
+                    logging.debug(f"Method {method.__name__} rejected range args, trying without")
+                    chunk_data = method()
+                    current_start = end_date + timedelta(days=1) # Force exit loop
+    
+                if chunk_data:
+                    # Special handling for weight: extract and flatten weight data BEFORE generic flattening
+                    if metric_name == "weight" and isinstance(chunk_data, dict):
+                        # Check if we have dailyWeightSummaries at the top level
+                        if "dailyWeightSummaries" in chunk_data and isinstance(chunk_data["dailyWeightSummaries"], list):
+                            all_weight_entries = []
+                            for daily_summary in chunk_data["dailyWeightSummaries"]:
+                                if isinstance(daily_summary, dict) and "allWeightMetrics" in daily_summary:
+                                    summary_date = daily_summary.get("summaryDate")
+                                    for entry in daily_summary["allWeightMetrics"]:
+                                        if isinstance(entry, dict):
+                                            # Add summaryDate if not present
+                                            if summary_date and "summaryDate" not in entry:
+                                                entry["summaryDate"] = summary_date
+                                            all_weight_entries.append(entry)
+                            chunk_data = all_weight_entries
+                            logging.info(f"Flattened weight data: {len(chunk_data)} entries")
+                        # Fallback: check if allWeightMetrics is directly at the top level
+                        elif "allWeightMetrics" in chunk_data:
+                            summary_date = chunk_data.get("summaryDate")
+                            chunk_data = chunk_data["allWeightMetrics"]
+                            if summary_date and isinstance(chunk_data, list):
+                                for entry in chunk_data:
+                                    if isinstance(entry, dict) and "summaryDate" not in entry:
+                                        entry["summaryDate"] = summary_date
+                            logging.info(f"Flattened weight data: {len(chunk_data)} entries")
+                    
+                    # Special handling for body_composition: flatten dateWeightList if present
+                    elif metric_name == "body_composition" and isinstance(chunk_data, dict) and "dateWeightList" in chunk_data:
+                        chunk_data = chunk_data["dateWeightList"]
+                        logging.info(f"Flattened body_composition data: {len(chunk_data)} entries")
+                    else:
+                        # Transform nested arrays for other metrics
+                        chunk_data = flatten_nested_arrays(chunk_data, path=metric_name)
+                        
+                    if isinstance(chunk_data, list):
+                        for item in chunk_data:
+                            if isinstance(item, dict):
+                                item["data_type"] = metric_name
+                            results.append(item)
+                    elif isinstance(chunk_data, dict):
+                        chunk_data["data_type"] = metric_name
+                        results.append(chunk_data)
+                    else:
+                        results.append({"data": chunk_data, "data_type": metric_name})
+                
+                # Move to next chunk
+                current_start = current_end + timedelta(days=1)
+                if current_start <= end_date:
+                    time.sleep(1) # Sleep between chunks
                 
             logging.info(f"Fetched {metric_name}: {len(results)} items")
             return results

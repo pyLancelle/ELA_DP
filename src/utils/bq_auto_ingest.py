@@ -41,8 +41,9 @@ import sys
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Union
 from google.cloud import bigquery, storage
+from google.cloud.bigquery import SchemaField
 from google.cloud.exceptions import GoogleCloudError
 
 
@@ -206,6 +207,133 @@ class BigQueryAutoIngestor:
         logging.info(f"Parsed {len(records)} valid records from {len(lines)} lines")
         return records
 
+    def _infer_field_type(self, value: Any) -> str:
+        """Infer BigQuery type from python value"""
+        if isinstance(value, bool):
+            return "BOOLEAN"
+        elif isinstance(value, int):
+            return "INTEGER"
+        elif isinstance(value, float):
+            return "FLOAT"
+        elif isinstance(value, dict):
+            return "RECORD"
+        elif isinstance(value, list):
+            # Empty list or list of nulls defaults to STRING if unknown, 
+            # but usually we check the first non-null item
+            return "REPEATED" 
+        return "STRING"
+
+    def _merge_schema_fields(self, existing: List[SchemaField], new: List[SchemaField]) -> List[SchemaField]:
+        """Merge two lists of SchemaFields, handling type promotion and nested fields"""
+        merged_map = {f.name: f for f in existing}
+        
+        for field in new:
+            if field.name not in merged_map:
+                merged_map[field.name] = field
+            else:
+                # Conflict resolution / Type promotion
+                current = merged_map[field.name]
+                
+                # If types match, check for nested fields merge if RECORD
+                if current.field_type == field.field_type:
+                    if current.field_type == "RECORD":
+                        merged_sub = self._merge_schema_fields(current.fields, field.fields)
+                        merged_map[field.name] = SchemaField(
+                            name=current.name,
+                            field_type="RECORD",
+                            mode=current.mode, # Keep existing mode (likely NULLABLE or REPEATED)
+                            fields=merged_sub
+                        )
+                else:
+                    # Type promotion logic
+                    # INTEGER + FLOAT -> FLOAT
+                    if {current.field_type, field.field_type} == {"INTEGER", "FLOAT"}:
+                        merged_map[field.name] = SchemaField(
+                            name=current.name,
+                            field_type="FLOAT",
+                            mode=current.mode
+                        )
+                    # Otherwise fallback to STRING (safest)
+                    elif current.field_type != "STRING":
+                        merged_map[field.name] = SchemaField(
+                            name=current.name,
+                            field_type="STRING",
+                            mode=current.mode
+                        )
+
+        return list(merged_map.values())
+
+    def detect_schema(self, records: List[Dict[str, Any]]) -> List[SchemaField]:
+        """
+        Scan ALL records to build a complete schema.
+        Handles nested records and lists.
+        """
+        schema_map: Dict[str, SchemaField] = {}
+
+        for record in records:
+            for key, value in record.items():
+                if value is None:
+                    continue
+
+                # Determine mode and type
+                mode = "NULLABLE"
+                field_type = "STRING"
+                fields = ()
+
+                if isinstance(value, list):
+                    mode = "REPEATED"
+                    if value:
+                        # Inspect first non-null item to guess type
+                        # (Simplification: assumes homogeneous lists for now)
+                        sample = next((x for x in value if x is not None), None)
+                        if sample is not None:
+                            field_type = self._infer_field_type(sample)
+                            if field_type == "RECORD":
+                                # Recursively detect schema for the list of dicts
+                                # We treat the list of dicts as a list of records to merge
+                                sub_schema = self.detect_schema(value)
+                                fields = tuple(sub_schema)
+                        else:
+                            # List of all None or empty, default to STRING
+                            field_type = "STRING"
+                else:
+                    field_type = self._infer_field_type(value)
+                    if field_type == "RECORD":
+                        sub_schema = self.detect_schema([value])
+                        fields = tuple(sub_schema)
+
+                new_field = SchemaField(key, field_type, mode=mode, fields=fields)
+
+                # Merge with existing
+                if key not in schema_map:
+                    schema_map[key] = new_field
+                else:
+                    # Merge logic
+                    current = schema_map[key]
+                    
+                    # 1. Mode promotion: NULLABLE wins over REQUIRED (though we default to NULLABLE)
+                    # REPEATED is distinct. If one is REPEATED and other is not, that's a schema conflict error usually.
+                    # For now assume consistent structure (list vs non-list).
+                    
+                    # 2. Type promotion
+                    final_type = current.field_type
+                    final_fields = current.fields
+
+                    if current.field_type != field_type:
+                        if {current.field_type, field_type} == {"INTEGER", "FLOAT"}:
+                            final_type = "FLOAT"
+                        else:
+                            final_type = "STRING"
+                            final_fields = () # String doesn't have sub-fields
+                    
+                    # 3. Merge nested fields if both are RECORD
+                    if final_type == "RECORD" and current.field_type == "RECORD" and field_type == "RECORD":
+                        final_fields = tuple(self._merge_schema_fields(list(current.fields), list(fields)))
+                    
+                    schema_map[key] = SchemaField(key, final_type, mode=current.mode, fields=final_fields)
+
+        return list(schema_map.values())
+
     def ingest_to_bigquery(
         self,
         records: List[Dict[str, Any]],
@@ -235,11 +363,21 @@ class BigQueryAutoIngestor:
         table_id = f"{self.project_id}.{dataset}.{table}"
 
         # Configure load job with auto-detection
+        # Detect schema from ALL records
+        logging.info("Detecting schema from all records...")
+        detected_schema = self.detect_schema(records)
+        logging.info(f"Detected {len(detected_schema)} top-level fields")
+
+        # Configure load job with explicit schema
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-            autodetect=True,  # Auto-detect schema from data
+            schema=detected_schema,
+            autodetect=False,  # We provide explicit schema
             write_disposition=write_disposition,
             create_disposition='CREATE_IF_NEEDED',
+            schema_update_options=[
+                bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION
+            ]
         )
 
         # Configure partitioning
@@ -262,7 +400,7 @@ class BigQueryAutoIngestor:
 
         # Log ingestion details
         logging.info(f"Ingesting {len(records)} records to {table_id}")
-        logging.info(f"  Auto-detect: True")
+        logging.info(f"  Schema fields: {len(detected_schema)}")
         logging.info(f"  Write disposition: {write_disposition}")
 
         if self.dry_run:

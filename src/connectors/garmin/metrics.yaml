@@ -57,6 +57,7 @@ body_battery:
   type: range
   description: Body battery energy monitoring
   table: normalized_garmin__body_battery
+  chunk_days: 28
 
 stress:
   method: get_all_day_stress
@@ -170,12 +171,14 @@ endurance_score:
   type: range
   description: Endurance score
   table: normalized_garmin__endurance_score
+  chunk_days: 28
 
 hill_score:
   method: get_hill_score
   type: range
   description: Hill score
   table: normalized_garmin__hill_score
+  chunk_days: 28
 
 # =============================================================================
 # CONFIGURATION GLOBALE INGESTION

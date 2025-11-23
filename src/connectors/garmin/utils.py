@@ -91,6 +91,7 @@ def flatten_nested_arrays(
             'stressValuesArray': ['timestamp', 'type', 'value', 'score'],
             'respirationAveragesValuesArray': ['timestamp', 'average', 'high', 'low'],
             'floorValuesArray': ['start_time', 'end_time', 'ascended', 'descended'],
+            'spO2SingleValues': ['timestamp', 'value', 'type'],
             'bodyBatteryValuesArray': {
                 2: ['timestamp', 'value'],
                 4: ['timestamp', 'type', 'value', 'score']

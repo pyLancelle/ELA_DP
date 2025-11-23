@@ -22,4 +22,4 @@ except Exception as e:
 DEFAULT_DAYS_BACK = 30
 DEFAULT_TIMEZONE = "Europe/Paris"
 REQUIRED_ENV_VARS = ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-DATA_TYPES = list(METRICS_CONFIG.keys())
+DATA_TYPES = [k for k in METRICS_CONFIG.keys() if k != "ingestion"]
