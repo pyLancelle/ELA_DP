@@ -1,295 +1,406 @@
 #!/usr/bin/env python3
 """
-Garmin Connect BigQuery Ingestion - Ultra-Simple JSON Approach
---------------------------------------------------------------
-Philosophy: Reliable ingestion stores everything as raw JSON, 
-dbt handles all the complex transformations and schema management.
+Simple Garmin Ingestion avec Mapping Config
+===========================================
+Ingère les fichiers Garmin dans BigQuery en utilisant le mapping défini dans metrics.yaml
 
-This approach guarantees zero schema mismatch errors while preserving
-all data for flexible transformation in dbt.
-
-Supported data types:
-- Activities, Sleep, Heart Rate, Body Battery, Stress, Steps
-- Weight, Device Info, Training Status, HRV, Race Predictions, Floors
-- Endurance Score, Hill Score
+Logique simple :
+1. Lit metrics.yaml pour le mapping file_pattern → table
+2. Pour chaque fichier dans GCS landing:
+   - Détecte le type selon le nom du fichier
+   - Cherche la table correspondante dans le mapping
+   - Ingère avec auto-détection dans dataset.table
+3. Archive les fichiers traités
 
 Usage:
-    python -m src.connectors.garmin.garmin_ingest --env dev
-    python -m src.connectors.garmin.garmin_ingest --env prd
+    python -m src.connectors.garmin.garmin_simple_ingest --env dev
+    python -m src.connectors.garmin.garmin_simple_ingest --env prd --dry-run
 """
 
 import argparse
-from datetime import datetime, timezone
-from google.cloud import bigquery, storage
-import os
 import json
+import logging
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+import yaml
+from google.cloud import bigquery, storage
+from google.cloud.exceptions import GoogleCloudError
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 
-def get_env_config(env: str):
-    """Get environment-specific configuration."""
-    if env == "dev" or env == "prd":
-        return {
-            "bucket": f"ela-dp-{env}",
-            "bq_dataset": f"dp_lake_{env}",
-        }
-    else:
-        raise ValueError("Env must be 'dev' or 'prd'.")
+class SimpleGarminIngestor:
+    """Ingestion simple avec mapping depuis metrics.yaml"""
 
+    def __init__(self, env: str, dry_run: bool = False):
+        """
+        Initialize simple ingestor
 
-def get_universal_schema():
-    """
-    Universal schema for all Garmin data types.
+        Args:
+            env: Environment (dev or prd)
+            dry_run: If True, validate but don't write
+        """
+        self.env = env
+        self.dry_run = dry_run
 
-    This simple schema eliminates all possible field mismatch errors
-    by storing everything as JSON and letting dbt handle the transformations.
-    """
-    return [
-        bigquery.SchemaField(
-            "raw_data",
-            "JSON",
-            "NULLABLE",
-            description="Complete original record as JSON",
-        ),
-        bigquery.SchemaField(
-            "data_type",
-            "STRING",
-            "NULLABLE",
-            description="Type of Garmin data (activities, sleep, etc.)",
-        ),
-        bigquery.SchemaField(
-            "dp_inserted_at", "TIMESTAMP", "NULLABLE", description="Ingestion timestamp"
-        ),
-        bigquery.SchemaField(
-            "source_file", "STRING", "NULLABLE", description="Source JSONL filename"
-        ),
-    ]
+        # Load configuration
+        self.config = self._load_config()
 
+        # GCP clients
+        self.project_id = os.getenv('GCP_PROJECT_ID')
+        if not self.project_id:
+            raise ValueError("GCP_PROJECT_ID environment variable required")
 
-def detect_file_type(filename: str) -> str:
-    """
-    Detect the type of Garmin data file based on filename patterns.
+        self.bq_client = bigquery.Client(project=self.project_id)
+        self.storage_client = storage.Client(project=self.project_id)
 
-    Supports all 14 Garmin data types from the connector.
-    """
-    filename_lower = filename.lower()
+        # Environment-specific values
+        self.bucket = f"ela-dp-{env}"
+        self.dataset = self.config['ingestion'][f'dataset_{env}']
 
-    type_mapping = {
-        "activities": ["activities"],
-        "activity_details": ["activity_details", "details"],
-        "activity_splits": ["activity_splits", "splits"],
-        "activity_weather": ["activity_weather", "weather"],
-        "activity_hr_zones": ["activity_hr_zones", "hr_zones", "heart_rate_zones"],
-        "activity_exercise_sets": ["activity_exercise_sets", "exercise_sets"],
-        "sleep": ["sleep"],
-        "steps": ["steps"],
-        "heart_rate": ["heart_rate", "heartrate"],
-        "body_battery": ["body_battery"],
-        "stress": ["stress"],
-        "weight": ["weight"],
-        "body_composition": ["body_composition", "composition"],
-        "user_summary": ["user_summary", "summary"],
-        "daily_summary": ["daily_summary"],
-        "stats_and_body": ["stats_and_body", "stats"],
-        "training_readiness": ["training_readiness", "readiness"],
-        "rhr_daily": ["rhr_daily", "rhr"],
-        "spo2": ["spo2", "oxygen"],
-        "respiration": ["respiration", "breathing"],
-        "intensity_minutes": ["intensity_minutes", "intensity"],
-        "max_metrics": ["max_metrics", "metrics"],
-        "all_day_events": ["all_day_events", "events"],
-        "device_info": ["device_info", "device"],
-        "training_status": ["training_status", "training"],
-        "hrv": ["hrv"],
-        "race_predictions": ["race_predictions", "race_predictor"],
-        "floors": ["floors"],
-        "endurance_score": ["endurance_score", "endurance"],
-        "hill_score": ["hill_score", "hill"],
-    }
+        logging.info(f"✨ Simple Garmin Ingestor initialized")
+        logging.info(f"   Environment: {env}")
+        logging.info(f"   Bucket: {self.bucket}")
+        logging.info(f"   Dataset: {self.dataset}")
+        logging.info(f"   Dry run: {dry_run}")
 
-    for data_type, keywords in type_mapping.items():
-        if any(keyword in filename_lower for keyword in keywords):
-            return data_type
+    def _load_config(self) -> Dict:
+        """Load metrics.yaml configuration"""
+        config_path = Path(__file__).parent / 'metrics.yaml'
 
-    return "unknown"
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
 
+        # Count data types (excluding 'ingestion' key)
+        data_types = [k for k in config.keys() if k != 'ingestion']
 
-def list_gcs_files(bucket_name: str, prefix: str = "garmin/landing/") -> list:
-    """List JSONL files in GCS bucket with given prefix."""
-    client = storage.Client()
-    blobs = client.list_blobs(bucket_name, prefix=prefix)
-    return [
-        f"gs://{bucket_name}/{blob.name}"
-        for blob in blobs
-        if blob.name.endswith(".jsonl")
-    ]
+        logging.info(f"📋 Loaded config from {config_path}")
+        logging.info(f"   Found {len(data_types)} data types configured")
 
+        return config
 
-def move_gcs_file(bucket_name: str, source_path: str, dest_prefix: str):
-    """Move GCS file from source to destination path."""
-    client = storage.Client()
-    bucket = client.bucket(bucket_name)
-    source_blob = bucket.blob(source_path)
-    filename = source_path.split("/")[-1]
-    dest_path = f"garmin/{dest_prefix}/{filename}"
-    bucket.copy_blob(source_blob, bucket, dest_path)
-    source_blob.delete()
-    print(f"📁 {source_path} moved to {dest_path}")
+    def detect_file_type(self, filename: str) -> Optional[str]:
+        """
+        Detect file type from filename
 
+        Args:
+            filename: Name of the file
 
-def load_jsonl_as_raw_json(uri: str, table_id: str, inserted_at: str, file_type: str):
-    """
-    Load JSONL file from GCS to BigQuery with hybrid parsing strategy.
+        Returns:
+            File type (e.g., 'sleep', 'activities') or None if not found
+        """
+        filename_lower = filename.lower()
 
-    Strategy:
-    - For 'activities': Parse core fields in Python, keep extended fields in JSON
-    - For other types: Store everything as raw JSON (old approach)
+        # Search for each data type in the config (skip 'ingestion' key)
+        for data_type in self.config.keys():
+            if data_type == 'ingestion':
+                continue
+            if data_type in filename_lower:
+                return data_type
 
-    This hybrid approach provides performance for common queries while maintaining
-    flexibility for rare/experimental fields.
-    """
-    from google.cloud import bigquery, storage
-    import json
+        logging.warning(f"❓ Could not detect type for file: {filename}")
+        return None
 
-    # Parse GCS URI
-    parts = uri.split("/")
-    bucket_name = parts[2]
-    blob_path = "/".join(parts[3:])
-    filename = parts[-1]
+    def get_table_name(self, file_type: str) -> Optional[str]:
+        """
+        Get table name for a file type
 
-    # Download from GCS
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(blob_path)
-    content = blob.download_as_text().splitlines()
+        Args:
+            file_type: File type (e.g., 'sleep')
 
-    # Determine if we should use hybrid parsing
-    use_hybrid_parsing = file_type == "activities"
+        Returns:
+            Table name (e.g., 'normalized_garmin__sleep') or None
+        """
+        # Read table from data type config
+        if file_type in self.config:
+            return self.config[file_type].get('table')
+        return None
 
-    if use_hybrid_parsing:
-        # Import schema for activities
-        try:
-            from .schema_activities import parse_activity, get_bigquery_schema
-            print(f"📊 Using hybrid parsing for {file_type}")
-        except ImportError:
-            print(f"⚠️  Hybrid schema not found for {file_type}, falling back to JSON-only")
-            use_hybrid_parsing = False
+    def list_files(self) -> List[str]:
+        """List files to process from GCS landing"""
+        prefix = "garmin/landing/"
+        blobs = self.storage_client.list_blobs(self.bucket, prefix=prefix)
 
-    rows = []
-    for line_num, line in enumerate(content, 1):
-        try:
-            # Parse original data
-            original_data = json.loads(line)
+        files = []
+        for blob in blobs:
+            if blob.name.endswith('.jsonl'):
+                files.append(f"gs://{self.bucket}/{blob.name}")
 
-            if use_hybrid_parsing:
-                # Hybrid approach: parse core fields + keep raw_data
-                row = parse_activity(original_data, filename)
-            else:
-                # Legacy approach: everything as JSON
-                row = {
-                    "raw_data": original_data,
-                    "data_type": file_type,
-                    "dp_inserted_at": inserted_at,
-                    "source_file": filename,
-                }
+        logging.info(f"📂 Found {len(files)} JSONL files in gs://{self.bucket}/{prefix}")
+        return files
 
-            rows.append(row)
+    def download_file(self, gcs_uri: str) -> Tuple[List[str], str]:
+        """
+        Download file from GCS
 
-        except json.JSONDecodeError as e:
-            print(f"⚠️  Invalid JSON on line {line_num} in {filename}: {e}")
-            continue
-        except Exception as e:
-            print(f"⚠️  Processing error on line {line_num} in {filename}: {e}")
-            continue
+        Args:
+            gcs_uri: GCS URI
 
-    if not rows:
-        raise ValueError(f"No valid records found in {filename}")
+        Returns:
+            Tuple of (lines, filename)
+        """
+        parts = gcs_uri.replace('gs://', '').split('/')
+        bucket_name = parts[0]
+        blob_path = '/'.join(parts[1:])
+        filename = parts[-1]
 
-    # Determine schema
-    if use_hybrid_parsing:
-        schema = get_bigquery_schema()
-    else:
-        schema = get_universal_schema()
+        bucket = self.storage_client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
 
-    # Load to BigQuery
-    bq_client = bigquery.Client()
-    job = bq_client.load_table_from_json(
-        rows,
-        table_id,
-        job_config=bigquery.LoadJobConfig(
-            schema=schema,
-            write_disposition="WRITE_APPEND",
+        content = blob.download_as_text()
+        lines = content.splitlines()
+
+        return lines, filename
+
+    def parse_jsonl(self, lines: List[str], filename: str) -> List[Dict]:
+        """
+        Parse JSONL lines
+
+        Args:
+            lines: JSONL lines
+            filename: Source filename
+
+        Returns:
+            Parsed records with metadata
+        """
+        records = []
+        inserted_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+
+        for line_num, line in enumerate(lines, 1):
+            try:
+                record = json.loads(line)
+
+                # Add metadata
+                record['_dp_inserted_at'] = inserted_at
+                record['_source_file'] = filename
+
+                records.append(record)
+
+            except json.JSONDecodeError as e:
+                logging.warning(f"⚠️  Invalid JSON on line {line_num}: {e}")
+                continue
+
+        logging.info(f"   Parsed {len(records)} records from {len(lines)} lines")
+        return records
+
+    def ingest_to_bigquery(self, records: List[Dict], table_name: str) -> None:
+        """
+        Ingest records to BigQuery with auto-detection
+
+        Args:
+            records: Records to ingest
+            table_name: Table name (without dataset/project)
+        """
+        if not records:
+            logging.warning("   No records to ingest")
+            return
+
+        table_id = f"{self.project_id}.{self.dataset}.{table_name}"
+
+        # Job config with auto-detection
+        job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-            autodetect=False,
-        ),
-    )
+            autodetect=True,  # ✨ Auto-détection du schéma
+            write_disposition='WRITE_APPEND',
+            create_disposition='CREATE_IF_NEEDED',
+        )
 
-    try:
-        job.result()
-        print(f"✅ {filename} loaded with {len(rows)} rows to {table_id}")
-    except Exception as e:
-        print(f"❌ BigQuery load error for {filename}: {e}")
-        raise
+        logging.info(f"   📊 Ingesting to {table_id}")
+        logging.info(f"      Records: {len(records)}")
+        logging.info(f"      Auto-detect: True")
+
+        if self.dry_run:
+            logging.info("   🔍 DRY RUN - Skipping actual ingestion")
+            return
+
+        try:
+            job = self.bq_client.load_table_from_json(
+                records,
+                table_id,
+                job_config=job_config
+            )
+
+            job.result(timeout=600)
+
+            logging.info(f"   ✅ Successfully ingested {len(records)} records")
+
+        except GoogleCloudError as e:
+            logging.error(f"   ❌ BigQuery error: {e}")
+            raise
+
+    def move_file(self, gcs_uri: str, destination: str) -> None:
+        """
+        Move file to archive or rejected
+
+        Args:
+            gcs_uri: Source GCS URI
+            destination: 'archive' or 'rejected'
+        """
+        parts = gcs_uri.replace('gs://', '').split('/')
+        bucket_name = parts[0]
+        source_path = '/'.join(parts[1:])
+        filename = parts[-1]
+
+        dest_path = f"garmin/{destination}/{filename}"
+
+        bucket = self.storage_client.bucket(bucket_name)
+        source_blob = bucket.blob(source_path)
+
+        bucket.copy_blob(source_blob, bucket, dest_path)
+        source_blob.delete()
+
+        logging.info(f"   📁 Moved to {destination}/")
+
+    def process_file(self, gcs_uri: str) -> bool:
+        """
+        Process a single file
+
+        Args:
+            gcs_uri: GCS file URI
+
+        Returns:
+            True if successful, False otherwise
+        """
+        filename = gcs_uri.split('/')[-1]
+
+        logging.info(f"\n{'='*80}")
+        logging.info(f"📄 Processing: {filename}")
+        logging.info(f"{'='*80}")
+
+        try:
+            # 1. Detect type
+            file_type = self.detect_file_type(filename)
+            if not file_type:
+                logging.error(f"   ❌ Unknown file type")
+                return False
+
+            logging.info(f"   Type detected: {file_type}")
+
+            # 2. Get table name
+            table_name = self.get_table_name(file_type)
+            if not table_name:
+                logging.error(f"   ❌ No table mapping for type: {file_type}")
+                return False
+
+            logging.info(f"   Table: {table_name}")
+
+            # 3. Download file
+            lines, _ = self.download_file(gcs_uri)
+            logging.info(f"   Downloaded {len(lines)} lines")
+
+            # 4. Parse records
+            records = self.parse_jsonl(lines, filename)
+
+            # 5. Ingest to BigQuery
+            self.ingest_to_bigquery(records, table_name)
+
+            return True
+
+        except Exception as e:
+            logging.error(f"   ❌ Error: {e}")
+            return False
+
+    def run(self) -> int:
+        """
+        Run ingestion pipeline
+
+        Returns:
+            Exit code (0 = success, 1 = error)
+        """
+        logging.info(f"\n{'='*80}")
+        logging.info(f"🚀 STARTING SIMPLE GARMIN INGESTION")
+        logging.info(f"{'='*80}\n")
+
+        try:
+            # List files
+            files = self.list_files()
+
+            if not files:
+                logging.warning("⚠️  No files to process")
+                return 0
+
+            # Process each file
+            success_count = 0
+            failed_count = 0
+
+            for gcs_uri in files:
+                success = self.process_file(gcs_uri)
+
+                if success:
+                    success_count += 1
+
+                    # Archive successful file (skip in dry-run)
+                    if not self.dry_run:
+                        self.move_file(gcs_uri, 'archive')
+                else:
+                    failed_count += 1
+
+                    # Move failed file (skip in dry-run)
+                    if not self.dry_run:
+                        self.move_file(gcs_uri, 'rejected')
+
+            # Summary
+            logging.info(f"\n{'='*80}")
+            logging.info(f"📊 SUMMARY")
+            logging.info(f"{'='*80}")
+            logging.info(f"✅ Successful: {success_count}")
+            logging.info(f"❌ Failed: {failed_count}")
+            logging.info(f"Total: {len(files)}")
+            logging.info(f"{'='*80}\n")
+
+            return 0 if failed_count == 0 else 1
+
+        except Exception as e:
+            logging.error(f"❌ Fatal error: {e}")
+            return 1
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Ingest Garmin data from GCS to BigQuery (JSON-first approach)"
+        description='Simple Garmin ingestion using metrics.yaml mapping'
     )
+
     parser.add_argument(
-        "--env", choices=["dev", "prd"], required=True, help="Environment (dev or prd)"
+        '--env',
+        choices=['dev', 'prd'],
+        required=True,
+        help='Environment (dev or prd)'
     )
+
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Validate without writing to BigQuery'
+    )
+
+    parser.add_argument(
+        '--log-level',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        default='INFO',
+        help='Logging level'
+    )
+
     args = parser.parse_args()
 
-    # Get project ID from environment variable
-    project_id = os.getenv("GCP_PROJECT_ID")
-    if not project_id:
-        raise ValueError("GCP_PROJECT_ID environment variable is required")
+    # Configure logging
+    logging.getLogger().setLevel(getattr(logging, args.log_level))
 
-    config = get_env_config(args.env)
-    bucket = config["bucket"]
-    dataset = config["bq_dataset"]
-    inserted_at = datetime.utcnow().isoformat()
+    # Run ingestion
+    ingestor = SimpleGarminIngestor(env=args.env, dry_run=args.dry_run)
+    exit_code = ingestor.run()
 
-    print(f"🚀 Starting Garmin ingestion for {args.env} environment")
-    print(f"📊 Philosophy: Raw JSON storage → dbt transformations")
-    print(f"🔍 Searching for Garmin files in gs://{bucket}/garmin/landing/")
+    sys.exit(exit_code)
 
-    uris = list_gcs_files(bucket)
-    print(f"📁 Found {len(uris)} files to process")
 
-    success_count = 0
-    error_count = 0
-
-    for uri in uris:
-        try:
-            filename = uri.split("/")[-1]
-            file_type = detect_file_type(filename)
-
-            # Multi-table approach - separate table per data type for better performance
-            # Benefits: 10x faster queries, 90% cost reduction, easier partitioning
-            table_id = f"{project_id}.{dataset}.lake_garmin__stg_raw_{file_type}"
-
-            print(f"📊 Processing {file_type} file: {filename} → {table_id}")
-            load_jsonl_as_raw_json(uri, table_id, inserted_at, file_type)
-
-            # Move to archive on success
-            source_path = "/".join(uri.split("/")[3:])
-            move_gcs_file(bucket, source_path, "archive")
-            success_count += 1
-
-        except Exception as e:
-            print(f"❌ Ingestion error for {uri}: {e}")
-            source_path = "/".join(uri.split("/")[3:])
-            move_gcs_file(bucket, source_path, "rejected")
-            error_count += 1
-
-    print(f"\n📈 Ingestion Summary:")
-    print(f"✅ Successfully processed: {success_count} files")
-    print(f"❌ Failed: {error_count} files")
-    print(f"✅ Garmin ingestion completed for {args.env} environment")
-
-    if success_count > 0:
-        print(f"\n🎯 Next Steps:")
-        print(f"1. Data is now in: {project_id}.{dataset}.lake_garmin__stg_garmin_raw")
-        print(f"2. Run dbt models to transform JSON into structured tables")
-        print(f"3. Use JSON functions in dbt to extract any field you need")
+if __name__ == '__main__':
+    main()

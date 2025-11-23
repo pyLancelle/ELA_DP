@@ -1,0 +1,185 @@
+activities:
+  method: get_activities_by_date
+  type: range
+  description: Basic activity list
+  table: normalized_garmin__activities
+
+activity_details:
+  method: get_activity_details
+  type: activity_detail
+  description: Detailed GPS and sensor data for activities
+  table: normalized_garmin__activity_details
+
+activity_splits:
+  method: get_activity_splits
+  type: activity_subdata
+  description: Splits and laps
+  table: normalized_garmin__activity_splits
+
+activity_weather:
+  method: get_activity_weather
+  type: activity_subdata
+  description: Weather data for activities
+  table: normalized_garmin__activity_weather
+
+activity_hr_zones:
+  method: get_activity_hr_in_timezones
+  type: activity_subdata
+  description: Heart rate zones
+  table: normalized_garmin__activity_hr_zones
+
+activity_exercise_sets:
+  method: get_activity_exercise_sets
+  type: activity_subdata
+  description: Strength training sets
+  table: normalized_garmin__activity_exercise_sets
+
+sleep:
+  method: get_sleep_data
+  type: daily
+  description: Sleep tracking data
+  table: normalized_garmin__sleep
+
+steps:
+  method: get_steps_data
+  type: daily
+  description: Daily step counts
+  table: normalized_garmin__steps
+
+heart_rate:
+  method: get_heart_rates
+  type: daily
+  description: All day heart rate
+  table: normalized_garmin__heart_rate
+
+body_battery:
+  method: get_body_battery
+  type: range
+  description: Body battery energy monitoring
+  table: normalized_garmin__body_battery
+
+stress:
+  method: get_all_day_stress
+  type: daily
+  description: Stress level monitoring
+  table: normalized_garmin__stress
+
+weight:
+  method: get_weigh_ins
+  type: range
+  description: Weight measurements
+  table: normalized_garmin__weight
+
+body_composition:
+  method: get_body_composition
+  type: range
+  description: Detailed body composition
+  table: normalized_garmin__body_composition
+
+user_summary:
+  method: get_user_summary
+  type: daily
+  description: Daily user summary
+  table: normalized_garmin__user_summary
+
+# daily_summary:
+#   method: get_daily_summary
+#   type: daily
+#   description: Daily stats summary (method not available in current garminconnect version)
+
+stats_and_body:
+  method: get_stats_and_body
+  type: daily
+  description: Combined stats and body metrics
+  table: normalized_garmin__stats_and_body
+
+training_readiness:
+  method: get_training_readiness
+  type: daily
+  description: Training readiness score
+  table: normalized_garmin__training_readiness
+
+rhr_daily:
+  method: get_rhr_day
+  type: daily
+  description: Resting Heart Rate
+  table: normalized_garmin__rhr_daily
+
+spo2:
+  method: get_spo2_data
+  type: daily
+  description: Blood Oxygen Saturation
+  table: normalized_garmin__spo2
+
+respiration:
+  method: get_respiration_data
+  type: daily
+  description: Respiration rate
+  table: normalized_garmin__respiration
+
+intensity_minutes:
+  method: get_intensity_minutes_data
+  type: daily
+  description: Intensity minutes
+  table: normalized_garmin__intensity_minutes
+
+max_metrics:
+  method: get_max_metrics
+  type: daily
+  description: VO2 Max and other max metrics
+  table: normalized_garmin__max_metrics
+
+all_day_events:
+  method: get_all_day_events
+  type: daily
+  description: Wellness events
+  table: normalized_garmin__all_day_events
+
+device_info:
+  method: get_devices
+  type: simple
+  description: Registered devices
+  table: normalized_garmin__device_info
+
+training_status:
+  method: get_training_status
+  type: daily
+  description: Training status
+  table: normalized_garmin__training_status
+
+hrv:
+  method: get_hrv_data
+  type: daily
+  description: Heart Rate Variability
+  table: normalized_garmin__hrv
+
+race_predictions:
+  method: get_race_predictions
+  type: simple
+  description: Race time predictions
+  table: normalized_garmin__race_predictions
+
+floors:
+  method: get_floors
+  type: daily
+  description: Floors climbed
+  table: normalized_garmin__floors
+
+endurance_score:
+  method: get_endurance_score
+  type: range
+  description: Endurance score
+  table: normalized_garmin__endurance_score
+
+hill_score:
+  method: get_hill_score
+  type: range
+  description: Hill score
+  table: normalized_garmin__hill_score
+
+# =============================================================================
+# CONFIGURATION GLOBALE INGESTION
+# =============================================================================
+ingestion:
+  dataset_dev: dp_normalized_dev
+  dataset_prd: dp_normalized_prd

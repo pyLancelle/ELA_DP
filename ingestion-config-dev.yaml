@@ -26,7 +26,7 @@ job_groups:
     jobs: ["spotify_email_test", "garmin_email_test", "strava_email_test"]
 
   # Data Fetching Groups (Step 1)
-  garmin_fetch_all:
+  garmin_all:
     description: "Fetch all Garmin data (Step 1/2)"
     jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight", "garmin_endurance_score", "garmin_hill_score"]
   
@@ -122,36 +122,6 @@ jobs:
     enabled: true
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
 
-  spotify_playlists:
-    service: "spotify"
-    data_type: "playlists"
-    description: "Fetch user playlists from Spotify (DEV - weekly testing)"
-    cron: "0 14 * * 1"  # Weekly on Mondays at 14:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch playlists --limit 25"
-    environment: "dev"
-    enabled: false
-    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
-
-  spotify_top_tracks:
-    service: "spotify"
-    data_type: "top_tracks"
-    description: "Fetch top tracks from Spotify (DISABLED - not useful)"
-    cron: "0 15 * * 1"  # Weekly on Mondays at 15:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch top_tracks --limit 25 --time-range medium_term"
-    environment: "dev"
-    enabled: false
-    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
-
-  spotify_top_artists:
-    service: "spotify"
-    data_type: "top_artists"
-    description: "Fetch top artists from Spotify (DISABLED - not useful)"
-    cron: "0 16 * * 1"  # Weekly on Mondays at 16:00 UTC
-    command: "python -m src.connectors.spotify.spotify_fetch top_artists --limit 25 --time-range medium_term"
-    environment: "dev"
-    enabled: false
-    dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
-
   spotify_artist_enrichment:
     service: "spotify"
     data_type: "artist_enrichment"
@@ -172,197 +142,64 @@ jobs:
     enabled: true
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN", "GCP_PROJECT_ID", "GCP_SERVICE_ACCOUNT_KEY"]
 
-  # =================== STRAVA JOBS (DEV) ===================
-  strava_activities:
-    service: "strava"
-    data_type: "activities"
-    description: "Fetch activities from Strava (DEV - frequent testing)"
-    cron: "0 */2 * * *"  # Every 2 hours for testing
-    command: "python -m src.connectors.strava.strava"
-    environment: "dev"
-    enabled: false
-    dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
-
-  strava_athlete:
-    service: "strava"
-    data_type: "athlete"
-    description: "Fetch athlete profile from Strava (DEV - daily testing)"
-    cron: "0 12 * * *"  # Daily at 12:00 UTC for testing
-    command: "python -m src.connectors.strava.strava --athlete"
-    environment: "dev"
-    enabled: false
-    dependencies: ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"]
-
   # =================== GARMIN JOBS (DEV) ===================
-  garmin_activities:
+  # =================== GARMIN PIPELINE STEPS ===================
+  garmin_fetch:
     service: "garmin"
-    data_type: "activities"
-    description: "Fetch activities from Garmin (DEV - frequent testing)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types activities --days 2 --no-withings-sync"
+    data_type: "fetch"
+    description: "Fetch Garmin data (Step 1/4)"
+    cron: ""  # Triggered by pipeline
+    command: "python -m src.connectors.garmin --days 3"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
-  garmin_activity_details:
-    service: "garmin"
-    data_type: "activity_details"
-    description: "Fetch detailed activity data with GPS from Garmin (DEV - daily)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_details --days 2 --no-withings-sync"
+  move_to_gcs:
+    service: "utils"
+    data_type: "upload"
+    description: "Move local JSONL files to GCS (Step 2/4)"
+    cron: ""  # Triggered by pipeline
+    command: "python -m src.utils.gcs_upload --bucket ela-dp-dev --destination garmin/landing/"
     environment: "dev"
     enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY"]
 
-  garmin_activity_splits:
+  garmin_ingest:
     service: "garmin"
-    data_type: "activity_splits"
-    description: "Fetch activity splits/laps data from Garmin (DEV - daily)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_splits --days 2 --no-withings-sync"
+    data_type: "ingest"
+    description: "Ingest Garmin data from GCS to BigQuery (Step 3/4)"
+    cron: ""  # Triggered by pipeline
+    command: "python -m src.connectors.garmin.garmin_ingest --env dev"
     environment: "dev"
     enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
-  garmin_activity_weather:
+  garmin_pipeline_daily:
     service: "garmin"
-    data_type: "activity_weather"
-    description: "Fetch activity weather data from Garmin (DEV - daily)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_weather --days 2 --no-withings-sync"
+    data_type: "pipeline"
+    description: "Run complete Garmin pipeline sequentially"
+    cron: "0 11 * * *"  # Daily at 11:00 UTC
+    steps:
+      - "withings_sync"
+      - "garmin_fetch"
+      - "move_to_gcs"
+      - "garmin_ingest"
+      - "garmin_dbt_lake_run"
+    command: "python -m src.orchestrator --pipeline garmin_pipeline_daily --env dev"
     environment: "dev"
     enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
+    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
-  garmin_activity_hr_zones:
-    service: "garmin"
-    data_type: "activity_hr_zones"
-    description: "Fetch activity heart rate zones data from Garmin (DEV - daily)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types activity_hr_zones --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_sleep:
-    service: "garmin"
-    data_type: "sleep"
-    description: "Fetch sleep data from Garmin (DEV - daily testing)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types sleep --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_steps:
-    service: "garmin"
-    data_type: "steps"
-    description: "Fetch steps data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types steps --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_heart_rate:
-    service: "garmin"
-    data_type: "heart_rate"
-    description: "Fetch heart rate data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types heart_rate --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_body_battery:
-    service: "garmin"
-    data_type: "body_battery"
-    description: "Fetch body battery data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types body_battery --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_stress:
-    service: "garmin"
-    data_type: "stress"
-    description: "Fetch stress data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types stress --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_training_status:
-    service: "garmin"
-    data_type: "training_status"
-    description: "Fetch training status data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types training_status --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_hrv:
-    service: "garmin"
-    data_type: "hrv"
-    description: "Fetch hrv data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types hrv --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_race_predictions:
-    service: "garmin"
-    data_type: "race_predictions"
-    description: "Fetch race predictions data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types race_predictions --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_floors:
-    service: "garmin"
-    data_type: "floors"
-    description: "Fetch floors data from Garmin (DEV - every 4 hours)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types floors --days 2 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_weight:
-    service: "garmin"
-    data_type: "weight"
-    description: "Fetch body composition data from Garmin with Withings sync (DEV - daily)"
-    cron: "0 11 * * *"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types weight --days 2 --user-height 1.72 --withings-dedupe-hours 24"
+  # =================== WITHINGS JOBS (DEV) ===================
+  withings_sync:
+    service: "withings"
+    data_type: "sync"
+    description: "Sync Withings body composition to Garmin (DEV - daily before weight fetch)"
+    cron: "55 10 * * *"  # Daily at 10:55 UTC (11:55 Paris time) - 5min before garmin_weight
+    command: "python -m src.connectors.withings --days 2 --user-height 1.72 --dedupe-hours 24"
     environment: "dev"
     enabled: true
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET", "WITHINGS_CREDENTIALS_JSON"]
-
-  garmin_endurance_score:
-    service: "garmin"
-    data_type: "endurance_score"
-    description: "Fetch endurance score data from Garmin (DEV - weekly on Sunday)"
-    cron: "0 10 * * 0"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types endurance_score --days 7 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  garmin_hill_score:
-    service: "garmin"
-    data_type: "hill_score"
-    description: "Fetch hill score data from Garmin (DEV - weekly on Sunday)"
-    cron: "0 10 * * 0"
-    command: "python -m src.connectors.garmin.garmin_fetch --data-types hill_score --days 7 --no-withings-sync"
-    environment: "dev"
-    enabled: true
-    dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   # Special backfill job for 1 year of data
   garmin_backfill_1year:
@@ -370,31 +207,10 @@ jobs:
     data_type: "all"
     description: "Backfill 1 year of Garmin data (manual trigger only)"
     cron: ""  # No automatic schedule - manual only
-    command: "python -m src.connectors.garmin.garmin_fetch --days 10 --no-withings-sync"
+    command: "python -m src.connectors.garmin.garmin --days 10"
     environment: "dev"
     enabled: false  # Manual trigger only
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
-
-  # =================== TODOIST JOBS (DEV) ===================
-  todoist_tasks:
-    service: "todoist"
-    data_type: "tasks"
-    description: "Fetch tasks from Todoist (DEV - frequent testing)"
-    cron: "0 */2 * * *"  # Every 2 hours for testing
-    command: "python -m src.connectors.todoist.todoist tasks"
-    environment: "dev"
-    enabled: false
-    dependencies: ["TODOIST_API_TOKEN"]
-
-  todoist_projects:
-    service: "todoist"
-    data_type: "projects"
-    description: "Fetch projects from Todoist (DEV - daily testing)"
-    cron: "0 9 * * *"  # Daily at 9:00 UTC for testing
-    command: "python -m src.connectors.todoist.todoist projects"
-    environment: "dev"
-    enabled: false
-    dependencies: ["TODOIST_API_TOKEN"]
 
   # =================== CHESS.COM JOBS (DEV) ===================
   chess_player_stats:
@@ -430,58 +246,6 @@ jobs:
     enabled: true
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
-  # Individual jobs (disabled by default - use for manual/targeted ingestion)
-  garmin_ingest_activities:
-    service: "garmin"
-    data_type: "activities"
-    description: "[MANUAL] Ingest Garmin activities only"
-    cron: "35 */2 * * *"
-    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config activities --env dev"
-    environment: "dev"
-    enabled: false
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
-
-  garmin_ingest_sleep:
-    service: "garmin"
-    data_type: "sleep"
-    description: "[MANUAL] Ingest Garmin sleep data only"
-    cron: "40 */2 * * *"
-    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config sleep --env dev"
-    environment: "dev"
-    enabled: false
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
-
-  garmin_ingest_floors:
-    service: "garmin"
-    data_type: "floors"
-    description: "[MANUAL] Ingest Garmin floors data only"
-    cron: "45 */2 * * *"
-    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config floors --env dev"
-    environment: "dev"
-    enabled: false
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
-
-  garmin_ingest_weight:
-    service: "garmin"
-    data_type: "weight"
-    description: "[MANUAL] Ingest Garmin weight data only"
-    cron: "50 */2 * * *"
-    command: "python -m src.connectors.garmin.garmin_ingest_v2 --config weight --env dev"
-    environment: "dev"
-    enabled: false
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
-
-  # Legacy job (disabled) - kept for reference
-  garmin_ingest:
-    service: "garmin"
-    data_type: "ingest"
-    description: "[DEPRECATED] Legacy Garmin ingestion (replaced by auto)"
-    cron: "30 */2 * * *"
-    command: "python -m src.connectors.garmin.garmin_ingest --env dev"
-    environment: "dev"
-    enabled: false
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
-
   garmin_dbt_lake_run:
     service: "garmin"
     data_type: "dbt_lake"
@@ -490,16 +254,6 @@ jobs:
     command: "python -m src.services.dbt.dbt_run --env dev --select tag:garmin"
     environment: "dev"
     enabled: true
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
-
-  strava_ingest:
-    service: "strava"
-    data_type: "ingest"
-    description: "Ingest Strava data from GCS to BigQuery (DEV)"
-    cron: "30 */2 * * *"  # 30 minutes after data fetch
-    command: "python -m src.connectors.strava.strava_ingest --env dev"
-    environment: "dev"
-    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   # Auto-ingestion: single job that detects and processes all data types
@@ -511,17 +265,6 @@ jobs:
     command: "python -m src.connectors.spotify.spotify_ingest_auto --env dev"
     environment: "dev"
     enabled: true
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
-
-  # Legacy job (disabled) - kept for reference
-  spotify_ingest:
-    service: "spotify"
-    data_type: "ingest"
-    description: "[DEPRECATED] Legacy Spotify ingestion (replaced by auto)"
-    cron: "30 * * * *"  # 30 minutes after hourly fetch
-    command: "python -m src.connectors.spotify.spotify_ingest --env dev"
-    environment: "dev"
-    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   spotify_dbt_lake_run:
@@ -554,48 +297,6 @@ jobs:
     enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
-  # =================== EMAIL SERVICES (DEV) ===================
-  spotify_email_weekly:
-    service: "mail"
-    data_type: "spotify_email"
-    description: "Send weekly Spotify top artists/tracks email (DEV - more frequent for testing)"
-    cron: "0 10,16 * * 1,3,5"  # Monday, Wednesday, Friday at 10:00 and 16:00 UTC for testing
-    command: "python -m src.services.mail.main --perimeter spotify_weekly --env dev"
-    environment: "dev"
-    enabled: false  # Disabled by default to avoid spam during development
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-  spotify_email_test:
-    service: "mail"
-    data_type: "spotify_email"
-    description: "Test Spotify email (DEV - manual trigger only)"
-    cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.mail.main --perimeter spotify_weekly --env dev --destinataires etiennelancelle@outlook.fr --dry-run"
-    environment: "dev"
-    enabled: true  # Enabled for manual testing
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-  garmin_email_test:
-    service: "mail"
-    data_type: "garmin_email"
-    description: "Test Garmin email (DEV - manual trigger only, mock data)"
-    cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.mail.main --perimeter garmin_weekly --env dev --dry-run"
-    environment: "dev"
-    enabled: true  # Enabled for manual testing with mock data
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-  strava_email_test:
-    service: "mail"
-    data_type: "strava_email"
-    description: "Test Strava email (DEV - manual trigger only, mock data)"
-    cron: ""  # No automatic schedule - manual only
-    command: "python -m src.services.mail.main --perimeter strava_weekly --env dev --dry-run"
-    environment: "dev"
-    enabled: true  # Enabled for manual testing with mock data
-    dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
-
-
 # Service-specific configuration
 services:
   spotify:
@@ -611,8 +312,8 @@ services:
   
   garmin:
     base_path: "src/connectors/garmin"
-    fetch_script: "garmin_fetch.py"
-    supported_data_types: ["activities", "activity_details", "activity_splits", "activity_weather", "activity_hr_zones", "sleep", "steps", "heart_rate", "body_battery", "stress", "training_status", "hrv", "race_predictions", "floors", "weight", "endurance_score", "hill_score"]
+    fetch_script: "__main__.py"  # Now a module with __main__.py entry point
+    supported_data_types: ["activities", "activity_details", "activity_splits", "activity_weather", "activity_hr_zones", "activity_exercise_sets", "sleep", "steps", "heart_rate", "body_battery", "stress", "user_summary", "stats_and_body", "training_readiness", "rhr_daily", "spo2", "respiration", "intensity_minutes", "max_metrics", "all_day_events", "device_info", "training_status", "hrv", "race_predictions", "floors", "weight", "body_composition", "endurance_score", "hill_score"]
   
   todoist:
     base_path: "src/connectors/todoist"
