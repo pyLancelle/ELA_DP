@@ -138,6 +138,11 @@ def flatten_nested_arrays(
             # for fields that are detected as REQUIRED (e.g. metrics in activity_details)
             if value is None:
                 continue
+            
+            # Replace empty dicts with None - BigQuery auto-detection can't handle empty structs
+            if isinstance(value, dict) and not value:
+                result[key] = None
+                continue
 
             # Vérifier si cette clé est un cas spécial connu
             if key in known_mappings and isinstance(value, list) and value and isinstance(value[0], list):

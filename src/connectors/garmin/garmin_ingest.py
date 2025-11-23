@@ -13,8 +13,8 @@ Logique simple :
 3. Archive les fichiers traités
 
 Usage:
-    python -m src.connectors.garmin.garmin_simple_ingest --env dev
-    python -m src.connectors.garmin.garmin_simple_ingest --env prd --dry-run
+    python -m src.connectors.garmin.garmin_ingest --env dev
+    python -m src.connectors.garmin.garmin_ingest --env prd --dry-run
 """
 
 import argparse
@@ -172,12 +172,17 @@ class SimpleGarminIngestor:
         Returns:
             Parsed records with metadata
         """
+        from .utils import flatten_nested_arrays
+        
         records = []
         inserted_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
         for line_num, line in enumerate(lines, 1):
             try:
                 record = json.loads(line)
+                
+                # Clean nested arrays and empty structs for BigQuery compatibility
+                record = flatten_nested_arrays(record)
 
                 # Add metadata
                 record['_dp_inserted_at'] = inserted_at
