@@ -246,8 +246,18 @@ class BigQueryAutoIngestor:
                         )
                 else:
                     # Type promotion logic
+                    # RECORD wins over STRING (for empty vs non-empty arrays)
+                    if "RECORD" in {current.field_type, field.field_type}:
+                        final_type = "RECORD"
+                        final_fields = current.fields if current.field_type == "RECORD" else field.fields
+                        merged_map[field.name] = SchemaField(
+                            name=current.name,
+                            field_type="RECORD",
+                            mode=current.mode,
+                            fields=final_fields
+                        )
                     # INTEGER + FLOAT -> FLOAT
-                    if {current.field_type, field.field_type} == {"INTEGER", "FLOAT"}:
+                    elif {current.field_type, field.field_type} == {"INTEGER", "FLOAT"}:
                         merged_map[field.name] = SchemaField(
                             name=current.name,
                             field_type="FLOAT",
@@ -320,7 +330,14 @@ class BigQueryAutoIngestor:
                     final_fields = current.fields
 
                     if current.field_type != field_type:
-                        if {current.field_type, field_type} == {"INTEGER", "FLOAT"}:
+                        # Special case: RECORD should win over STRING
+                        # This handles the case where empty arrays are detected as STRING
+                        # but non-empty arrays are detected as RECORD
+                        if "RECORD" in {current.field_type, field_type}:
+                            final_type = "RECORD"
+                            # Use the fields from whichever one is RECORD
+                            final_fields = current.fields if current.field_type == "RECORD" else fields
+                        elif {current.field_type, field_type} == {"INTEGER", "FLOAT"}:
                             final_type = "FLOAT"
                         else:
                             final_type = "STRING"
@@ -375,6 +392,7 @@ class BigQueryAutoIngestor:
             autodetect=False,  # We provide explicit schema
             write_disposition=write_disposition,
             create_disposition='CREATE_IF_NEEDED',
+            ignore_unknown_values=True,  # Ignore fields not in schema (e.g. always null fields)
             schema_update_options=[
                 bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION
             ]
@@ -402,6 +420,14 @@ class BigQueryAutoIngestor:
         logging.info(f"Ingesting {len(records)} records to {table_id}")
         logging.info(f"  Schema fields: {len(detected_schema)}")
         logging.info(f"  Write disposition: {write_disposition}")
+        
+        # Debug: Log splitSummaries schema
+        for field in detected_schema:
+            if field.name == "splitSummaries":
+                logging.info(f"  DEBUG - splitSummaries field:")
+                logging.info(f"    Type: {field.field_type}, Mode: {field.mode}")
+                logging.info(f"    Has nested fields: {len(field.fields) if field.fields else 0}")
+                break
 
         if self.dry_run:
             logging.info("DRY RUN - Skipping actual ingestion")
@@ -409,15 +435,31 @@ class BigQueryAutoIngestor:
             return
 
         # Load to BigQuery
+        # IMPORTANT: We must use load_table_from_file with NEWLINE_DELIMITED_JSON
+        # because load_table_from_json doesn't properly handle REPEATED RECORD fields
         try:
-            job = self.bq_client.load_table_from_json(
-                records,
-                table_id,
-                job_config=job_config
-            )
+            import tempfile
+            
+            # Write records to temporary JSONL file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+                for record in records:
+                    tmp_file.write(json.dumps(record, default=str) + '\n')
+            
+            # Load from file
+            with open(tmp_path, 'rb') as source_file:
+                job = self.bq_client.load_table_from_file(
+                    source_file,
+                    table_id,
+                    job_config=job_config
+                )
 
-            # Wait for job to complete
-            job.result(timeout=600)
+                # Wait for job to complete
+                job.result(timeout=600)
+
+            # Clean up temp file
+            import os
+            os.unlink(tmp_path)
 
             logging.info(f"✅ Successfully ingested {len(records)} records to {table_id}")
 
