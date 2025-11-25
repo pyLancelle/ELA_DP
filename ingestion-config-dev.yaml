@@ -12,82 +12,10 @@ global:
   environment: "dev"
 
 # Job Groups for manual execution
-job_groups:
-  spotify_all:
-    description: "All Spotify data sources (DEV)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment", "spotify_album_enrichment"]
-  
-  daily_jobs:
-    description: "Jobs that run daily (DEV)"
-    jobs: ["spotify_saved_tracks", "garmin_sleep", "todoist_projects"]
-
-  email_test:
-    description: "Email testing jobs (DEV)"
-    jobs: ["spotify_email_test", "garmin_email_test", "strava_email_test"]
-
-  # Data Fetching Groups (Step 1)
-  garmin_all:
-    description: "Fetch all Garmin data (Step 1/2)"
-    jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight", "garmin_endurance_score", "garmin_hill_score"]
-  
-  spotify_fetch_all:
-    description: "Fetch all Spotify data (Step 1/2)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment", "spotify_album_enrichment"]
-  
-  chess_fetch_all:
-    description: "Fetch all Chess.com data (Step 1/2)"
-    jobs: ["chess_player_stats", "chess_games"]
-  
-  # Data Ingestion Groups (Step 2)
-  ingestion_only:
-    description: "Run only ingestion jobs - GCS → BigQuery (Step 2/2)"
-    jobs: ["garmin_ingest_auto", "spotify_ingest_auto", "chess_ingest"]
-
-  garmin_ingest_only:
-    description: "Ingest Garmin data only - GCS → BigQuery (auto-detection)"
-    jobs: ["garmin_ingest_auto"]
-
-  # Data Transformation Groups (Step 3)
-  garmin_dbt_only:
-    description: "Run DBT transformations for Garmin lake models only"
-    jobs: ["garmin_dbt_lake_run"]
-  
-  spotify_dbt_only:
-    description: "Run DBT transformations for Spotify lake + Hub music models"
-    jobs: ["spotify_dbt_lake_run"]
-  
-  chess_ingest_only:
-    description: "Ingest Chess.com data only - GCS → BigQuery"
-    jobs: ["chess_ingest"]
-  
-  chess_dbt_only:
-    description: "Run DBT transformations for Chess.com lake models only"
-    jobs: ["chess_dbt_lake_run"]
-  
+job_groups:  
   dbt_transformations:
     description: "Run all DBT transformations"
     jobs: ["garmin_dbt_lake_run", "spotify_dbt_lake_run", "chess_dbt_lake_run"]
-  
-  # Legacy Combined Pipelines (runs in parallel - use with caution)
-  garmin_pipeline:
-    description: "Complete Garmin pipeline (parallel execution - may have timing issues)"
-    jobs: ["garmin_activities", "garmin_activity_details", "garmin_activity_splits", "garmin_activity_weather", "garmin_activity_hr_zones", "garmin_sleep", "garmin_steps", "garmin_heart_rate", "garmin_body_battery", "garmin_stress", "garmin_training_status", "garmin_hrv", "garmin_race_predictions", "garmin_floors", "garmin_weight", "garmin_endurance_score", "garmin_hill_score", "garmin_ingest_activities", "garmin_ingest_sleep", "garmin_ingest_floors", "garmin_ingest_weight", "garmin_dbt_lake_run"]
-  
-  strava_pipeline:
-    description: "Complete Strava pipeline (parallel execution - may have timing issues)"
-    jobs: ["strava_activities", "strava_athlete", "strava_ingest"]
-  
-  spotify_ingest_only:
-    description: "Ingest Spotify data only - GCS → BigQuery (auto-detection)"
-    jobs: ["spotify_ingest_auto"]
-
-  spotify_pipeline:
-    description: "Complete Spotify pipeline (parallel execution - may have timing issues)"
-    jobs: ["spotify_recently_played", "spotify_saved_tracks", "spotify_saved_albums", "spotify_artist_enrichment", "spotify_album_enrichment", "spotify_ingest_auto", "spotify_dbt_lake_run"]
-  
-  chess_pipeline:
-    description: "Complete Chess.com pipeline (parallel execution - may have timing issues)"
-    jobs: ["chess_player_stats", "chess_games", "chess_ingest", "chess_dbt_lake_run"]
 
 # Individual Jobs Configuration - DEV Environment
 jobs:
@@ -197,7 +125,7 @@ jobs:
     cron: "55 10 * * *"  # Daily at 10:55 UTC (11:55 Paris time) - 5min before garmin_weight
     command: "python -m src.connectors.withings --days 2 --user-height 1.72 --dedupe-hours 24"
     environment: "dev"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET", "WITHINGS_CREDENTIALS_JSON"]
 
   # Special backfill job for 1 year of data
@@ -239,7 +167,7 @@ jobs:
     service: "garmin"
     data_type: "auto"
     description: "Ingest all Garmin data types using metrics.yaml mapping"
-    cron: "30 */2 * * *"  # 30 minutes after data fetch
+    cron: "* * * * *"
     command: "python -m src.connectors.garmin.garmin_ingest --env dev"
     environment: "dev"
     enabled: true
@@ -249,7 +177,7 @@ jobs:
     service: "garmin"
     data_type: "dbt_lake"
     description: "Run DBT transformations for Garmin lake models (30min after ingestion)"
-    cron: "0 */2 * * *"  # Every 2 hours at :00 (30min after ingestion at :30)
+    cron: "* * * * *"
     command: "python -m src.services.dbt.dbt_run --env dev --select tag:garmin"
     environment: "dev"
     enabled: true
