@@ -5,14 +5,16 @@
 }}
 
 SELECT
-    USERPROFILEPK,
-    STARTDATE,
-    ENDDATE,
-    AVG,
-    MAX,
-    ENDURANCESCOREDTO,
-    CONTRIBUTORS,
-    DP_INSERTED_AT
+	userProfilePK,
+	startDate,
+	endDate,
+	avg,
+	max,
+	groupMap,
+	enduranceScoreDTO,
+	data_type,
+	`_dp_inserted_at`,
+	`_source_file`,
 FROM {{ source('garmin','endurance_score') }}
 QUALIFY
-    ROW_NUMBER() OVER (PARTITION BY startdate ORDER BY dp_inserted_at DESC) = 1
+    ROW_NUMBER() OVER (PARTITION BY startDate ORDER BY _dp_inserted_at DESC) = 1

@@ -5,18 +5,13 @@
 }}
 
 SELECT
-    USERID,
-    `date`,
-    VO2MAX,
-    HEATALTITUDEACCLIMATION,
-    TRAININGSTATUS,
-    LOADBALANCE,
-    RECORDEDDEVICES,
-    RECORDEDDEVICESLOADBALANCE,
-    LASTPRIMARYSYNCDATE,
-    SHOWSELECTOR,
-    RAW_DATA,
-    DP_INSERTED_AT,
-    SOURCE_FILE
+	userId,
+	mostRecentVO2Max,
+	mostRecentTrainingLoadBalance,
+	mostRecentTrainingStatus,
+	`date`,
+	data_type,
+	`_dp_inserted_at`,
+	`_source_file`,
 FROM {{ source('garmin','training_status') }}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY dp_inserted_at DESC) = 1

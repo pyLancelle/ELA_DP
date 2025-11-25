@@ -15,40 +15,62 @@ sources:
         identifier: lake_spotify__normalized_saved_tracks
   - name: garmin
     database: polar-scene-465223-f7
-    schema: "{{ 'dp_lake_' ~ target.name }}"
+    schema: "{{ 'dp_normalized_' ~ target.name }}"
     tables:
       - name: activities
-        identifier: lake_garmin__normalized_activities
+        identifier: normalized_garmin__activities
       - name: activity_details
-        identifier: lake_garmin__normalized_activity_details
+        identifier: normalized_garmin__activity_details
       - name: activity_hr_zones
-        identifier: lake_garmin__normalized_activity_hr_zones
+        identifier: normalized_garmin__activity_exercise_sets
+      - name: activity_exercise_sets
+        identifier: normalized_garmin__activity_hr_zones
       - name: activity_splits
-        identifier: lake_garmin__normalized_activity_splits
+        identifier: normalized_garmin__activity_splits
       - name: activity_weather
-        identifier: lake_garmin__normalized_activity_weather
+        identifier: normalized_garmin__activity_weather
+      - name: all_day_events
+        identifier: normalized_garmin__all_day_events
       - name: body_battery
-        identifier: lake_garmin__normalized_body_battery
+        identifier: normalized_garmin__body_battery
+      - name: body_composition
+        identifier: normalized_garmin__body_composition
       - name: endurance_score 
-        identifier: lake_garmin__normalized_endurance_score
+        identifier: normalized_garmin__endurance_score
       - name: floors
-        identifier: lake_garmin__normalized_floors
+        identifier: normalized_garmin__floors
       - name: heart_rate
-        identifier: lake_garmin__normalized_heart_rate
+        identifier: normalized_garmin__heart_rate
       - name: hill_score
-        identifier: lake_garmin__normalized_hill_score
+        identifier: normalized_garmin__hill_score
       - name: hrv
-        identifier: lake_garmin__normalized_hrv
+        identifier: normalized_garmin__hrv
+      - name: intensity_minutes
+        identifier: normalized_garmin__intensity_minutes
+      - name: max_metrics
+        identifier: normalized_garmin__max_metrics
       - name: race_predictions
-        identifier: lake_garmin__normalized_race_predictions
+        identifier: normalized_garmin__race_predictions
+      - name: respiration
+        identifier: normalized_garmin__respiration
+      - name: rhr_daily
+        identifier: normalized_garmin__rhr_daily
       - name: sleep
-        identifier: lake_garmin__normalized_sleep
-      - name: stress
-        identifier: lake_garmin__normalized_stress
+        identifier: normalized_garmin__sleep
+      - name: spo2
+        identifier: normalized_garmin__spo2
+      - name: stats_and_body
+        identifier: normalized_garmin__stats_and_body
       - name: steps
-        identifier: lake_garmin__normalized_steps
+        identifier: normalized_garmin__steps
+      - name: stress
+        identifier: normalized_garmin__stress
+      - name: training_readiness
+        identifier: normalized_garmin__training_readiness
       - name: training_status
-        identifier: lake_garmin__normalized_training_status
+        identifier: normalized_garmin__training_status
+      - name: user_summary
+        identifier: normalized_garmin__user_summary
       - name: weight
-        identifier: lake_garmin__normalized_weight
+        identifier: normalized_garmin__weight
         

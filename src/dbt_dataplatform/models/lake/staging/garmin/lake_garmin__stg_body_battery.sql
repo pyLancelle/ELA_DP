@@ -6,16 +6,19 @@
 
 SELECT
     `date`,
-    STARTTIMESTAMPGMT,
-    ENDTIMESTAMPGMT,
-    STARTTIMESTAMPLOCAL,
-    ENDTIMESTAMPLOCAL,
-    CHARGED,
-    DRAINED,
-    BODYBATTERYVALUES,
-    BODYBATTERYDYNAMICFEEDBACKEVENT,
-    ENDOFDAYBODYBATTERYDYNAMICFEEDBACKEVENT,
-    BODYBATTERYACTIVITYEVENT,
-    DP_INSERTED_AT
+    charged,
+    drained,
+    startTimestampGMT,
+    endTimestampGMT,
+    startTimestampLocal,
+    endTimestampLocal,
+    bodyBatteryValuesArray,
+    bodyBatteryValueDescriptorDTOList,
+    bodyBatteryDynamicFeedbackEvent,
+    bodyBatteryActivityEvent,
+    endOfDayBodyBatteryDynamicFeedbackEvent,
+    data_type,
+    `_dp_inserted_at`,
+    `_source_file`,
 FROM {{ source('garmin','body_battery') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY _dp_inserted_at DESC) = 1
