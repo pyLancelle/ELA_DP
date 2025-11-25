@@ -180,7 +180,6 @@ jobs:
     description: "Run complete Garmin pipeline sequentially"
     cron: "0 11 * * *"  # Daily at 11:00 UTC
     steps:
-      - "withings_sync"
       - "garmin_fetch"
       - "move_to_gcs"
       - "garmin_ingest"
