@@ -21,9 +21,9 @@ sources:
         identifier: normalized_garmin__activities
       - name: activity_details
         identifier: normalized_garmin__activity_details
-      - name: activity_hr_zones
-        identifier: normalized_garmin__activity_exercise_sets
       - name: activity_exercise_sets
+        identifier: normalized_garmin__activity_exercise_sets
+      - name: activity_hr_zones
         identifier: normalized_garmin__activity_hr_zones
       - name: activity_splits
         identifier: normalized_garmin__activity_splits

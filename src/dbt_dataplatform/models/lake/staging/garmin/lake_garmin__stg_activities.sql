@@ -105,9 +105,6 @@ SELECT
 	favorite,
 	manualActivity,
 	autoCalcCalories,
-	data_type,
-	`_dp_inserted_at`,
-	`_source_file`,
 	minRespirationRate,
 	maxRespirationRate,
 	avgRespirationRate,
@@ -122,7 +119,10 @@ SELECT
 	avgVerticalSpeed,
 	description,
 	courseId,
-	calendarEventUuid
+	calendarEventUuid,
+	data_type,
+	`_dp_inserted_at`,
+	`_source_file`
 FROM {{ source('garmin','activities') }}
 QUALIFY
     ROW_NUMBER() OVER (PARTITION BY activityId ORDER BY `_dp_inserted_at` DESC) = 1

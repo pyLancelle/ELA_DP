@@ -22,6 +22,6 @@ SELECT
 	heartRateValues,
 	heartRateValueDescriptors,
 	abnormalHrThresholdValue,
-	abnormalHRValuesArray,
+	abnormalHRValuesArray
 FROM {{ source('garmin','heart_rate') }}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY _dp_inserted_at DESC) = 1

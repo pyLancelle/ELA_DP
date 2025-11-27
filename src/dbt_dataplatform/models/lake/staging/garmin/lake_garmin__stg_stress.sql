@@ -22,6 +22,6 @@ SELECT
 	`_dp_inserted_at`,
 	`_source_file`,
 	bodyBatteryValueDescriptorsDTOList,
-	bodyBatteryValuesArray,
+	bodyBatteryValuesArray
 FROM {{ source('garmin','stress') }}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY _dp_inserted_at DESC) = 1

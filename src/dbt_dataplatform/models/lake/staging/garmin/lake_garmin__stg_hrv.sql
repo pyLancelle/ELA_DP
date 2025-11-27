@@ -19,6 +19,6 @@ SELECT
 	sleepStartTimestampGMT,
 	sleepEndTimestampGMT,
 	sleepStartTimestampLocal,
-	sleepEndTimestampLocal,
+	sleepEndTimestampLocal
 FROM {{ source('garmin','hrv') }}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY _dp_inserted_at DESC) = 1

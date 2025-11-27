@@ -106,6 +106,6 @@ SELECT
 		abnormalHeartRateAlertsCount,
 		respirationAlgorithmVersion,
 		bodyBatteryAtWakeTime,
-		lastSyncTimestampGMT,
+		lastSyncTimestampGMT
 FROM {{ source('garmin','stats_and_body') }}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY _dp_inserted_at DESC) = 1

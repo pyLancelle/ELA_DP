@@ -12,6 +12,6 @@ SELECT
 	`date`,
 	data_type,
 	`_dp_inserted_at`,
-	`_source_file`,
+	`_source_file`
 FROM {{ source('garmin','rhr_daily') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY _dp_inserted_at DESC) = 1

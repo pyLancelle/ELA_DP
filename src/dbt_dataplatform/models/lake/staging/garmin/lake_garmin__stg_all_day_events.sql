@@ -18,6 +18,6 @@ SELECT
 	data_type,
 	`_dp_inserted_at`,
 	`_source_file`
-FROM {{ source('garmin','activity_weather') }}
+FROM {{ source('garmin','all_day_events') }}
 QUALIFY
     ROW_NUMBER() OVER (PARTITION BY calendarDate, startTimestampLocal ORDER BY _dp_inserted_at DESC) = 1

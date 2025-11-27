@@ -37,6 +37,6 @@ SELECT
 	score,
 	hrvWeeklyAverage,
 	acuteLoad,
-	inputContext,
+	inputContext
 FROM {{ source('garmin','training_readiness') }}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate, timestamp ORDER BY _dp_inserted_at DESC) = 1

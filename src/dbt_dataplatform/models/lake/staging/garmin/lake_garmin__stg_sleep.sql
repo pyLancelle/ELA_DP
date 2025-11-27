@@ -29,6 +29,6 @@ SELECT
 	hrvData,
 	breathingDisruptionData,
 	avgOvernightHrv,
-	hrvStatus,
+	hrvStatus
 FROM {{ source('garmin','sleep') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY _dp_inserted_at DESC) = 1

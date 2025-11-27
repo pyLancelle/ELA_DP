@@ -33,6 +33,6 @@ SELECT
 	avgSleepSpO2,
 	spO2ValueDescriptorsDTOList,
 	spO2HourlyAverages,
-	spO2SingleValues,
+	spO2SingleValues
 FROM {{ source('garmin','spo2') }}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY _dp_inserted_at DESC) = 1

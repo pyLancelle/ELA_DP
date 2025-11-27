@@ -98,12 +98,12 @@ SELECT
 	abnormalHeartRateAlertsCount,
 	respirationAlgorithmVersion,
 	bodyBatteryAtWakeTime,
-	lastSyncTimestampGMT,
+	lastSyncTimestampGMT
 FROM {{ source('garmin','user_summary') }}
 QUALIFY
     ROW_NUMBER()
         OVER (
             PARTITION BY date
-            ORDER BY dp_inserted_at DESC
+            ORDER BY _dp_inserted_at DESC
         )
     = 1
