@@ -5,28 +5,21 @@
 }}
 
 SELECT
-    SAMPLEPK,
-    `date`,
-    CALENDARDATE,
-    WEIGHT,
-    BMI,
-    BODYFAT,
-    BODYWATER,
-    BONEMASS,
-    MUSCLEMASS,
-    PHYSIQUERATING,
-    VISCERALFAT,
-    METABOLICAGE,
-    SOURCETYPE,
-    TIMESTAMPGMT,
-    WEIGHTDELTA,
-    SUMMARYDATE,
-    DP_INSERTED_AT
+	samplePk,
+	`date`,
+	calendarDate,
+	weight,
+	bodyFat,
+	bodyWater,
+	boneMass,
+	muscleMass,
+	sourceType,
+	timestampGMT,
+	weightDelta,
+	summaryDate,
+	data_type,
+	`_dp_inserted_at`,
+	`_source_file`,
+	bmi
 FROM {{ source('garmin','weight') }}
-QUALIFY
-    ROW_NUMBER()
-        OVER (
-            PARTITION BY CALENDARDATE
-            ORDER BY dp_inserted_at DESC
-        )
-    = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY _dp_inserted_at DESC) = 1

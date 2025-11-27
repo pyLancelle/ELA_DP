@@ -8,7 +8,7 @@ dbt_dataplatform:
       dataset: dp
       location: US
       threads: 2
-      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '../../gcs_key.json') }}"
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '/Users/etienne/MyAll/DEV/ELA_DP/gcs_key.json') }}"
 
     prd:
       type: bigquery
@@ -17,4 +17,4 @@ dbt_dataplatform:
       dataset: dp
       location: US
       threads: 2
-      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '../../gcs_key.json') }}"
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '/Users/etienne/MyAll/DEV/ELA_DP/gcs_key.json') }}"

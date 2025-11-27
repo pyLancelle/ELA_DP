@@ -5,21 +5,23 @@
 }}
 
 SELECT
-    USERPROFILEPK,
-    CALENDARDATE,
-    STARTTIMESTAMPGMT,
-    ENDTIMESTAMPGMT,
-    STARTTIMESTAMPLOCAL,
-    ENDTIMESTAMPLOCAL,
-    MAXSTRESSLEVEL,
-    AVGSTRESSLEVEL,
-    STRESSCHARTVALUEOFFSET,
-    STRESSCHARTYAXISORIGIN,
-    STRESSVALUES,
-    BODYBATTERYVALUES,
-    DP_INSERTED_AT
+	userProfilePK,
+	calendarDate,
+	startTimestampGMT,
+	endTimestampGMT,
+	startTimestampLocal,
+	endTimestampLocal,
+	maxStressLevel,
+	avgStressLevel,
+	stressChartValueOffset,
+	stressChartYAxisOrigin,
+	stressValueDescriptorsDTOList,
+	stressValuesArray,
+	`date`,
+	data_type,
+	`_dp_inserted_at`,
+	`_source_file`,
+	bodyBatteryValueDescriptorsDTOList,
+	bodyBatteryValuesArray
 FROM {{ source('garmin','stress') }}
-QUALIFY
-    ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY dp_inserted_at DESC)
-    = 1
-
+QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY _dp_inserted_at DESC) = 1

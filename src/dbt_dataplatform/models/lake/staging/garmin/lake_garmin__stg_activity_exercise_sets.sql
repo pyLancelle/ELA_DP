@@ -9,12 +9,11 @@ SELECT
 	activityName,
 	activityType,
 	startTimeLocal,
-	splits,
-	typed_splits,
-	split_summaries,
+	activity_exercise_sets_data,
 	data_type,
+	exercise_sets_data,
 	`_dp_inserted_at`,
 	`_source_file`
-FROM {{ source('garmin','activity_splits') }}
+FROM {{ source('garmin','activity_exercise_sets') }}
 QUALIFY
     ROW_NUMBER() OVER (PARTITION BY activityid ORDER BY _dp_inserted_at DESC) = 1
