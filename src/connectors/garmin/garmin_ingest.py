@@ -14,6 +14,7 @@ from typing import List
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from src.utils.bq_auto_ingest import BigQueryAutoIngestor
+from src.utils.gcs import move_file_in_gcs
 
 # Configure logging
 logging.basicConfig(
@@ -141,6 +142,18 @@ def main():
                         table=table_name,
                     )
                     success_count += 1
+
+                    # Move ingested file to archive
+                    source_blob_name = file_uri.replace(f"gs://{bucket_name}/", "")
+                    destination_blob_name = source_blob_name.replace(
+                        "/landing/", "/archive/"
+                    )
+                    move_file_in_gcs(
+                        bucket_name=bucket_name,
+                        source_blob_name=source_blob_name,
+                        destination_blob_name=destination_blob_name,
+                    )
+
                 except Exception as e:
                     logging.error(f"❌ Failed to ingest {file_uri}: {e}")
                     fail_count += 1
