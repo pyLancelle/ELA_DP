@@ -167,7 +167,7 @@ jobs:
     service: "garmin"
     data_type: "auto"
     description: "Ingest all Garmin data types using metrics.yaml mapping"
-    cron: "* * * * *"
+    cron: ""
     command: "python -m src.connectors.garmin.garmin_ingest --env dev"
     environment: "dev"
     enabled: true
@@ -177,7 +177,7 @@ jobs:
     service: "garmin"
     data_type: "dbt_lake"
     description: "Run DBT transformations for Garmin lake models (30min after ingestion)"
-    cron: "* * * * *"
+    cron: ""
     command: "python -m src.services.dbt.dbt_run --env dev --select tag:garmin"
     environment: "dev"
     enabled: true
