@@ -2,7 +2,7 @@
   config(
       materialized='incremental',
       incremental_strategy='merge',
-      unique_key=['activityId', 'setId'],
+      unique_key='activityId',
       tags=['garmin', 'lake']
   )
 }}
