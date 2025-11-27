@@ -203,7 +203,7 @@ jobs:
     cron: "55 10 * * *"  # Daily at 10:55 UTC (11:55 Paris time) - 5min before garmin_weight
     command: "python -m src.connectors.withings --days 7 --user-height 1.72 --dedupe-hours 24"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "WITHINGS_CLIENT_ID", "WITHINGS_CLIENT_SECRET", "WITHINGS_CREDENTIALS_JSON"]
 
   # =================== TODOIST JOBS (PRD) ===================
@@ -257,7 +257,7 @@ jobs:
     cron: "30 */2 * * *"  # 30 minutes after data fetch
     command: "python -m src.connectors.garmin.garmin_ingest --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   garmin_dbt_lake_run:
@@ -267,7 +267,7 @@ jobs:
     cron: "0 7,12,16,20,23 * * *"  # 5 times per day at specific hours: 7h, 12h, 16h, 20h, 23h UTC
     command: "python -m src.connectors.garmin.garmin_dbt_run --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   strava_ingest:
@@ -328,7 +328,7 @@ jobs:
     cron: "0 4 * * 1"  # Every Monday at 4:00 UTC (5:00 Paris winter, 6:00 summer)
     command: "python -m src.services.mail.main --perimeter spotify_weekly --destinataires etiennelancelle+dp@outlook.fr --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "EMAIL_SMTP_FROM", "EMAIL_SMTP_PASSWORD"]
 
 # Service-specific configuration
