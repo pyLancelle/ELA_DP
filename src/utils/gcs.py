@@ -1,5 +1,5 @@
 from google.cloud import storage
-from loguru import logger
+from logging import logger
 
 
 def move_file_in_gcs(
@@ -19,12 +19,6 @@ def move_file_in_gcs(
     destination_blob = bucket.blob(destination_blob_name)
 
     if source_blob.exists():
-        logger.info(
-            f"Moving file {source_blob_name} to {destination_blob_name} in bucket {bucket_name}"
-        )
         bucket.rename_blob(source_blob, destination_blob_name)
-        logger.info(
-            f"File {source_blob_name} moved to {destination_blob_name} successfully."
-        )
     else:
-        logger.warning(f"File {source_blob_name} not found in bucket {bucket_name}.")
+        print('Warning: Source blob does not exist: ')
