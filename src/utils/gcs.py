@@ -1,5 +1,4 @@
 from google.cloud import storage
-from logging import logger
 
 
 def move_file_in_gcs(
