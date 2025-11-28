@@ -10,8 +10,8 @@ SELECT
 	endDate,
 	avg,
 	max,
-	groupMap,
-	enduranceScoreDTO,
+	TO_JSON_STRING(groupMap) AS groupMap,
+	enduranceScoreDTO AS enduranceScoreDTO,
 	data_type,
 	`_dp_inserted_at`,
 	`_source_file`

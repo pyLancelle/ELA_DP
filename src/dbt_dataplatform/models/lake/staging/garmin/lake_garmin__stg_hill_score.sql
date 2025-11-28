@@ -8,7 +8,7 @@ SELECT
 	userProfilePK,
 	startDate,
 	endDate,
-	periodAvgScore,
+	TO_JSON_STRING(periodAvgScore) AS periodAvgScore,
 	maxScore,
 	hillScoreDTOList,
 	data_type,
