@@ -6,7 +6,7 @@ Structure :
 - Phases de sommeil (STRUCT) : deep_sleep, light_sleep, rem_sleep avec heures, %, optimaux et status
 - Temps éveillé (STRUCT) : awake avec heures, %, nombre de réveils et qualité
 - Body Battery (STRUCT) : at_bedtime, at_waketime, recovery et qualité de récupération
-- Métriques santé : avg_hrv, avg_stress
+- Métriques santé : avg_hrv, avg_stress, resting_heart_rate
 - Score global : sleep_quality (excellent, good, fair, poor, very_poor)
 - Sleep levels (ARRAY) : données granulaires des niveaux de sommeil avec timestamps
 */
@@ -143,6 +143,7 @@ SELECT
     -- Métriques santé
     avgOvernightHrv AS avg_hrv,
     dailySleepDTO.avgSleepStress AS avg_stress,
+    restingHeartRate AS resting_heart_rate,
 
     -- Score de qualité global
     CASE
