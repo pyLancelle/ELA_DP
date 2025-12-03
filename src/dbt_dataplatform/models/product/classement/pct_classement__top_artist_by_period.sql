@@ -16,7 +16,7 @@ WITH all_periods_raw AS (
         ON fact_played.trackid = dim_tracks.trackid
     LEFT JOIN {{ ref('hub_music__svc_dim_albums')}} AS dim_albums
         ON dim_tracks.albumid = dim_albums.albumid
-    WHERE DATE(fact_played.playedat) = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+    WHERE DATE(fact_played.playedat) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     GROUP BY
         dim_artists.artistid,
         dim_artists.artistname,

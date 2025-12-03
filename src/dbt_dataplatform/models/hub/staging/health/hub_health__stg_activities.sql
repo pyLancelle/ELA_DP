@@ -2,12 +2,21 @@
 In this table, we want one row per running activity.
 
 Columns:
-- Basic info: date, activity_id, activity_name, start_time, duration, distance, avg_pace
+- Basic info: date, activity_id, activity_name, activity_type, start_time, duration, distance, avg_pace, calories
 - Heart rate (nested): avg_bpm, max_bpm, time in zones
 - Running dynamics (nested): cadence, stride length, ground contact time, vertical oscillation, steps
 - Elevation (nested): gain, loss, min, max
-- Training metrics (nested): aerobic/anaerobic effect, training load, VO2max, body battery delta
+- Training metrics (nested): aerobic/anaerobic effect, training load, VO2max, body battery delta, intensity minutes
+- Power (nested): avg/max/normalized watts, time in power zones
+- Personal records (nested): best times for 1km, 5km, 10km, half marathon, marathon
 - Splits (array): detailed metrics for each split (distance, duration, pace, HR, etc.)
+- Location (nested): GPS coordinates, location name, track availability
+- Weather (nested): weather conditions during activity
+- Advanced metrics (nested): respiration rate, grade-adjusted speed
+- Timing (nested): detailed timing information (start/end times, durations)
+- Context (nested): workout/course linkage, description, flags (favorite, PR, manual, purposeful)
+- Device (nested): device info
+- Laps (nested): lap count and details
 */
 
 {{
@@ -84,7 +93,12 @@ SELECT
     STRUCT(
         activities.avgPower AS avg_watts,
         activities.maxPower AS max_watts,
-        activities.normPower AS normalized_power
+        activities.normPower AS normalized_power,
+        activities.powerTimeInZone_1 AS zone1_seconds,
+        activities.powerTimeInZone_2 AS zone2_seconds,
+        activities.powerTimeInZone_3 AS zone3_seconds,
+        activities.powerTimeInZone_4 AS zone4_seconds,
+        activities.powerTimeInZone_5 AS zone5_seconds
     ) AS power,
 
     -- Personal records (nested)
@@ -97,13 +111,70 @@ SELECT
     ) AS personal_records,
 
     -- Splits (array of STRUCT)
-    splits.splitSummaries AS splits
+    splits.split_summaries AS splits,
+
+    -- Location & GPS (nested)
+    STRUCT(
+        activities.startLatitude AS start_lat,
+        activities.startLongitude AS start_lon,
+        activities.endLatitude AS end_lat,
+        activities.endLongitude AS end_lon,
+        activities.locationName AS location_name,
+        activities.hasPolyline AS has_gps_track
+    ) AS location,
+
+    -- Weather (nested)
+    weather.weather_data AS weather,
+
+    -- Advanced Metrics (nested)
+    STRUCT(
+        activities.avgRespirationRate AS avg_respiration_bpm,
+        activities.maxRespirationRate AS max_respiration_bpm,
+        activities.minRespirationRate AS min_respiration_bpm,
+        activities.avgGradeAdjustedSpeed AS grade_adjusted_speed_ms
+    ) AS advanced_metrics,
+
+    -- Timing Details (nested)
+    STRUCT(
+        activities.startTimeLocal AS start_time_local,
+        activities.startTimeGMT AS start_time_gmt,
+        activities.endTimeGMT AS end_time_gmt,
+        activities.duration AS total_duration_seconds,
+        activities.movingDuration AS moving_duration_seconds,
+        activities.elapsedDuration AS elapsed_duration_seconds
+    ) AS timing,
+
+    -- Context & Metadata (nested)
+    STRUCT(
+        activities.workoutId AS workout_id,
+        activities.courseId AS course_id,
+        activities.description AS description,
+        activities.favorite AS is_favorite,
+        activities.pr AS is_personal_record,
+        activities.manualActivity AS is_manual,
+        activities.purposeful AS is_purposeful
+    ) AS context,
+
+    -- Device Info (nested)
+    STRUCT(
+        activities.deviceId AS device_id,
+        activities.manufacturer AS manufacturer
+    ) AS device,
+
+    -- Lap Information (nested)
+    STRUCT(
+        activities.lapCount AS total_laps,
+        activities.minActivityLapDuration AS shortest_lap_seconds
+    ) AS laps
 
 FROM
     {{ ref('lake_garmin__svc_activities') }} AS activities
 LEFT JOIN
     {{ ref('lake_garmin__svc_activity_splits') }} AS splits
     ON activities.activityId = splits.activityId
+LEFT JOIN
+    {{ ref('lake_garmin__svc_activity_weather') }} AS weather
+    ON activities.activityId = weather.activityId
 WHERE
     activities.activityType.typeKey IN ('running', 'trail_running', 'track_running', 'treadmill_running')
     AND activities.startTimeLocal IS NOT NULL
