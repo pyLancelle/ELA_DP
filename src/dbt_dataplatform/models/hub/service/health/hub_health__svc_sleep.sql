@@ -8,7 +8,7 @@ Toute la logique métier est dans hub_health__stg_sleep.
         materialized='incremental',
         incremental_strategy='merge',
         unique_key='date',
-        tags=['health', 'hub']
+        tags=['health', 'hub', 'garmin']
     )
 }}
 

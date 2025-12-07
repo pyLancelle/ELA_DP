@@ -1,9 +1,3 @@
-{{
-  config(
-      tags=['garmin', 'lake']
-  )
-}}
-
 SELECT
 	activityId,
 	activityName,
