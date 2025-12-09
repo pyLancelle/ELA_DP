@@ -1,22 +1,5 @@
 /*
-In this table, we want one row per running activity.
-
-Columns:
-- Basic info: date, activity_id, activity_name, activity_type, start_time, duration, distance, avg_pace, calories
-- Heart rate (nested): avg_bpm, max_bpm, time in zones
-- Running dynamics (nested): cadence, stride length, ground contact time, vertical oscillation, steps
-- Elevation (nested): gain, loss, min, max
-- Training metrics (nested): aerobic/anaerobic effect, training load, VO2max, body battery delta, intensity minutes
-- Power (nested): avg/max/normalized watts, time in power zones
-- Personal records (nested): best times for 1km, 5km, 10km, half marathon, marathon
-- Splits (array): detailed metrics for each split (distance, duration, pace, HR, etc.)
-- Location (nested): GPS coordinates, location name, track availability
-- Weather (nested): weather conditions during activity
-- Advanced metrics (nested): respiration rate, grade-adjusted speed
-- Timing (nested): detailed timing information (start/end times, durations)
-- Context (nested): workout/course linkage, description, flags (favorite, PR, manual, purposeful)
-- Device (nested): device info
-- Laps (nested): lap count and details
+Vue consolidée des activités running avec laps, intervalles, timeseries et polyline.
 */
 
 {{
@@ -26,157 +9,134 @@ Columns:
   )
 }}
 
+-- CTE pour les laps par km
+WITH laps_data AS (
+    SELECT
+        splits.activityId,
+        ARRAY_AGG(
+            STRUCT(
+                ss.lapIndex,
+                ss.startTimeGMT,
+                ss.distance,
+                ss.duration,
+                ss.averageSpeed,
+                ss.calories,
+                ss.averageHR,
+                ss.maxHR,
+                ss.elevationGain,
+                ss.elevationLoss
+            )
+            ORDER BY ss.lapIndex
+        ) AS kilometer_laps
+    FROM {{ ref('lake_garmin__svc_activity_splits') }} AS splits,
+         UNNEST(splits.splits.lapDTOs) AS ss
+    GROUP BY splits.activityId
+),
+
+-- CTE pour les intervalles
+intervals_data AS (
+    SELECT
+        splits.activityId,
+        ARRAY_AGG(
+            STRUCT(
+                ss.startTimeGMT,
+                ss.distance,
+                ss.duration,
+                ss.averageSpeed,
+                ss.calories,
+                ss.averageHR,
+                ss.maxHR,
+                ss.elevationGain,
+                ss.elevationLoss
+            )
+        ) AS training_intervals
+    FROM {{ ref('lake_garmin__svc_activity_splits') }} AS splits,
+         UNNEST(splits.typed_splits.splits) AS ss
+    WHERE ss.type LIKE 'INTERVAL%'
+    GROUP BY splits.activityId
+),
+
+-- CTE pour les données timeseries
+timeseries_data AS (
+    SELECT
+        details.activityId,
+        ARRAY_AGG(md ORDER BY md.directTimestamp) AS timeseries
+    FROM {{ ref('lake_garmin__svc_activity_details') }} AS details,
+         UNNEST(details.detailed_data.activityDetailMetrics) AS md
+    GROUP BY details.activityId
+),
+
+-- CTE pour la polyline GPS
+polyline_data AS (
+    SELECT
+        details.activityId,
+        ARRAY_AGG(
+            STRUCT(
+                p.lat,
+                p.lon,
+                p.time
+            )
+        ) AS polyline
+    FROM {{ ref('lake_garmin__svc_activity_details') }} AS details,
+         UNNEST(details.detailed_data.geoPolylineDTO.polyline) AS p
+    GROUP BY details.activityId
+)
+
 SELECT
-    -- Basic information
-    DATE(activities.startTimeLocal) AS date,
-    activities.activityId AS activity_id,
-    activities.activityName AS activity_name,
-    activities.activityType.typeKey AS activity_type,
-    activities.startTimeLocal AS start_time,
-
-    -- Performance metrics
-    ROUND(activities.distance / 1000, 2) AS distance_km,
-    activities.duration AS duration_seconds,
-    activities.movingDuration AS moving_duration_seconds,
-
-    -- Calculate average pace (min/km)
-    CASE
-        WHEN activities.averageSpeed > 0 THEN
-            ROUND((1000.0 / activities.averageSpeed) / 60, 2)
-        ELSE NULL
-    END AS avg_pace_min_per_km,
-
+    activities.activityId,
+    activities.activityName,
+    activities.startTimeGMT,
+    activities.endTimeGMT,
+    activities.activityType.typeKey,
+    activities.distance,
+    activities.duration,
+    activities.elapsedDuration,
+    activities.elevationGain,
+    activities.elevationLoss,
+    activities.averageSpeed,
+    activities.hasPolyline,
     activities.calories,
-
-    -- Heart Rate (nested)
+    activities.averageHR,
+    activities.maxHR,
+    activities.aerobicTrainingEffect,
+    activities.anaerobicTrainingEffect,
+    activities.minElevation,
+    activities.maxElevation,
+    activities.activityTrainingLoad,
     STRUCT(
-        activities.averageHR AS avg_bpm,
-        activities.maxHR AS max_bpm,
-        activities.hrTimeInZone_1 AS zone1_seconds,
-        activities.hrTimeInZone_2 AS zone2_seconds,
-        activities.hrTimeInZone_3 AS zone3_seconds,
-        activities.hrTimeInZone_4 AS zone4_seconds,
-        activities.hrTimeInZone_5 AS zone5_seconds
-    ) AS heart_rate,
-
-    -- Running Dynamics (nested)
+        activities.fastestSplit_1000,
+        activities.fastestSplit_1609,
+        activities.fastestSplit_5000,
+        activities.fastestSplit_10000,
+        activities.fastestSplit_21098,
+        activities.fastestSplit_42195
+    ) AS fastestSplits,
     STRUCT(
-        activities.averageRunningCadenceInStepsPerMinute AS avg_cadence_spm,
-        activities.maxRunningCadenceInStepsPerMinute AS max_cadence_spm,
-        activities.avgStrideLength AS avg_stride_length_cm,
-        activities.avgGroundContactTime AS avg_ground_contact_time_ms,
-        activities.avgVerticalOscillation AS avg_vertical_oscillation_cm,
-        activities.avgVerticalRatio AS avg_vertical_ratio_pct,
-        activities.steps AS total_steps
-    ) AS running_dynamics,
-
-    -- Elevation (nested)
+        activities.hrTimeInZone_1,
+        activities.hrTimeInZone_2,
+        activities.hrTimeInZone_3,
+        activities.hrTimeInZone_4,
+        activities.hrTimeInZone_5
+    ) AS hr_zones,
     STRUCT(
-        activities.elevationGain AS gain_meters,
-        activities.elevationLoss AS loss_meters,
-        activities.minElevation AS min_elevation,
-        activities.maxElevation AS max_elevation
-    ) AS elevation,
+        activities.powerTimeInZone_1,
+        activities.powerTimeInZone_2,
+        activities.powerTimeInZone_3,
+        activities.powerTimeInZone_4,
+        activities.powerTimeInZone_5
+    ) AS power_zones,
+    laps_data.kilometer_laps,
+    intervals_data.training_intervals,
+    timeseries_data.timeseries,
+    polyline_data.polyline
 
-    -- Training Metrics (nested)
-    STRUCT(
-        activities.aerobicTrainingEffect AS aerobic_effect,
-        activities.anaerobicTrainingEffect AS anaerobic_effect,
-        activities.activityTrainingLoad AS training_load,
-        activities.vO2MaxValue AS vo2max,
-        activities.differencebodybattery AS body_battery_delta,
-        activities.moderateIntensityMinutes AS moderate_intensity_minutes,
-        activities.vigorousIntensityMinutes AS vigorous_intensity_minutes
-    ) AS training_metrics,
-
-    -- Power metrics (nested) - for running with power meter
-    STRUCT(
-        activities.avgPower AS avg_watts,
-        activities.maxPower AS max_watts,
-        activities.normPower AS normalized_power,
-        activities.powerTimeInZone_1 AS zone1_seconds,
-        activities.powerTimeInZone_2 AS zone2_seconds,
-        activities.powerTimeInZone_3 AS zone3_seconds,
-        activities.powerTimeInZone_4 AS zone4_seconds,
-        activities.powerTimeInZone_5 AS zone5_seconds
-    ) AS power,
-
-    -- Personal records (nested)
-    STRUCT(
-        activities.fastestSplit_1000 AS best_1km_seconds,
-        activities.fastestSplit_5000 AS best_5km_seconds,
-        activities.fastestSplit_10000 AS best_10km_seconds,
-        activities.fastestSplit_21098 AS best_half_marathon_seconds,
-        activities.fastestSplit_42195 AS best_marathon_seconds
-    ) AS personal_records,
-
-    -- Splits (array of STRUCT)
-    splits.split_summaries AS splits,
-
-    -- Location & GPS (nested)
-    STRUCT(
-        activities.startLatitude AS start_lat,
-        activities.startLongitude AS start_lon,
-        activities.endLatitude AS end_lat,
-        activities.endLongitude AS end_lon,
-        activities.locationName AS location_name,
-        activities.hasPolyline AS has_gps_track
-    ) AS location,
-
-    -- Weather (nested)
-    weather.weather_data AS weather,
-
-    -- Advanced Metrics (nested)
-    STRUCT(
-        activities.avgRespirationRate AS avg_respiration_bpm,
-        activities.maxRespirationRate AS max_respiration_bpm,
-        activities.minRespirationRate AS min_respiration_bpm,
-        activities.avgGradeAdjustedSpeed AS grade_adjusted_speed_ms
-    ) AS advanced_metrics,
-
-    -- Timing Details (nested)
-    STRUCT(
-        activities.startTimeLocal AS start_time_local,
-        activities.startTimeGMT AS start_time_gmt,
-        activities.endTimeGMT AS end_time_gmt,
-        activities.duration AS total_duration_seconds,
-        activities.movingDuration AS moving_duration_seconds,
-        activities.elapsedDuration AS elapsed_duration_seconds
-    ) AS timing,
-
-    -- Context & Metadata (nested)
-    STRUCT(
-        activities.workoutId AS workout_id,
-        activities.courseId AS course_id,
-        activities.description AS description,
-        activities.favorite AS is_favorite,
-        activities.pr AS is_personal_record,
-        activities.manualActivity AS is_manual,
-        activities.purposeful AS is_purposeful
-    ) AS context,
-
-    -- Device Info (nested)
-    STRUCT(
-        activities.deviceId AS device_id,
-        activities.manufacturer AS manufacturer
-    ) AS device,
-
-    -- Lap Information (nested)
-    STRUCT(
-        activities.lapCount AS total_laps,
-        activities.minActivityLapDuration AS shortest_lap_seconds
-    ) AS laps
-
-FROM
-    {{ ref('lake_garmin__svc_activities') }} AS activities
-LEFT JOIN
-    {{ ref('lake_garmin__svc_activity_splits') }} AS splits
-    ON activities.activityId = splits.activityId
-LEFT JOIN
-    {{ ref('lake_garmin__svc_activity_weather') }} AS weather
-    ON activities.activityId = weather.activityId
-WHERE
-    activities.activityType.typeKey IN ('running', 'trail_running', 'track_running', 'treadmill_running')
-    AND activities.startTimeLocal IS NOT NULL
-ORDER BY
-    activities.startTimeLocal DESC
+FROM {{ ref('lake_garmin__svc_activities') }} AS activities
+LEFT JOIN laps_data
+    ON activities.activityId = laps_data.activityId
+LEFT JOIN intervals_data
+    ON activities.activityId = intervals_data.activityId
+LEFT JOIN timeseries_data
+    ON activities.activityId = timeseries_data.activityId
+LEFT JOIN polyline_data
+    ON activities.activityId = polyline_data.activityId
+WHERE activities.activityType.typeKey IN ('running', 'trail_running', 'track_running', 'treadmill_running')

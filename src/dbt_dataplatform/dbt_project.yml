@@ -32,3 +32,6 @@ models:
       classement:
         +schema: product_{{ target.name }}
         +materialized: view
+      activites:
+        +schema: product_{{ target.name }}
+        +materialized: view

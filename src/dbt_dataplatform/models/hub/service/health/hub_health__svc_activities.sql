@@ -1,6 +1,7 @@
 /*
-Table service : persistence incrémentale des activités running.
+Table service : persistence incrémentale des activités running consolidées.
 Toute la logique métier est dans hub_health__stg_activities.
+Inclut : métriques de base, laps, intervalles, timeseries et polyline GPS.
 */
 
 {{
