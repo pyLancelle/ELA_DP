@@ -6,6 +6,14 @@
     )
 {% endmacro %}
 
+{% macro duration_to_hms(duration_seconds) %}
+    CONCAT(
+        CAST(FLOOR({{ duration_seconds }} / 3600) AS STRING), 'h ',
+        CAST(FLOOR(MOD({{ duration_seconds }}, 3600) / 60) AS STRING), 'm ',
+        CAST(FLOOR(MOD({{ duration_seconds }}, 60)) AS STRING), 's'
+    )
+{% endmacro %}
+
 {% macro ms_to_hm(ms_column) %}
     CASE
         WHEN FLOOR({{ ms_column }} / 3600000) > 0 THEN

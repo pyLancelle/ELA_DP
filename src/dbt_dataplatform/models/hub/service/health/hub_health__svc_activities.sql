@@ -18,5 +18,5 @@ SELECT
     CURRENT_TIMESTAMP() AS _dp_updated_at
 FROM {{ ref('hub_health__stg_activities') }}
 {% if is_incremental() %}
-WHERE date > (SELECT MAX(date) FROM {{ this }})
+WHERE startTimeGMT > (SELECT MAX(startTimeGMT) FROM {{ this }})
 {% endif %}
