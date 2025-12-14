@@ -8,7 +8,7 @@ Inclut : métriques de base, laps, intervalles, timeseries et polyline GPS.
     config(
         materialized='incremental',
         incremental_strategy='merge',
-        unique_key='activity_id',
+        unique_key='activityid',
         tags=['health', 'hub', 'garmin']
     )
 }}

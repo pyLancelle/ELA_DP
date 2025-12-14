@@ -20,8 +20,8 @@ activities_with_utc_times AS (
         activityName,
         TIMESTAMP(startTimeGMT) AS activity_start_utc,
         TIMESTAMP(endTimeGMT) AS activity_end_utc,
-        CAST(distance AS INT) as duration,
-        duration,
+        CAST(distance AS INT) as distance,
+        CAST(duration AS INT) as duration,
         elapsedDuration,
         averageSpeed,
         calories,
@@ -85,7 +85,7 @@ activities_with_music AS (
         ON ba.artistid = ar.artistid
     GROUP BY 
         activityId, activityName, activity_start_utc, activity_end_utc, 
-        distance, duration, elapsedDuration, averageSpeed, calories, 
+        distance, a.duration, elapsedDuration, averageSpeed, calories, 
         averageHR, maxHR, elevationGain, elevationLoss, hasPolyline
 )
 
@@ -115,13 +115,7 @@ SELECT
     {{ duration_to_hms('duration') }} AS duration_formatted,
     
     -- Durée musicale en format lisible
-    {{ ms_to_hms('total_music_duration_ms') }} AS music_duration_formatted,
-    
-    -- Ratio musique/activité
-    CASE
-        WHEN duration > 0 THEN ROUND(SAFE_DIVIDE(total_music_duration_ms, duration * 1000), 2)
-        ELSE NULL
-    END AS music_coverage_ratio
+    {{ ms_to_hms('total_music_duration_ms') }} AS music_duration_formatted
 
 FROM activities_with_music
 ORDER BY activityId DESC
