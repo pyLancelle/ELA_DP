@@ -181,7 +181,9 @@ SELECT
             ) AS duration_minutes
         FROM UNNEST(sleepLevels)
         ORDER BY startGMT
-    ) AS sleep_levels
+    ) AS sleep_levels,
+
+    _dp_inserted_at
 
 FROM {{ ref('lake_garmin__svc_sleep') }}
 WHERE date IS NOT NULL

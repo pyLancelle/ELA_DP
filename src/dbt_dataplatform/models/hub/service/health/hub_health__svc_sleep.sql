@@ -13,9 +13,9 @@ Toute la logique métier est dans hub_health__stg_sleep.
 }}
 
 SELECT
-    *,
+    * EXCEPT(_dp_inserted_at),
     CURRENT_TIMESTAMP() AS _dp_updated_at
 FROM {{ ref('hub_health__stg_sleep') }}
 {% if is_incremental() %}
-WHERE date > (SELECT MAX(date) FROM {{ this }})
+WHERE _dp_inserted_at > (SELECT MAX(_dp_updated_at) FROM {{ this }})
 {% endif %}

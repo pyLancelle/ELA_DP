@@ -128,7 +128,8 @@ SELECT
     laps_data.kilometer_laps,
     intervals_data.training_intervals,
     timeseries_data.timeseries,
-    polyline_data.polyline
+    polyline_data.polyline,
+    activities._dp_inserted_at
 
 FROM {{ ref('lake_garmin__svc_activities') }} AS activities
 LEFT JOIN laps_data
