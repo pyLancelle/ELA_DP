@@ -47,7 +47,8 @@ SELECT DISTINCT
     stats.first_played_at,
     stats.last_played_at,
     string_agg(artist.artistname, ', ' ORDER BY artist_offset)
-        AS all_artist_names
+        AS all_artist_names,
+    (SELECT MAX(_dp_inserted_at) FROM {{ ref('lake_spotify__svc_recently_played') }}) AS max__dp_inserted_at
 FROM
     latest_version,
     unnest(artists) AS artist WITH OFFSET AS artist_offset

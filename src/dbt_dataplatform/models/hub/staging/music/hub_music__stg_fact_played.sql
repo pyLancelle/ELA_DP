@@ -10,6 +10,7 @@ SELECT
     CONTEXTTYPE,
     CONTEXTURI,
     CONTEXTHREF,
-    CONTEXTEXTERNALURL
+    CONTEXTEXTERNALURL,
+    _dp_inserted_at
 FROM
     {{ ref('lake_spotify__svc_recently_played') }}

@@ -52,7 +52,7 @@ SELECT
     JSON_EXTRACT_SCALAR(raw_data, '$.track.album.images[2].url') AS ALBUMIMAGEURLSMALL,
     ALBUMARTISTS,
     ARTISTS,
-    DP_INSERTED_AT
+    DP_INSERTED_AT AS _dp_inserted_at
 FROM {{ source('spotify','recently_played') }}
 QUALIFY
-    ROW_NUMBER() OVER (PARTITION BY playedat ORDER BY dp_inserted_at DESC) = 1
+    ROW_NUMBER() OVER (PARTITION BY playedat ORDER BY _dp_inserted_at DESC) = 1

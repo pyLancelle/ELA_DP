@@ -31,8 +31,8 @@ SELECT
     TRACKSSUMMARY,
     TRACKS,
     RAW_DATA,
-    DP_INSERTED_AT,
+    DP_INSERTED_AT AS _dp_inserted_at,
     SOURCE_FILE
 FROM {{ source('spotify','saved_albums') }}
 QUALIFY
-    ROW_NUMBER() OVER (PARTITION BY addedat ORDER BY dp_inserted_at DESC) = 1
+    ROW_NUMBER() OVER (PARTITION BY addedat ORDER BY _dp_inserted_at DESC) = 1

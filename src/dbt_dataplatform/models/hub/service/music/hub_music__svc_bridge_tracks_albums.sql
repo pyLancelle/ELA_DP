@@ -7,7 +7,10 @@
     )
 }}
 SELECT
-    *,
-    CURRENT_TIMESTAMP() AS dp_updated_at
+    * EXCEPT(max__dp_inserted_at),
+    CURRENT_TIMESTAMP() AS _dp_updated_at
 FROM
     {{ ref('hub_music__stg_bridge_albums_artists') }}
+{% if is_incremental() %}
+WHERE max__dp_inserted_at > (SELECT MAX(_dp_updated_at) FROM {{ this }})
+{% endif %}

@@ -62,7 +62,8 @@ SELECT
     enrichment.imageurllarge,
     enrichment.imageurlmedium,
     enrichment.imageurlsmall,
-    enrichment.enrichedat
+    enrichment.enrichedat,
+    (SELECT MAX(_dp_inserted_at) FROM {{ ref('lake_spotify__svc_recently_played') }}) AS max__dp_inserted_at
 FROM latest_artist
 LEFT JOIN stats ON latest_artist.artistid = stats.artistid
 LEFT JOIN enrichment ON latest_artist.artistid = enrichment.artistid

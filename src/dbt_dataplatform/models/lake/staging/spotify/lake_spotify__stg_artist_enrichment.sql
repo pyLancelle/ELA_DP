@@ -42,7 +42,7 @@ SELECT
 
     -- Metadata
     enrichedAt,
-    dp_inserted_at,
+    dp_inserted_at AS _dp_inserted_at,
 FROM {{ source('spotify','artist_enrichment') }}
 QUALIFY
-    ROW_NUMBER() OVER (PARTITION BY artistId ORDER BY enrichedAt DESC, dp_inserted_at DESC) = 1
+    ROW_NUMBER() OVER (PARTITION BY artistId ORDER BY enrichedAt DESC, _dp_inserted_at DESC) = 1
