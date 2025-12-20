@@ -116,8 +116,8 @@ SELECT
 	courseId,
 	calendarEventUuid,
 	data_type,
-	`_dp_inserted_at`,
+	TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 	`_source_file`
 FROM {{ source('garmin','activity_details') }}
 QUALIFY
-    ROW_NUMBER() OVER (PARTITION BY activityid ORDER BY _dp_inserted_at DESC) = 1
+    ROW_NUMBER() OVER (PARTITION BY activityid ORDER BY TIMESTAMP(_dp_inserted_at) DESC) = 1

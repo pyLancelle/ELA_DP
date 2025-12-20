@@ -24,7 +24,7 @@ SELECT
 	primaryActivityTracker,
 	`date`,
 	data_type,
-	`_dp_inserted_at`,
+	TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 	`_source_file`,
 	sleepScore,
 	recoveryTimeChangePhrase,
@@ -33,4 +33,4 @@ SELECT
 	acuteLoad,
 	inputContext
 FROM {{ source('garmin','training_readiness') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate, timestamp ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate, timestamp ORDER BY TIMESTAMP(_dp_inserted_at) DESC) = 1

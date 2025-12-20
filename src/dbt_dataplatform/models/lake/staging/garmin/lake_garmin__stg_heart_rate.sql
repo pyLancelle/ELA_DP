@@ -9,7 +9,7 @@ SELECT
 	lastSevenDaysAvgRestingHeartRate,
 	`date`,
 	data_type,
-	`_dp_inserted_at`,
+	TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 	`_source_file`,
 	maxHeartRate,
 	minHeartRate,
@@ -18,4 +18,4 @@ SELECT
 	abnormalHrThresholdValue,
 	abnormalHRValuesArray
 FROM {{ source('garmin','heart_rate') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY TIMESTAMP(_dp_inserted_at) DESC) = 1

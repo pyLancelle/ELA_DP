@@ -1,5 +1,5 @@
 WITH ranking AS (
-    SELECT 
+    SELECT
         dim_tracks.trackid,
         dim_tracks.trackname,
         dim_tracks.all_artist_names,
@@ -12,11 +12,15 @@ WITH ranking AS (
         ON fact_played.trackid = dim_tracks.trackid
     LEFT JOIN {{ ref('hub_music__svc_dim_albums')}} AS dim_albums
         ON dim_tracks.albumid = dim_albums.albumid
-    WHERE DATE(fact_played.playedat) >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 DAY)
-    GROUP BY ALL
-    ORDER BY total_duration_ms DESC
-    LIMIT 10
+    WHERE DATE(fact_played.playedat) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+    GROUP BY
+        dim_tracks.trackid,
+        dim_tracks.trackname,
+        dim_tracks.all_artist_names,
+        dim_tracks.trackExternalUrl,
+        dim_albums.albumimageurl
 )
+
 SELECT
     ROW_NUMBER() OVER(ORDER BY total_duration_ms DESC) as rank,
     CASE
@@ -31,4 +35,7 @@ SELECT
     play_count,
     trackExternalUrl,
     albumimageurl,
+    trackid
 FROM ranking
+ORDER BY rank
+LIMIT 10

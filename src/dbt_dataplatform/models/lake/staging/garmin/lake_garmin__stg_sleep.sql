@@ -6,7 +6,7 @@ SELECT
 	restingHeartRate,
 	`date`,
 	data_type,
-	`_dp_inserted_at`,
+	TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 	`_source_file`,
 	wellnessSpO2SleepSummaryDTO,
 	sleepMovement,
@@ -25,4 +25,4 @@ SELECT
 	avgOvernightHrv,
 	hrvStatus
 FROM {{ source('garmin','sleep') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY TIMESTAMP(_dp_inserted_at) DESC) = 1

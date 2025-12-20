@@ -78,7 +78,7 @@ SELECT
 	latestRespirationTimeGMT,
 	`date`,
 	data_type,
-	`_dp_inserted_at`,
+	TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 	`_source_file`,
 	bodyBatteryDuringSleep,
 	bodyBatteryDynamicFeedbackEvent,
@@ -98,6 +98,6 @@ QUALIFY
     ROW_NUMBER()
         OVER (
             PARTITION BY date
-            ORDER BY _dp_inserted_at DESC
+            ORDER BY TIMESTAMP(_dp_inserted_at) DESC
         )
     = 1

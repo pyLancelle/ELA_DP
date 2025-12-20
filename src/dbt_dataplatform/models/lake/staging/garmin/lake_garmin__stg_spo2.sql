@@ -11,7 +11,7 @@ SELECT
 	tomorrowSleepEndTimestampLocal,
 	`date`,
 	data_type,
-	`_dp_inserted_at`,
+	TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 	`_source_file`,
 	sleepStartTimestampGMT,
 	sleepEndTimestampGMT,
@@ -29,4 +29,4 @@ SELECT
 	spO2HourlyAverages,
 	spO2SingleValues
 FROM {{ source('garmin','spo2') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY TIMESTAMP(_dp_inserted_at) DESC) = 1

@@ -4,7 +4,7 @@ SELECT
 	respirationVersion,
 	`date`,
 	data_type,
-	`_dp_inserted_at`,
+	TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 	`_source_file`,
 	startTimestampGMT,
 	endTimestampGMT,
@@ -28,4 +28,4 @@ SELECT
 	sleepEndTimestampLocal,
 	avgSleepRespirationValue
 FROM {{ source('garmin','respiration') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY calendarDate ORDER BY TIMESTAMP(_dp_inserted_at) DESC) = 1

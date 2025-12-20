@@ -81,7 +81,7 @@ SELECT
 		weight,
 		`date`,
 		data_type,
-		`_dp_inserted_at`,
+		TIMESTAMP(`_dp_inserted_at`) AS _dp_inserted_at,
 		`_source_file`,
 		bodyBatteryDuringSleep,
 		bodyBatteryDynamicFeedbackEvent,
@@ -102,4 +102,4 @@ SELECT
 		bodyBatteryAtWakeTime,
 		lastSyncTimestampGMT
 FROM {{ source('garmin','stats_and_body') }}
-QUALIFY ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY _dp_inserted_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY calendardate ORDER BY TIMESTAMP(_dp_inserted_at) DESC) = 1
