@@ -10,7 +10,7 @@ wheels/
 # Virtual environments
 .venv
 venv
-src/dbt_dataplatform/profiles.yml
+
 # env files
 .env
 gcs_key.json
@@ -39,3 +39,4 @@ playground/
 # Withings credentials
 config/withings_app.json
 .withings_user.json
+src/dbt_dataplatform/profiles.yml
