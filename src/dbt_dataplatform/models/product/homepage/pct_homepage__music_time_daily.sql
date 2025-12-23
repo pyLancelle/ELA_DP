@@ -5,7 +5,7 @@ WITH ranking AS (
     FROM {{ ref('hub_music__svc_fact_played')}} AS fact_played
     LEFT JOIN {{ ref('hub_music__svc_dim_tracks')}} AS dim_tracks
         ON fact_played.trackid = dim_tracks.trackid
-    WHERE DATE(fact_played.playedat) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+    WHERE DATE(fact_played.playedat) >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY)
     GROUP BY ALL
     ORDER BY total_duration_ms DESC
 )
