@@ -10,7 +10,7 @@ wheels/
 # Virtual environments
 .venv
 venv
-
+src/dbt_dataplatform/profiles.yml
 # env files
 .env
 gcs_key.json
