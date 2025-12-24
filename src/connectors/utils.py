@@ -2,9 +2,11 @@ import os
 import json
 import logging
 from dotenv import load_dotenv
-import pandas as pd
 import yaml
-from typing import Union, List
+from typing import Union, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def setup_logger():
@@ -29,7 +31,10 @@ def get_settings():
         return yaml.safe_load(f)
 
 
-def dump_nested_csv(df: pd.DataFrame, filename: str) -> None:
+def dump_nested_csv(df: "pd.DataFrame", filename: str) -> None:
+    """Dump nested CSV using pandas. Requires pandas to be installed."""
+    import pandas as pd
+
     for col in df.columns:
         if df[col].apply(lambda x: isinstance(x, (dict, list))).any():
             df[col] = df[col].apply(
