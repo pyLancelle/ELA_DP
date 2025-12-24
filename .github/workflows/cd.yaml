@@ -1,0 +1,132 @@
+name: 🚀 Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service'
+        required: true
+        type: choice
+        options:
+          - spotify
+          - garmin
+      
+      job_name:
+        description: 'Job name'
+        required: true
+        type: choice
+        options:
+          # Spotify jobs
+          - saved-tracks
+          - saved-albums
+          - recently-played
+          - top-artists
+          # Garmin jobs (ajoute les tiens)
+          - activities
+          - sleep
+          - heart-rate
+          - steps
+      
+      image_tag:
+        description: 'Image tag (ex: latest, sha-abc123, 20241224-150000)'
+        required: true
+        default: 'latest'
+        type: string
+      
+      dry_run:
+        description: 'Dry run (show command without executing)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PROJECT_ID: polar-scene-465223-f7
+  REGION: europe-west1
+  REPOSITORY: ela-dataplatform
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📋 Deployment Info
+        run: |
+          echo "=========================================="
+          echo "🚀 Manual Deployment Request"
+          echo "=========================================="
+          echo "Service:    ${{ inputs.service }}"
+          echo "Job:        ${{ inputs.job_name }}"
+          echo "Image Tag:  ${{ inputs.image_tag }}"
+          echo "Dry Run:    ${{ inputs.dry_run }}"
+          echo "=========================================="
+      
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      
+      - name: 🔍 Check if image exists
+        id: check_image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher:${{ inputs.image_tag }}"
+          
+          if gcloud artifacts docker images describe $IMAGE --format="get(name)" 2>/dev/null; then
+            echo "✅ Image exists: $IMAGE"
+            echo "image_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Image not found: $IMAGE"
+            echo "image_exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: ⚠️  Image not found
+        if: steps.check_image.outputs.image_exists == 'false'
+        run: |
+          echo "::error::Image not found in Artifact Registry"
+          echo ""
+          echo "Available tags for ${{ inputs.service }}-fetcher:"
+          gcloud artifacts docker tags list \
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher \
+            --format="table(tag, timestamp)" \
+            --limit=10 || echo "No images found"
+          exit 1
+      
+      - name: 🎯 Deploy to Cloud Run Job (Dry Run)
+        if: inputs.dry_run == true
+        run: |
+          echo "=========================================="
+          echo "🔍 DRY RUN - Command that would be executed:"
+          echo "=========================================="
+          echo ""
+          echo "gcloud run jobs update ${{ inputs.service }}-${{ inputs.job_name }} \\"
+          echo "  --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher:${{ inputs.image_tag }} \\"
+          echo "  --region=${{ env.REGION }}"
+          echo ""
+          echo "=========================================="
+      
+      - name: 🚀 Deploy to Cloud Run Job
+        if: inputs.dry_run == false
+        run: |
+          gcloud run jobs update ${{ inputs.service }}-${{ inputs.job_name }} \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher:${{ inputs.image_tag }} \
+            --region=${{ env.REGION }}
+      
+      - name: ✅ Deployment Summary
+        if: inputs.dry_run == false
+        run: |
+          echo "=========================================="
+          echo "✅ Deployment Successful!"
+          echo "=========================================="
+          echo "Service:    ${{ inputs.service }}"
+          echo "Job:        ${{ inputs.service }}-${{ inputs.job_name }}"
+          echo "Image:      ${{ inputs.service }}-fetcher:${{ inputs.image_tag }}"
+          echo "Region:     ${{ env.REGION }}"
+          echo ""
+          echo "🔗 View job in Cloud Console:"
+          echo "https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/${{ inputs.service }}-${{ inputs.job_name }}?project=${{ env.PROJECT_ID }}"
+          echo ""
+          echo "▶️  Execute job manually:"
+          echo "gcloud run jobs execute ${{ inputs.service }}-${{ inputs.job_name }} --region=${{ env.REGION }}"
+          echo "=========================================="
