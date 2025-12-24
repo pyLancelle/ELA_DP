@@ -27,8 +27,9 @@ COPY src/ ./src/
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
-ENV SPOTIFY_ENDPOINT=saved_tracks
-ENV SPOTIFY_LIMIT=50
 
-# Use uv to run the command
-CMD uv run python -m src.connectors.spotify.spotify_fetch ${SPOTIFY_ENDPOINT} --limit ${SPOTIFY_LIMIT}
+# Use the generic fetcher as entrypoint
+ENTRYPOINT ["uv", "run", "python", "-m", "src.connectors.fetcher"]
+
+# Default command (can be overridden in Cloud Run)
+CMD ["--list-types"]
