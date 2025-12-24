@@ -1,43 +1,8 @@
-name: 🚀 Manual Deploy
+name: CD - Build & Push Images
 
 on:
-  workflow_dispatch:
-    inputs:
-      service:
-        description: 'Service'
-        required: true
-        type: choice
-        options:
-          - spotify
-          - garmin
-      
-      job_name:
-        description: 'Job name'
-        required: true
-        type: choice
-        options:
-          # Spotify jobs
-          - saved-tracks
-          - saved-albums
-          - recently-played
-          - top-artists
-          # Garmin jobs (ajoute les tiens)
-          - activities
-          - sleep
-          - heart-rate
-          - steps
-      
-      image_tag:
-        description: 'Image tag (ex: latest, sha-abc123, 20241224-150000)'
-        required: true
-        default: 'latest'
-        type: string
-      
-      dry_run:
-        description: 'Dry run (show command without executing)'
-        required: false
-        type: boolean
-        default: false
+  push:
+    branches: [main]
 
 env:
   PROJECT_ID: polar-scene-465223-f7
@@ -45,20 +10,12 @@ env:
   REPOSITORY: ela-dataplatform
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📋 Deployment Info
-        run: |
-          echo "=========================================="
-          echo "🚀 Manual Deployment Request"
-          echo "=========================================="
-          echo "Service:    ${{ inputs.service }}"
-          echo "Job:        ${{ inputs.job_name }}"
-          echo "Image Tag:  ${{ inputs.image_tag }}"
-          echo "Dry Run:    ${{ inputs.dry_run }}"
-          echo "=========================================="
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -68,65 +25,43 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
       
-      - name: 🔍 Check if image exists
-        id: check_image
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+      
+      - name: Extract version info
+        id: version
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher:${{ inputs.image_tag }}"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+      
+      - name: Build & Push Spotify Fetcher
+        run: |
+          IMAGE_BASE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/spotify-fetcher
           
-          if gcloud artifacts docker images describe $IMAGE --format="get(name)" 2>/dev/null; then
-            echo "✅ Image exists: $IMAGE"
-            echo "image_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Image not found: $IMAGE"
-            echo "image_exists=false" >> $GITHUB_OUTPUT
-          fi
+          docker build --platform linux/amd64 \
+            -t $IMAGE_BASE:latest \
+            -t $IMAGE_BASE:sha-${{ steps.version.outputs.sha_short }} \
+            -t $IMAGE_BASE:${{ steps.version.outputs.timestamp }} \
+            .
+          
+          docker push $IMAGE_BASE:latest
+          docker push $IMAGE_BASE:sha-${{ steps.version.outputs.sha_short }}
+          docker push $IMAGE_BASE:${{ steps.version.outputs.timestamp }}
       
-      - name: ⚠️  Image not found
-        if: steps.check_image.outputs.image_exists == 'false'
-        run: |
-          echo "::error::Image not found in Artifact Registry"
-          echo ""
-          echo "Available tags for ${{ inputs.service }}-fetcher:"
-          gcloud artifacts docker tags list \
-            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher \
-            --format="table(tag, timestamp)" \
-            --limit=10 || echo "No images found"
-          exit 1
-      
-      - name: 🎯 Deploy to Cloud Run Job (Dry Run)
-        if: inputs.dry_run == true
+      - name: 📦 Build Summary
         run: |
           echo "=========================================="
-          echo "🔍 DRY RUN - Command that would be executed:"
+          echo "✅ Images built and pushed successfully!"
           echo "=========================================="
           echo ""
-          echo "gcloud run jobs update ${{ inputs.service }}-${{ inputs.job_name }} \\"
-          echo "  --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher:${{ inputs.image_tag }} \\"
-          echo "  --region=${{ env.REGION }}"
+          echo "📦 Available images:"
+          echo "- spotify-fetcher:latest"
+          echo "- spotify-fetcher:sha-${{ steps.version.outputs.sha_short }}"
+          echo "- spotify-fetcher:${{ steps.version.outputs.timestamp }}"
           echo ""
-          echo "=========================================="
-      
-      - name: 🚀 Deploy to Cloud Run Job
-        if: inputs.dry_run == false
-        run: |
-          gcloud run jobs update ${{ inputs.service }}-${{ inputs.job_name }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ inputs.service }}-fetcher:${{ inputs.image_tag }} \
-            --region=${{ env.REGION }}
-      
-      - name: ✅ Deployment Summary
-        if: inputs.dry_run == false
-        run: |
-          echo "=========================================="
-          echo "✅ Deployment Successful!"
-          echo "=========================================="
-          echo "Service:    ${{ inputs.service }}"
-          echo "Job:        ${{ inputs.service }}-${{ inputs.job_name }}"
-          echo "Image:      ${{ inputs.service }}-fetcher:${{ inputs.image_tag }}"
-          echo "Region:     ${{ env.REGION }}"
+          echo "🚀 Deploy manually using:"
+          echo "   GitHub Actions → Manual Deploy workflow"
           echo ""
-          echo "🔗 View job in Cloud Console:"
-          echo "https://console.cloud.google.com/run/jobs/details/${{ env.REGION }}/${{ inputs.service }}-${{ inputs.job_name }}?project=${{ env.PROJECT_ID }}"
-          echo ""
-          echo "▶️  Execute job manually:"
-          echo "gcloud run jobs execute ${{ inputs.service }}-${{ inputs.job_name }} --region=${{ env.REGION }}"
+          echo "🔗 Artifact Registry:"
+          echo "   https://console.cloud.google.com/artifacts/docker/${{ env.PROJECT_ID }}/${{ env.REGION }}/${{ env.REPOSITORY }}"
           echo "=========================================="
