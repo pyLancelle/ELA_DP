@@ -1,0 +1,91 @@
+name: 🧹 Cleanup Old Docker Images
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Tous les jours à 2h du matin (UTC)
+  workflow_dispatch:  # Possibilité de lancer manuellement
+
+env:
+  PROJECT_ID: polar-scene-465223-f7
+  REGION: europe-west1
+  REPOSITORY: ela-dataplatform
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🗑️  Cleanup job started
+        run: |
+          echo "=========================================="
+          echo "🧹 Starting Docker images cleanup"
+          echo "=========================================="
+          echo "Keeping: latest + 3 most recent images"
+          echo "Deleting: Everything else"
+          echo "=========================================="
+      
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      
+      - name: Cleanup Spotify Fetcher images
+        run: |
+          IMAGE_REPO="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/spotify-fetcher"
+          
+          echo "📦 Listing all images for spotify-fetcher..."
+          
+          # Liste toutes les images sauf 'latest', triées par date (plus récentes en premier)
+          IMAGES_TO_DELETE=$(gcloud artifacts docker images list $IMAGE_REPO \
+            --include-tags \
+            --format="get(version)" \
+            --filter="version!~'latest'" \
+            --sort-by="~UPDATE_TIME" \
+            | tail -n +4)  # Skip les 3 premières (= garde les 3 plus récentes)
+          
+          if [ -z "$IMAGES_TO_DELETE" ]; then
+            echo "✅ No old images to delete (less than 3 images found)"
+          else
+            echo "🗑️  Images to delete:"
+            echo "$IMAGES_TO_DELETE"
+            echo ""
+            
+            # Supprime chaque image
+            echo "$IMAGES_TO_DELETE" | while read version; do
+              if [ ! -z "$version" ]; then
+                echo "Deleting: $IMAGE_REPO:$version"
+                gcloud artifacts docker images delete "$IMAGE_REPO:$version" --quiet || echo "⚠️  Failed to delete $version"
+              fi
+            done
+            
+            echo ""
+            echo "✅ Cleanup completed!"
+          fi
+      
+      - name: Show remaining images
+        run: |
+          IMAGE_REPO="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/spotify-fetcher"
+          
+          echo ""
+          echo "=========================================="
+          echo "📦 Remaining images:"
+          echo "=========================================="
+          
+          gcloud artifacts docker images list $IMAGE_REPO \
+            --include-tags \
+            --format="table(version, CREATE_TIME, UPDATE_TIME)" \
+            --sort-by="~UPDATE_TIME" || echo "No images found"
+          
+          echo "=========================================="
+      
+      - name: ✅ Cleanup Summary
+        run: |
+          echo "=========================================="
+          echo "✅ Cleanup job completed successfully!"
+          echo "=========================================="
+          echo "Kept: latest + 3 most recent images"
+          echo "Next cleanup: Tomorrow at 2:00 AM UTC"
+          echo "=========================================="
