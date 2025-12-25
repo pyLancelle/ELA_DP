@@ -1,0 +1,75 @@
+# Données et environnements virtuels
+data/
+.venv
+venv/
+env/
+
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# IDE et éditeurs
+.vscode
+.idea
+.DS_Store
+
+# Python cache et build
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov/
+.tox/
+
+# Outils de développement
+.pre-commit-config.yaml
+.python-version
+
+# Tests
+tests/
+test_output/
+*.test
+*.spec
+
+# Logs
+logs/
+*.log
+
+# Documentation et notes
+*.md
+!README.md
+feedback_codex.md
+
+# Notebooks Jupyter
+*.ipynb
+.ipynb_checkpoints
+
+# Fichiers de cache spécifiques
+.spotify_cache
+.claude/
+
+# Credentials et config locaux
+# ATTENTION: Commentez ces lignes si ces fichiers sont nécessaires dans le conteneur
+.env
+gcs_key.json
+ingestion-config-dev.yaml
+ingestion-config-prd.yaml
+
+# Temporaires
+*.tmp
+*.temp
+*.swp
+*.swo
+*~

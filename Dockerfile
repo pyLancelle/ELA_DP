@@ -1,15 +1,18 @@
-# Use Python slim image
-FROM python:3.11-slim
+# ============================================
+# Stage 1: Builder - Install dependencies
+# ============================================
+FROM python:3.11-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies for building Python packages
-RUN apt-get update && apt-get install -y \
+# Install build dependencies for Alpine
+RUN apk add --no-cache \
     gcc \
     g++ \
     make \
-    && rm -rf /var/lib/apt/lists/*
+    musl-dev \
+    linux-headers \
+    libffi-dev
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -18,17 +21,39 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml .
 COPY uv.lock .
 
-# Install dependencies with uv
+# Install dependencies with uv (will be in .venv)
 RUN uv sync --frozen --no-dev
+
+# ============================================
+# Stage 2: Runtime - Minimal Alpine image
+# ============================================
+FROM python:3.11-alpine
+
+WORKDIR /app
+
+# Install only runtime dependencies (no build tools)
+RUN apk add --no-cache \
+    bash \
+    libstdc++ \
+    libffi
+
+# Copy uv from builder (for runtime execution)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy installed dependencies from builder
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy source code
 COPY src/ ./src/
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
-ENV SPOTIFY_ENDPOINT=saved_tracks
-ENV SPOTIFY_LIMIT=50
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Use uv to run the command
-CMD uv run python -m src.connectors.spotify.spotify_fetch ${SPOTIFY_ENDPOINT} --limit ${SPOTIFY_LIMIT}
+# Use the entrypoint script
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

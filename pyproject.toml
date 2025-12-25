@@ -4,34 +4,54 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
+# Production dependencies - Only what's needed for the fetcher
 dependencies = [
-    "black>=25.1.0",
-    "croniter>=3.0.0",
-    "dbt-core>=1.8.0",
-    "dbt-bigquery>=1.8.0",
-    "dotenv>=0.9.9",
-    "garminconnect>=0.2.30",
-    "google-cloud>=0.34.0",
-    "google-cloud-bigquery>=3.33.0",
-    "google-cloud-storage>=2.4.0",
-    "ipykernel>=6.29.5",
-    "npx>=0.1.6",
-    "openpyxl>=3.1.5",
-    "pandas>=2.3.0",
-    "pre-commit>=4.2.0",
     "python-dotenv>=1.1.1",
+    "garminconnect>=0.2.30",
+    "google-cloud-storage>=2.4.0",
     "pytz>=2024.1",
     "pyyaml>=6.0.0",
     "requests>=2.32.4",
     "requests-oauthlib>=2.0.0",
     "spotipy>=2.25.1",
-    "stravalib>=2.4",
-    "types-requests>=2.32.4.20250611",
-    "google>=3.0.0",
+]
+
+[project.optional-dependencies]
+# DBT transformations
+dbt = [
+    "dbt-core>=1.8.0",
+    "dbt-bigquery>=1.8.0",
+    "google-cloud-bigquery>=3.33.0",
+    "pandas>=2.3.0",
+]
+
+# Development tools
+dev = [
+    "black>=25.1.0",
+    "pre-commit>=4.2.0",
     "sqlfluff>=3.5.0",
+    "types-requests>=2.32.4.20250611",
+    "ipykernel>=6.29.5",
+]
+
+# Extra services (Strava, etc.)
+services = [
+    "stravalib>=2.4",
+    "croniter>=3.0.0",
+    "openpyxl>=3.1.5",
+]
+
+# GCP CLI tools (if needed locally)
+gcp-tools = [
+    "google-cloud>=0.34.0",
     "gcloud>=0.18.3",
     "bq>=0.8.0",
     "gsutil>=5.35",
+]
+
+# All dependencies
+all = [
+    "ela-dp[dbt,dev,services,gcp-tools]",
 ]
 [tool.setuptools.packages.find]
 where = ["src"]
