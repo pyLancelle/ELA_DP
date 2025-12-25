@@ -22,7 +22,8 @@ COPY pyproject.toml .
 COPY uv.lock .
 
 # Install dependencies with uv (will be in .venv)
-RUN uv sync --frozen --no-dev
+# Include dbt dependencies for transformations
+RUN uv sync --frozen --no-dev --extra dbt
 
 # ============================================
 # Stage 2: Runtime - Minimal Alpine image
@@ -43,7 +44,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Copy installed dependencies from builder
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy source code
+# Copy source code (includes dbt_dataplatform/)
 COPY src/ ./src/
 
 # Copy entrypoint script
