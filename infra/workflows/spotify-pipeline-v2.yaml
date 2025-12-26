@@ -1,0 +1,75 @@
+main:
+  steps:
+    - log_start:
+        call: sys.log
+        args:
+          text: "🎵 Starting Spotify pipeline (v2 - parallel)"
+          severity: INFO
+    
+    - parallel_fetch:
+        parallel:
+          branches:
+            - fetch_recently_played:
+                steps:
+                  - call_job_1:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/spotify-recently-played
+            
+            - fetch_saved_tracks:
+                steps:
+                  - call_job_2:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/spotify-saved-tracks
+            
+            - fetch_saved_albums:
+                steps:
+                  - call_job_3:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/spotify-saved-albums
+            
+            - fetch_top_artists:
+                steps:
+                  - call_job_4:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/spotify-top-artists
+    
+    - log_fetch_complete:
+        call: sys.log
+        args:
+          text: "✅ All fetchers completed (parallel)"
+          severity: INFO
+    
+    - ingest_spotify:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/spotify-ingest
+        result: ingest_result
+    
+    - log_ingest_complete:
+        call: sys.log
+        args:
+          text: "✅ Ingest completed"
+          severity: INFO
+    
+    - run_dbt:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/dbt-run-spotify
+        result: dbt_result
+    
+    - log_dbt_complete:
+        call: sys.log
+        args:
+          text: "✅ dbt completed"
+          severity: INFO
+    
+    - return_success:
+        return:
+          status: "SUCCESS"
+          message: "🎉 Spotify pipeline v2 completed (parallel)"
+          ingest: ${ingest_result.name}
+          dbt: ${dbt_result.name}
