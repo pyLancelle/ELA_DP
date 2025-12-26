@@ -88,34 +88,34 @@ echo "⌚ Creating Garmin Jobs (28)"
 echo -e "==========================================${NC}"
 echo ""
 
-create_job "garmin" "activities" 7
-create_job "garmin" "activity_details" 7
-create_job "garmin" "activity_exercise_sets" 7
-create_job "garmin" "activity_hr_zones" 7
-create_job "garmin" "activity_splits" 7
-create_job "garmin" "activity_weather" 7
-create_job "garmin" "all_day_events" 7
-create_job "garmin" "body_battery" 7
-create_job "garmin" "body_composition" 7
-create_job "garmin" "endurance_score" 7
-create_job "garmin" "floors" 7
-create_job "garmin" "heart_rate" 7
-create_job "garmin" "hill_score" 7
-create_job "garmin" "hrv" 7
-create_job "garmin" "intensity_minutes" 7
-create_job "garmin" "max_metrics" 7
-create_job "garmin" "race_predictions" 7
-create_job "garmin" "respiration" 7
-create_job "garmin" "rhr_daily" 7
-create_job "garmin" "sleep" 7
-create_job "garmin" "spo2" 7
-create_job "garmin" "stats_and_body" 7
-create_job "garmin" "steps" 7
-create_job "garmin" "stress" 7
-create_job "garmin" "training_readiness" 7
-create_job "garmin" "training_status" 7
-create_job "garmin" "user_summary" 7
-create_job "garmin" "weight" 7
+create_job "garmin" "activities" 3
+create_job "garmin" "activity_details" 3
+create_job "garmin" "activity_exercise_sets" 3
+create_job "garmin" "activity_hr_zones" 3
+create_job "garmin" "activity_splits" 3
+create_job "garmin" "activity_weather" 3
+create_job "garmin" "all_day_events" 3
+create_job "garmin" "body_battery" 3
+create_job "garmin" "body_composition" 3
+create_job "garmin" "endurance_score" 3
+create_job "garmin" "floors" 3
+create_job "garmin" "heart_rate" 3
+create_job "garmin" "hill_score" 3
+create_job "garmin" "hrv" 3
+create_job "garmin" "intensity_minutes" 3
+create_job "garmin" "max_metrics" 3
+create_job "garmin" "race_predictions" 3
+create_job "garmin" "respiration" 3
+create_job "garmin" "rhr_daily" 3
+create_job "garmin" "sleep" 3
+create_job "garmin" "spo2" 3
+create_job "garmin" "stats_and_body" 3
+create_job "garmin" "steps" 3
+create_job "garmin" "stress" 3
+create_job "garmin" "training_readiness" 3
+create_job "garmin" "training_status" 3
+create_job "garmin" "user_summary" 3
+create_job "garmin" "weight" 3
 
 # ===========================================
 # SUMMARY

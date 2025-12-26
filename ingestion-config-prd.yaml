@@ -95,7 +95,7 @@ jobs:
     cron: "0 8,11,14,17,20,23 * * *"  # Every 3 hours from 9am to midnight Paris time (8am-11pm UTC)
     command: "python -m src.connectors.spotify.spotify_fetch recently_played --limit 50"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
 
   spotify_saved_tracks:
@@ -105,7 +105,7 @@ jobs:
     cron: "0 11,23 * * *"  # Daily at 11:00 UTC (12:00 Paris time)
     command: "python -m src.connectors.spotify.spotify_fetch saved_tracks --limit 50"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
 
   spotify_saved_albums:
@@ -115,7 +115,7 @@ jobs:
     cron: "0 11,23 * * *"  # Daily at 11:00 UTC (12:00 Paris time)
     command: "python -m src.connectors.spotify.spotify_fetch saved_albums --limit 50"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI", "SPOTIFY_REFRESH_TOKEN"]
 
   spotify_playlists:
@@ -156,7 +156,7 @@ jobs:
     cron: "0 11 * * *"  # Daily at 11:00 UTC
     command: "python -m src.connectors.garmin --days 2"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   # =================== GARMIN PIPELINE STEPS ===================
@@ -167,7 +167,7 @@ jobs:
     cron: ""  # Triggered by pipeline
     command: "python -m src.connectors.garmin --days 2"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD"]
 
   move_to_gcs:
@@ -177,7 +177,7 @@ jobs:
     cron: ""  # Triggered by pipeline
     command: "python -m src.utils.gcs_upload --bucket ela-dp-prd --destination garmin/landing/"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY"]
 
   garmin_pipeline_daily:
@@ -192,7 +192,7 @@ jobs:
       - "garmin_dbt_lake_run"
     command: "python -m src.orchestrator --pipeline garmin_pipeline_daily --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GARMIN_USERNAME", "GARMIN_PASSWORD", "GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   # =================== WITHINGS JOBS (PRD) ===================
@@ -235,7 +235,7 @@ jobs:
     cron: "0 21 * * *"  # Daily at 21:00 UTC (22:00 Paris time)
     command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types player_stats"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: []
 
   chess_games:
@@ -245,7 +245,7 @@ jobs:
     cron: "0 21 * * *"  # Daily at 21:00 UTC (22:00 Paris time)
     command: "python -m src.connectors.chess.chess_fetch TTTiennou --data-types games --days 1"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: []
 
 
@@ -287,7 +287,7 @@ jobs:
     cron: "30 * * * *"  # 30 minutes after hourly fetch
     command: "python -m src.connectors.spotify.spotify_ingest --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   spotify_dbt_lake_run:
@@ -297,7 +297,7 @@ jobs:
     cron: "0 7,12,16,20,23 * * *"  # 5 times per day at specific hours: 7h, 12h, 16h, 20h, 23h UTC
     command: "python -m src.connectors.spotify.spotify_dbt_run --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   chess_ingest:
@@ -307,7 +307,7 @@ jobs:
     cron: "0 22 * * *"  # Daily at 22:00 UTC (23:00 Paris time) - 1h after fetch
     command: "python -m src.connectors.chess.chess_ingest --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   chess_dbt_lake_run:
@@ -317,7 +317,7 @@ jobs:
     cron: "0 7,12,16,20,23 * * *"  # 5 times per day at specific hours: 7h, 12h, 16h, 20h, 23h UTC
     command: "python -m src.connectors.chess.chess_dbt_run --env prd"
     environment: "prd"
-    enabled: true
+    enabled: false
     dependencies: ["GCP_SERVICE_ACCOUNT_KEY", "GCP_PROJECT_ID"]
 
   # =================== EMAIL SERVICES (PRD) ===================
