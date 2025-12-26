@@ -46,6 +46,7 @@ COPY --from=builder /app/.venv /app/.venv
 
 # Copy source code (includes dbt_dataplatform/)
 COPY src/ ./src/
+COPY api/ ./api/
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
