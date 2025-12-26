@@ -16,6 +16,8 @@ dependencies = [
     "requests-oauthlib>=2.0.0",
     "spotipy>=2.25.1",
     "pre-commit>=4.2.0",
+    "fastapi>=0.127.1",
+    "uvicorn>=0.40.0",
 ]
 
 [project.optional-dependencies]

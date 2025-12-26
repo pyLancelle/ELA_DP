@@ -5,7 +5,22 @@ set -e
 MODE="${MODE:-fetch}"  # Default to fetch for backward compatibility
 
 # Route to appropriate connector based on MODE
-if [ "$MODE" = "ingest" ]; then
+
+if [ "$MODE" = "api" ]; then
+    # ========================================
+    # API MODE (FastAPI)
+    # ========================================
+    echo "🚀 API Mode"
+    echo "  Port: ${PORT:-8080}"
+    echo ""
+    
+    # Start FastAPI with uvicorn
+    exec uvicorn api.main:app \
+        --host 0.0.0.0 \
+        --port "${PORT:-8080}" \
+        --log-level "${LOG_LEVEL:-info}"
+
+elif [ "$MODE" = "ingest" ]; then
     # ========================================
     # INGESTION MODE
     # ========================================
