@@ -34,9 +34,9 @@ jobs:
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
       
-      - name: Build & Push Spotify Fetcher
+      - name: Build & Push Fetcher
         run: |
-          IMAGE_BASE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/spotify-fetcher
+          IMAGE_BASE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/fetcher
           
           docker build --platform linux/amd64 \
             -t $IMAGE_BASE:latest \
@@ -55,9 +55,9 @@ jobs:
           echo "=========================================="
           echo ""
           echo "📦 Available images:"
-          echo "- spotify-fetcher:latest"
-          echo "- spotify-fetcher:sha-${{ steps.version.outputs.sha_short }}"
-          echo "- spotify-fetcher:${{ steps.version.outputs.timestamp }}"
+          echo "- fetcher:latest"
+          echo "- fetcher:sha-${{ steps.version.outputs.sha_short }}"
+          echo "- fetcher:${{ steps.version.outputs.timestamp }}"
           echo ""
           echo "🚀 Deploy manually using:"
           echo "   GitHub Actions → Manual Deploy workflow"
