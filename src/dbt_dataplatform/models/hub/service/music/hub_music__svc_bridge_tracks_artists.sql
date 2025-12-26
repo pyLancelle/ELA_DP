@@ -3,7 +3,7 @@
         materialized='incremental',
         incremental_strategy='merge',
         unique_key=['trackId', 'artistId'],
-        tags=['music', 'hub']
+        tags=['spotify', 'hub']
     )
 }}
 SELECT

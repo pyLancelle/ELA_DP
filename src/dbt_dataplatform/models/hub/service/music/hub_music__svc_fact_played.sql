@@ -8,7 +8,7 @@
             'data_type': 'timestamp',
             'granularity': 'day'
         },
-        tags=['music', 'hub']
+        tags=['spotify', 'hub']
     )
 }}
 SELECT
