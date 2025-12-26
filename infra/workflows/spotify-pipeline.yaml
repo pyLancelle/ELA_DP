@@ -1,0 +1,73 @@
+main:
+  steps:
+
+    # ============================================
+    # STEP 1: Log start
+    # ============================================
+
+    - log_start:
+        call: sys.log
+        args:
+          text: "🎵 Starting Spotify pipeline"
+          severity: INFO
+
+    # ============================================
+    # STEP 2: Fetch Spotify recently-played
+    # ============================================
+
+    - fetch_spotify:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/spotify-recently-played
+        result: fetch_result
+
+    - log_fetch_complete:
+        call: sys.log
+        args:
+          text: ${"✅ Fetch completed - " + fetch_result.name}
+          severity: INFO
+
+    # ============================================
+    # STEP 3: Ingest to BigQuery
+    # ============================================
+
+    - ingest_spotify:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/spotify-ingest
+        result: ingest_result
+
+    - log_ingest_complete:
+        call: sys.log
+        args:
+          text: ${"✅ Ingest completed - " + ingest_result.name}
+          severity: INFO
+
+    # ============================================
+    # STEP 4: Run dbt transformations
+    # ============================================
+
+    - run_dbt:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/dbt-run-spotify
+        result: dbt_result
+
+    - log_dbt_complete:
+        call: sys.log
+        args:
+          text: ${"✅ dbt completed - " + dbt_result.name}
+          severity: INFO
+
+    # ============================================
+    # STEP 5: Success
+    # ============================================
+
+    - return_success:
+        return:
+          status: "SUCCESS"
+          message: "🎉 Spotify pipeline completed successfully"
+          executions:
+            fetch: ${fetch_result.name}
+            ingest: ${ingest_result.name}
+            dbt: ${dbt_result.name}

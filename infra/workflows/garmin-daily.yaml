@@ -1,0 +1,269 @@
+main:
+  steps:
+    - log_start:
+        call: sys.log
+        args:
+          text: "⌚ Garmin daily workflow - 28 endpoints (3 days history)"
+          severity: INFO
+
+    - parallel_fetch_garmin_1:
+        parallel:
+          branches:
+            - fetch_activities:
+                steps:
+                  - call_job_activities:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-activities
+
+            - fetch_activity_details:
+                steps:
+                  - call_job_activity_details:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-activity-details
+
+            - fetch_activity_exercise_sets:
+                steps:
+                  - call_job_exercise_sets:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-activity-exercise-sets
+
+            - fetch_activity_hr_zones:
+                steps:
+                  - call_job_activity_hr_zones:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-activity-hr-zones
+
+            - fetch_activity_splits:
+                steps:
+                  - call_job_activity_splits:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-activity-splits
+
+            - fetch_activity_weather:
+                steps:
+                  - call_job_activity_weather:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-activity-weather
+
+            - fetch_all_day_events:
+                steps:
+                  - call_job_all_day_events:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-all-day-events
+
+            - fetch_body_battery:
+                steps:
+                  - call_job_body_battery:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-body-battery
+
+            - fetch_body_composition:
+                steps:
+                  - call_job_body_composition:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-body-composition
+
+            - fetch_endurance_score:
+                steps:
+                  - call_job_endurance_score:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-endurance-score
+
+    - log_fetch_garmin_1_complete:
+        call: sys.log
+        args:
+          text: "✅ Garmin fetcher 1 completed (parallel)"
+          severity: INFO
+
+    - parallel_fetch_garmin_2:
+        parallel:
+          branches:
+            - fetch_floors:
+                steps:
+                  - call_job_floors:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-floors
+
+            - fetch_heart_rate:
+                steps:
+                  - call_job_heart_rate:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-heart-rate
+
+            - fetch_hill_score:
+                steps:
+                  - call_job_hill_score:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-hill-score
+
+            - fetch_hrv:
+                steps:
+                  - call_job_hrv:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-hrv
+
+            - fetch_intensity_minutes:
+                steps:
+                  - call_job_intensity_minutes:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-intensity-minutes
+
+            - fetch_max_metrics:
+                steps:
+                  - call_job_max_metrics:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-max-metrics
+
+            - fetch_race_predictions:
+                steps:
+                  - call_job_race_predictions:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-race-predictions
+
+            - fetch_respiration:
+                steps:
+                  - call_job_respiration:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-respiration
+
+            - fetch_rhr_daily:
+                steps:
+                  - call_job_rhr_daily:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-rhr-daily
+
+            - fetch_sleep:
+                steps:
+                  - call_job_sleep:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-sleep
+
+    - log_fetch_garmin_2_complete:
+        call: sys.log
+        args:
+          text: "✅ Garmin fetcher 2 completed (parallel)"
+          severity: INFO
+
+    - parallel_fetch_garmin_3:
+        parallel:
+          branches:
+            - fetch_spo2:
+                steps:
+                  - call_job_spo2:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-spo2
+
+            - fetch_stats_and_body:
+                steps:
+                  - call_job_stats_and_body:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-stats-and-body
+
+            - fetch_steps:
+                steps:
+                  - call_job_steps:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-steps
+
+            - fetch_stress:
+                steps:
+                  - call_job_stress:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-stress
+
+            - fetch_training_readiness:
+                steps:
+                  - call_job_training_readiness:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-training-readiness
+
+            - fetch_training_status:
+                steps:
+                  - call_job_training_status:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-training-status
+
+            - fetch_user_summary:
+                steps:
+                  - call_job_user_summary:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-user-summary
+
+            - fetch_weight:
+                steps:
+                  - call_job_weight:
+                      call: googleapis.run.v2.projects.locations.jobs.run
+                      args:
+                        name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-weight
+
+    - log_fetch_garmin_3_complete:
+        call: sys.log
+        args:
+          text: "✅ Garmin fetcher 3 completed (parallel)"
+          severity: INFO
+
+    - log_all_fetches_complete:
+        call: sys.log
+        args:
+          text: "✅ All Garmin fetchers completed (parallel)"
+          severity: INFO
+
+    - ingest_garmin:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/garmin-ingest
+        result: ingest_result
+
+    - log_ingest_complete:
+        call: sys.log
+        args:
+          text: ${"✅ Garmin ingest completed - " + ingest_result.name}
+          severity: INFO
+
+    - run_dbt:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/dbt-run-garmin
+        result: dbt_result
+
+    - log_dbt_complete:
+        call: sys.log
+        args:
+          text: ${"✅ dbt Garmin completed - " + dbt_result.name}
+          severity: INFO
+
+    - return_success:
+        return:
+          status: "SUCCESS"
+          message: "⌚ Garmin daily workflow completed"
+          timestamp: ${sys.now()}
+          executions:
+            ingest: ${ingest_result.name}
+            dbt: ${dbt_result.name}

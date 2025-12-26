@@ -1,0 +1,35 @@
+# Cloud Schedulers Configuration
+# Each scheduler triggers a Cloud Workflow
+
+schedulers:
+  # Spotify Hot - Recently Played
+  # Runs every 2 hours to capture fresh listening data
+  - name: spotify-hot-trigger
+    schedule: "0 */2 * * *"
+    timezone: Europe/Paris
+    workflow: spotify-hot
+    description: Trigger Spotify hot workflow every 2 hours
+
+  # Spotify Daily - Saved Tracks/Albums/Artists
+  # Runs once daily at 6am
+  - name: spotify-daily-trigger
+    schedule: "0 6 * * *"
+    timezone: Europe/Paris
+    workflow: spotify-daily
+    description: Trigger Spotify daily workflow at 6am
+
+  # Spotify Weekly - Enrichments
+  # Runs every Sunday at 3am for album/track enrichments
+  - name: spotify-weekly-trigger
+    schedule: "0 3 * * 0"
+    timezone: Europe/Paris
+    workflow: spotify-weekly
+    description: Trigger Spotify weekly workflow every Sunday at 3am
+
+  # Garmin Daily - All Metrics
+  # Runs once daily at 11am
+  - name: garmin-daily-trigger
+    schedule: "0 11 * * *"
+    timezone: Europe/Paris
+    workflow: garmin-daily
+    description: Trigger Garmin daily workflow at 11am
