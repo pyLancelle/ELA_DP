@@ -27,7 +27,12 @@ async def root():
     return {
         "message": "ELA DataPlatform API",
         "version": "1.0.0",
-        "endpoints": {"music_dashboard": "/api/music/dashboard"},
+        "endpoints": {
+            "music_classement": "/api/music/music-classement",
+            "top_artists": "/api/music/top-artists",
+            "top_tracks": "/api/music/top-tracks",
+            "top_albums": "/api/music/top-albums",
+        },
     }
 
 
