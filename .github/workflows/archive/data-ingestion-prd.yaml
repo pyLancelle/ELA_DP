@@ -3,7 +3,7 @@ name: "[PRD] Data Ingestion"
 on:
   # Automatic execution every hour to check for scheduled jobs
   schedule:
-    - cron: "0 * * * *"  # Every hour at minute 0
+    - cron: "* * * * *"  # Every hour at minute 0
   
   # Manual trigger with options for specific jobs or groups
   workflow_dispatch:

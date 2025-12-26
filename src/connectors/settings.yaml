@@ -1,9 +1,0 @@
-todoist:
-  tasks_limit: 300
-  activity_limit: 50
-strava:
-  activities_days: 5
-  kudos_max_activities: 5
-  comments_max_activities: 5
-  laps_max_activities: 5
-  streams_max_activities: 5
