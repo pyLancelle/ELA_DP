@@ -1,0 +1,33 @@
+# .github/workflows/cd-deploy-api.yml
+name: CD - Deploy API Service
+
+on:
+  workflow_run:
+    workflows: ["CD - Build & Push Images"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      
+      - name: Deploy API Service
+        run: |
+          gcloud run services update ela-api \
+            --region europe-west1 \
+            --image europe-west1-docker.pkg.dev/polar-scene-465223-f7/ela-dataplatform/fetcher:latest
+      
+      - name: 🚀 Deployment Summary
+        run: |
+          echo "✅ API Service deployed successfully!"
+          echo "🔗 URL: https://ela-api-185493502538.europe-west1.run.app"
