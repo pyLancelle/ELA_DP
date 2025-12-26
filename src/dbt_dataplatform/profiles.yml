@@ -1,20 +1,18 @@
 dbt_dataplatform:
-  target: dev
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
   outputs:
     dev:
       type: bigquery
-      method: service-account
+      method: oauth
       project: polar-scene-465223-f7
       dataset: dp
       location: US
       threads: 2
-      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '/Users/etienne/MyAll/DEV/ELA_DP/gcs_key.json') }}"
 
     prd:
       type: bigquery
-      method: service-account
+      method: oauth
       project: polar-scene-465223-f7
       dataset: dp
       location: US
-      threads: 2
-      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '/Users/etienne/MyAll/DEV/ELA_DP/gcs_key.json') }}"
+      threads: 4
