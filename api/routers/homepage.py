@@ -43,13 +43,7 @@ async def get_music_time_daily():
 async def get_race_prediction():
     """Récupère les prédictions de temps de course pour différentes distances"""
     query = f"""
-        SELECT
-            distance,
-            current_date,
-            current_time,
-            previous_date,
-            previous_time,
-            diff_seconds
+        SELECT *
         FROM `{PROJECT_ID}.{DATASET}.pct_homepage__race_prediction`
         ORDER BY CASE distance
             WHEN '5K' THEN 1
