@@ -1,7 +1,8 @@
 # api/routers/music.py
 from fastapi import APIRouter, Query, HTTPException
 from typing import List
-from api.models.music import TopArtist, TopTrack, TopAlbum
+import asyncio
+from api.models.music import TopArtist, TopTrack, TopAlbum, MusicClassement
 from api.database import get_bq_client
 from api.config import VALID_PERIODS, DEFAULT_LIMIT, MAX_LIMIT, PROJECT_ID, DATASET
 
@@ -94,7 +95,7 @@ async def get_top_albums(
         )
 
     query = f"""
-        SELECT 
+        SELECT
             rank,
             albumname as name,
             all_artist_names as artist_name,
@@ -112,5 +113,88 @@ async def get_top_albums(
         bq_client = get_bq_client()
         results = bq_client.query(query).result()
         return [dict(row) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
+@router.get("/music-classement", response_model=MusicClassement)
+async def get_music_classement(
+    period: str = Query("last_7_days", description="Time period for analytics"),
+    limit: int = Query(
+        DEFAULT_LIMIT, ge=1, le=MAX_LIMIT, description="Number of results"
+    ),
+):
+    """Récupère tous les classements (artistes, titres, albums) en un seul appel"""
+
+    if period not in VALID_PERIODS:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid period. Must be one of: {VALID_PERIODS}"
+        )
+
+    async def fetch_top_artists():
+        query = f"""
+            SELECT
+                rank,
+                artistname as name,
+                play_count,
+                total_duration,
+                albumimageurl as image_url,
+                artistexternalurl as external_url
+            FROM `{PROJECT_ID}.{DATASET}.pct_classement__top_artist_by_period`
+            WHERE period = '{period}'
+            ORDER BY rank ASC
+            LIMIT {limit}
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        return [dict(row) for row in results]
+
+    async def fetch_top_tracks():
+        query = f"""
+            SELECT
+                rank,
+                trackname as name,
+                all_artist_names as artist_name,
+                play_count,
+                total_duration,
+                albumimageurl as image_url,
+                trackexternalurl as external_url
+            FROM `{PROJECT_ID}.{DATASET}.pct_classement__top_track_by_period`
+            WHERE period = '{period}'
+            ORDER BY rank ASC
+            LIMIT {limit}
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        return [dict(row) for row in results]
+
+    async def fetch_top_albums():
+        query = f"""
+            SELECT
+                rank,
+                albumname as name,
+                all_artist_names as artist_name,
+                play_count,
+                total_duration,
+                albumimageurl as image_url,
+                albumexternalurl as external_url
+            FROM `{PROJECT_ID}.{DATASET}.pct_classement__top_album_by_period`
+            WHERE period = '{period}'
+            ORDER BY rank ASC
+            LIMIT {limit}
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        return [dict(row) for row in results]
+
+    try:
+        # Exécuter les 3 requêtes en parallèle
+        artists, tracks, albums = await asyncio.gather(
+            fetch_top_artists(), fetch_top_tracks(), fetch_top_albums()
+        )
+
+        return MusicClassement(
+            top_artists=artists, top_tracks=tracks, top_albums=albums
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")

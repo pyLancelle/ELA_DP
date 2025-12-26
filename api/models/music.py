@@ -1,6 +1,6 @@
 # api/models/music.py
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class TopArtist(BaseModel):
@@ -30,3 +30,9 @@ class TopAlbum(BaseModel):
     total_duration: str
     image_url: Optional[str] = None
     external_url: Optional[str] = None
+
+
+class MusicClassement(BaseModel):
+    top_artists: List[TopArtist]
+    top_tracks: List[TopTrack]
+    top_albums: List[TopAlbum]
