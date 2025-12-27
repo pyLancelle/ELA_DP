@@ -496,13 +496,13 @@ examples:
     command: "python -m src.connectors.spotify.spotify_fetch --data-type recently_played --output /path/to/output"
 
   - name: "Ingest recently_played to dev"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev"
+    command: "python -m src.connectors.spotify.spotify_ingest --config recently_played --env dev"
 
   - name: "Ingest recently_played to prod"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env prd"
+    command: "python -m src.connectors.spotify.spotify_ingest --config recently_played --env prd"
 
   - name: "Dry run"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev --dry-run"
+    command: "python -m src.connectors.spotify.spotify_ingest --config recently_played --env dev --dry-run"
 
 # =============================================================================
 # NOTES

@@ -21,17 +21,17 @@ Architecture:
 
 Usage:
     # Basic ingestion
-    python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev
+    python -m src.connectors.spotify.spotify_ingest --config recently_played --env dev
 
     # With options
-    python -m src.connectors.spotify.spotify_ingest_v2 \\
+    python -m src.connectors.spotify.spotify_ingest \\
         --config recently_played \\
         --env prd \\
         --log-level DEBUG \\
         --dry-run
 
     # Process specific file
-    python -m src.connectors.spotify.spotify_ingest_v2 \\
+    python -m src.connectors.spotify.spotify_ingest \\
         --config recently_played \\
         --env dev \\
         --file gs://bucket/path/to/file.jsonl
@@ -68,9 +68,11 @@ except ImportError:
 # CONFIGURATION MODELS
 # =============================================================================
 
+
 @dataclass
 class FieldConfig:
     """Configuration for a single field (supports nested RECORD)"""
+
     name: str
     json_path: str = ""
     bq_type: str = "STRING"
@@ -82,7 +84,7 @@ class FieldConfig:
     max_length: Optional[int] = None
 
     # RECORD support (nested fields)
-    fields: Optional[List['FieldConfig']] = None
+    fields: Optional[List["FieldConfig"]] = None
 
     # Wildcard support (for dynamic maps like deviceId)
     json_path_base: Optional[str] = None
@@ -94,6 +96,7 @@ class FieldConfig:
 @dataclass
 class IngestionMetrics:
     """Metrics tracked during ingestion"""
+
     files_found: int = 0
     files_processed: int = 0
     files_succeeded: int = 0
@@ -135,32 +138,34 @@ class IngestionConfig:
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration not found: {config_path}")
 
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             self.raw_config = yaml.safe_load(f)
 
         # Parse sections
-        self.data_type = self.raw_config['data_type']
-        self.description = self.raw_config.get('description', '')
-        self.version = self.raw_config.get('version', '1.0.0')
+        self.data_type = self.raw_config["data_type"]
+        self.description = self.raw_config.get("description", "")
+        self.version = self.raw_config.get("version", "1.0.0")
 
-        self.source = self.raw_config['source']
-        self.destination = self.raw_config['destination']
-        self.parsing = self.raw_config['parsing']
-        self.metadata_fields = self.raw_config.get('metadata_fields', [])
-        self.quality_checks = self.raw_config.get('quality_checks', {})
-        self.performance = self.raw_config.get('performance', {})
-        self.logging_config = self.raw_config.get('logging', {})
-        self.array_expansion = self.parsing.get('array_expansion')
+        self.source = self.raw_config["source"]
+        self.destination = self.raw_config["destination"]
+        self.parsing = self.raw_config["parsing"]
+        self.metadata_fields = self.raw_config.get("metadata_fields", [])
+        self.quality_checks = self.raw_config.get("quality_checks", {})
+        self.performance = self.raw_config.get("performance", {})
+        self.logging_config = self.raw_config.get("logging", {})
+        self.array_expansion = self.parsing.get("array_expansion")
 
         logging.info(f"Loaded config: {self.data_type} v{self.version}")
         logging.info(f"Description: {self.description}")
         if self.array_expansion:
-            logging.info(f"Array expansion enabled: {self.array_expansion['array_path']}")
+            logging.info(
+                f"Array expansion enabled: {self.array_expansion['array_path']}"
+            )
 
     def get_core_fields(self) -> List[FieldConfig]:
         """Parse core fields into FieldConfig objects (recursive for RECORD)"""
         fields = []
-        for field_dict in self.parsing.get('core_fields', []):
+        for field_dict in self.parsing.get("core_fields", []):
             fields.append(self._parse_field_config(field_dict))
         return fields
 
@@ -176,45 +181,53 @@ class IngestionConfig:
         """
         # Valid fields for FieldConfig
         valid_fields = {
-            'name', 'json_path', 'bq_type', 'mode', 'description',
-            'transform', 'validations', 'is_unique_key', 'max_length',
-            'json_path_base', 'array_index'
+            "name",
+            "json_path",
+            "bq_type",
+            "mode",
+            "description",
+            "transform",
+            "validations",
+            "is_unique_key",
+            "max_length",
+            "json_path_base",
+            "array_index",
         }
         filtered_dict = {k: v for k, v in field_dict.items() if k in valid_fields}
 
         # Parse nested fields recursively for RECORD
-        if 'fields' in field_dict:
-            filtered_dict['fields'] = [
-                self._parse_field_config(nested)
-                for nested in field_dict['fields']
+        if "fields" in field_dict:
+            filtered_dict["fields"] = [
+                self._parse_field_config(nested) for nested in field_dict["fields"]
             ]
 
         return FieldConfig(**filtered_dict)
 
     def get_bucket_name(self, env: str) -> str:
         """Get bucket name for environment"""
-        pattern = self.source['bucket_pattern']
+        pattern = self.source["bucket_pattern"]
         return pattern.format(env=env)
 
     def get_table_id(self, project_id: str, env: str) -> str:
         """Build full BigQuery table ID"""
-        dataset_pattern = self.destination['dataset_pattern']
+        dataset_pattern = self.destination["dataset_pattern"]
         dataset = dataset_pattern.format(env=env)
-        table = self.destination['table_name']
+        table = self.destination["table_name"]
         return f"{project_id}.{dataset}.{table}"
 
     def get_batch_size(self) -> int:
         """Get batch size for BigQuery inserts"""
-        return self.performance.get('batch_size', 500)
+        return self.performance.get("batch_size", 500)
 
     def get_validation_mode(self) -> str:
         """Get validation mode"""
-        return self.quality_checks.get('validation_mode', 'warn')
+        return self.quality_checks.get("validation_mode", "warn")
 
 
 # =============================================================================
 # DATA TRANSFORMATIONS
 # =============================================================================
+
 
 class DataTransformer:
     """Apply transformations to extracted values"""
@@ -239,7 +252,10 @@ class DataTransformer:
                 # Convert Garmin timestamp (milliseconds or string) to Python datetime (UTC)
                 if isinstance(value, (int, float)):
                     from datetime import timezone
-                    return datetime.fromtimestamp(value / 1000.0, tz=timezone.utc).replace(tzinfo=None)
+
+                    return datetime.fromtimestamp(
+                        value / 1000.0, tz=timezone.utc
+                    ).replace(tzinfo=None)
                 elif isinstance(value, str):
                     # Parse string datetime (format: "YYYY-MM-DD HH:MM:SS")
                     return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
@@ -248,7 +264,10 @@ class DataTransformer:
                 # Convert Garmin timestamp to date only (UTC)
                 if isinstance(value, (int, float)):
                     from datetime import timezone
-                    return datetime.fromtimestamp(value / 1000.0, tz=timezone.utc).date()
+
+                    return datetime.fromtimestamp(
+                        value / 1000.0, tz=timezone.utc
+                    ).date()
                 elif isinstance(value, str):
                     # Parse string datetime and extract date
                     return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").date()
@@ -257,9 +276,9 @@ class DataTransformer:
                 # Convert string date (YYYY-MM-DD) or ISO timestamp to date
                 if isinstance(value, str):
                     # Remove trailing .0 if present
-                    value = value.replace('.0', '')
+                    value = value.replace(".0", "")
                     # Try ISO format first (YYYY-MM-DDTHH:MM:SS)
-                    if 'T' in value:
+                    if "T" in value:
                         return datetime.fromisoformat(value).date()
                     # Try simple date format (YYYY-MM-DD)
                     else:
@@ -270,7 +289,7 @@ class DataTransformer:
                 # Convert ISO string to timestamp
                 if isinstance(value, str):
                     # Remove trailing .0 if present
-                    value = value.replace('.0', '')
+                    value = value.replace(".0", "")
                     return datetime.fromisoformat(value)
                 return value
 
@@ -284,18 +303,20 @@ class DataTransformer:
                 # Convert ISO 8601 timestamp to Python datetime (Spotify format)
                 if isinstance(value, str):
                     # Handle Spotify format: 2025-11-01T10:34:56.074Z
-                    return datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)
+                    return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(
+                        tzinfo=None
+                    )
                 return value
 
             elif transform_type == "string_to_date_flexible":
                 # Convert YYYY, YYYY-MM, or YYYY-MM-DD to date
                 if isinstance(value, str):
                     if len(value) == 4:  # YYYY
-                        return datetime.strptime(value, '%Y').date()
+                        return datetime.strptime(value, "%Y").date()
                     elif len(value) == 7:  # YYYY-MM
-                        return datetime.strptime(value, '%Y-%m').date()
+                        return datetime.strptime(value, "%Y-%m").date()
                     else:  # YYYY-MM-DD
-                        return datetime.strptime(value, '%Y-%m-%d').date()
+                        return datetime.strptime(value, "%Y-%m-%d").date()
                 return value
 
         except (ValueError, TypeError, OSError) as e:
@@ -308,6 +329,7 @@ class DataTransformer:
 # =============================================================================
 # SCHEMA GENERATION
 # =============================================================================
+
 
 class SchemaGenerator:
     """Generate BigQuery schema from configuration"""
@@ -331,12 +353,14 @@ class SchemaGenerator:
 
         # Metadata fields
         for meta_field in config.metadata_fields:
-            schema.append(bigquery.SchemaField(
-                name=meta_field['name'],
-                field_type=meta_field['bq_type'],
-                mode=meta_field.get('mode', 'NULLABLE'),
-                description=meta_field.get('description', '')
-            ))
+            schema.append(
+                bigquery.SchemaField(
+                    name=meta_field["name"],
+                    field_type=meta_field["bq_type"],
+                    mode=meta_field.get("mode", "NULLABLE"),
+                    description=meta_field.get("description", ""),
+                )
+            )
 
         return schema
 
@@ -351,18 +375,17 @@ class SchemaGenerator:
         Returns:
             BigQuery SchemaField (with nested fields if RECORD)
         """
-        if field.bq_type == 'RECORD' and field.fields:
+        if field.bq_type == "RECORD" and field.fields:
             # Recursive generation for nested fields
             nested_fields = [
-                SchemaGenerator._generate_field(nested)
-                for nested in field.fields
+                SchemaGenerator._generate_field(nested) for nested in field.fields
             ]
             return bigquery.SchemaField(
                 name=field.name,
-                field_type='RECORD',
+                field_type="RECORD",
                 mode=field.mode,
                 description=field.description,
-                fields=nested_fields
+                fields=nested_fields,
             )
         else:
             # Simple field
@@ -370,13 +393,14 @@ class SchemaGenerator:
                 name=field.name,
                 field_type=field.bq_type,
                 mode=field.mode,
-                description=field.description
+                description=field.description,
             )
 
 
 # =============================================================================
 # DATA PARSING & VALIDATION
 # =============================================================================
+
 
 class DataParser:
     """Parse raw JSON according to configuration"""
@@ -387,8 +411,9 @@ class DataParser:
         self.core_fields = config.get_core_fields()
         self.validation_mode = config.get_validation_mode()
 
-    def extract_value(self, data: Dict[str, Any], json_path: str,
-                      array_index: Optional[int] = None) -> Any:
+    def extract_value(
+        self, data: Dict[str, Any], json_path: str, array_index: Optional[int] = None
+    ) -> Any:
         """
         Extract value from nested JSON using JSONPath
 
@@ -409,15 +434,15 @@ class DataParser:
             return None
 
         # Remove $. prefix if present
-        path = json_path.replace('$.', '')
+        path = json_path.replace("$.", "")
 
         # Navigate nested structure
         current = data
-        keys = path.split('.')
+        keys = path.split(".")
 
         for key in keys:
             # Wildcard support: take first match
-            if key == '*':
+            if key == "*":
                 if isinstance(current, dict):
                     # Take first key in dict (Python 3.7+ maintains insertion order)
                     if len(current) > 0:
@@ -457,15 +482,15 @@ class DataParser:
             return None
 
         try:
-            if bq_type == 'INT64':
+            if bq_type == "INT64":
                 return int(value)
-            elif bq_type == 'FLOAT64':
+            elif bq_type == "FLOAT64":
                 return float(value)
-            elif bq_type == 'STRING':
+            elif bq_type == "STRING":
                 return str(value)
-            elif bq_type == 'BOOL':
+            elif bq_type == "BOOL":
                 return bool(value)
-            elif bq_type in ['TIMESTAMP', 'DATE']:
+            elif bq_type in ["TIMESTAMP", "DATE"]:
                 # Already transformed, return as-is
                 return value
             else:
@@ -474,7 +499,9 @@ class DataParser:
             logging.debug(f"Cast failed for {bq_type}: {value} - {e}")
             return None
 
-    def validate_field(self, field: FieldConfig, value: Any) -> Tuple[bool, Optional[str]]:
+    def validate_field(
+        self, field: FieldConfig, value: Any
+    ) -> Tuple[bool, Optional[str]]:
         """
         Validate field value against configured rules
 
@@ -486,31 +513,35 @@ class DataParser:
             Tuple of (is_valid, error_message)
         """
         for validation in field.validations:
-            val_type = validation.get('type')
+            val_type = validation.get("type")
 
-            if val_type == 'not_null':
+            if val_type == "not_null":
                 if value is None:
                     return False, f"{field.name}: value is null"
 
-            elif val_type == 'positive':
+            elif val_type == "positive":
                 if value is not None and value <= 0:
                     return False, f"{field.name}: value must be positive, got {value}"
 
-            elif val_type == 'range':
+            elif val_type == "range":
                 if value is not None:
-                    min_val = validation.get('min')
-                    max_val = validation.get('max')
+                    min_val = validation.get("min")
+                    max_val = validation.get("max")
 
                     if min_val is not None and value < min_val:
                         return False, f"{field.name}: value {value} below min {min_val}"
                     if max_val is not None and value > max_val:
                         return False, f"{field.name}: value {value} above max {max_val}"
 
-            elif val_type == 'date_range':
+            elif val_type == "date_range":
                 if value is not None:
                     try:
-                        min_date = datetime.strptime(validation.get('min'), '%Y-%m-%d').date()
-                        max_date = datetime.strptime(validation.get('max'), '%Y-%m-%d').date()
+                        min_date = datetime.strptime(
+                            validation.get("min"), "%Y-%m-%d"
+                        ).date()
+                        max_date = datetime.strptime(
+                            validation.get("max"), "%Y-%m-%d"
+                        ).date()
 
                         if isinstance(value, datetime):
                             value = value.date()
@@ -523,11 +554,16 @@ class DataParser:
         # Check max length for strings
         if field.max_length and isinstance(value, str):
             if len(value) > field.max_length:
-                return False, f"{field.name}: length {len(value)} exceeds max {field.max_length}"
+                return (
+                    False,
+                    f"{field.name}: length {len(value)} exceeds max {field.max_length}",
+                )
 
         return True, None
 
-    def parse_record(self, raw_data: Dict[str, Any], source_file: str) -> List[Dict[str, Any]]:
+    def parse_record(
+        self, raw_data: Dict[str, Any], source_file: str
+    ) -> List[Dict[str, Any]]:
         """
         Parse raw JSON record into structured format
         Supports array expansion for time-series data
@@ -545,7 +581,9 @@ class DataParser:
         else:
             return [self._parse_single_record(raw_data, source_file)]
 
-    def _parse_single_record(self, raw_data: Dict[str, Any], source_file: str) -> Dict[str, Any]:
+    def _parse_single_record(
+        self, raw_data: Dict[str, Any], source_file: str
+    ) -> Dict[str, Any]:
         """Parse a single record without array expansion (supports RECORD)"""
         parsed = {}
 
@@ -555,17 +593,22 @@ class DataParser:
             parsed[field.name] = parsed_value
 
         # Add raw_data for extended fields
-        parsed['raw_data'] = raw_data
+        parsed["raw_data"] = raw_data
 
         # Add metadata
         from datetime import timezone as tz
-        parsed['dp_inserted_at'] = datetime.now(tz.utc).replace(tzinfo=None)
-        parsed['source_file'] = source_file
+
+        parsed["dp_inserted_at"] = datetime.now(tz.utc).replace(tzinfo=None)
+        parsed["source_file"] = source_file
 
         return parsed
 
-    def _parse_field_value(self, data: Dict[str, Any], field: FieldConfig,
-                           base_data: Optional[Dict[str, Any]] = None) -> Any:
+    def _parse_field_value(
+        self,
+        data: Dict[str, Any],
+        field: FieldConfig,
+        base_data: Optional[Dict[str, Any]] = None,
+    ) -> Any:
         """
         Parse field value (recursive for RECORD)
 
@@ -578,7 +621,7 @@ class DataParser:
             Parsed value (primitive, dict for RECORD, or list for REPEATED)
         """
         # RECORD nested: construct dict recursively
-        if field.bq_type == 'RECORD' and field.fields:
+        if field.bq_type == "RECORD" and field.fields:
             return self._parse_record_field(data, field)
 
         # Simple field: extract + transform + cast
@@ -588,9 +631,7 @@ class DataParser:
 
             # Extract value (with wildcard and array_index support)
             value = self.extract_value(
-                extract_base,
-                field.json_path,
-                array_index=field.array_index
+                extract_base, field.json_path, array_index=field.array_index
             )
 
             # Apply transformation
@@ -633,9 +674,11 @@ class DataParser:
             return None
 
         # REPEATED RECORD: array of objects
-        if field.mode == 'REPEATED':
+        if field.mode == "REPEATED":
             if not isinstance(base_data, list):
-                logging.warning(f"Expected array for REPEATED field {field.name}, got {type(base_data)}")
+                logging.warning(
+                    f"Expected array for REPEATED field {field.name}, got {type(base_data)}"
+                )
                 return None
 
             # Parse each array element as a record
@@ -657,7 +700,9 @@ class DataParser:
 
                         # Transform and cast
                         if nested_field.transform:
-                            value = self.transformer.transform(value, nested_field.transform)
+                            value = self.transformer.transform(
+                                value, nested_field.transform
+                            )
                         value = self.cast_value(value, nested_field.bq_type)
 
                         record[nested_field.name] = value
@@ -668,7 +713,9 @@ class DataParser:
                     # Array element is a dict (standard object format)
                     record = {}
                     for nested_field in field.fields:
-                        value = self._parse_field_value(data, nested_field, base_data=element)
+                        value = self._parse_field_value(
+                            data, nested_field, base_data=element
+                        )
                         record[nested_field.name] = value
                     parsed_array.append(record)
 
@@ -677,7 +724,9 @@ class DataParser:
         # Simple RECORD: single nested object
         else:
             if not isinstance(base_data, dict):
-                logging.warning(f"Expected dict for RECORD field {field.name}, got {type(base_data)}")
+                logging.warning(
+                    f"Expected dict for RECORD field {field.name}, got {type(base_data)}"
+                )
                 return None
 
             # Parse nested fields
@@ -689,7 +738,9 @@ class DataParser:
 
             return record
 
-    def _parse_with_array_expansion(self, raw_data: Dict[str, Any], source_file: str) -> List[Dict[str, Any]]:
+    def _parse_with_array_expansion(
+        self, raw_data: Dict[str, Any], source_file: str
+    ) -> List[Dict[str, Any]]:
         """
         Parse record with array expansion for time-series data
 
@@ -710,21 +761,27 @@ class DataParser:
         expansion_config = self.config.array_expansion
 
         # Extract array data
-        array_data = self.extract_value(raw_data, expansion_config['array_path'])
+        array_data = self.extract_value(raw_data, expansion_config["array_path"])
         if not array_data or not isinstance(array_data, list):
-            logging.warning(f"Array path {expansion_config['array_path']} is empty or not a list")
+            logging.warning(
+                f"Array path {expansion_config['array_path']} is empty or not a list"
+            )
             return []
 
         # Extract descriptors (field name to array index mapping)
-        descriptor_data = self.extract_value(raw_data, expansion_config['descriptor_path'])
+        descriptor_data = self.extract_value(
+            raw_data, expansion_config["descriptor_path"]
+        )
         if not descriptor_data:
-            logging.warning(f"Descriptor path {expansion_config['descriptor_path']} not found")
+            logging.warning(
+                f"Descriptor path {expansion_config['descriptor_path']} not found"
+            )
             return []
 
         # Build field mapping: {index: field_name}
         index_to_field = {}
-        key_field = expansion_config.get('descriptor_key_field', 'key')
-        index_field = expansion_config.get('descriptor_index_field', 'index')
+        key_field = expansion_config.get("descriptor_key_field", "key")
+        index_field = expansion_config.get("descriptor_index_field", "index")
 
         for descriptor in descriptor_data:
             field_name = descriptor.get(key_field)
@@ -735,6 +792,7 @@ class DataParser:
         # Expand array into records
         expanded_records = []
         from datetime import timezone as tz
+
         current_timestamp = datetime.now(tz.utc).replace(tzinfo=None)
 
         for array_element in array_data:
@@ -752,7 +810,7 @@ class DataParser:
             parsed = {}
             for field in self.core_fields:
                 # Extract from element_dict instead of raw_data
-                value = element_dict.get(field.json_path.replace('$.', ''))
+                value = element_dict.get(field.json_path.replace("$.", ""))
 
                 # Apply transformation
                 if field.transform:
@@ -764,15 +822,17 @@ class DataParser:
                 parsed[field.name] = value
 
             # Add raw_data (store the element data)
-            parsed['raw_data'] = element_dict
+            parsed["raw_data"] = element_dict
 
             # Add metadata
-            parsed['dp_inserted_at'] = current_timestamp
-            parsed['source_file'] = source_file
+            parsed["dp_inserted_at"] = current_timestamp
+            parsed["source_file"] = source_file
 
             expanded_records.append(parsed)
 
-        logging.info(f"Expanded {len(array_data)} array elements into {len(expanded_records)} records")
+        logging.info(
+            f"Expanded {len(array_data)} array elements into {len(expanded_records)} records"
+        )
         return expanded_records
 
     def validate_record(self, record: Dict[str, Any]) -> Tuple[bool, List[str]]:
@@ -788,7 +848,7 @@ class DataParser:
         errors = []
 
         # Check required fields
-        required_fields = self.config.quality_checks.get('required_fields', [])
+        required_fields = self.config.quality_checks.get("required_fields", [])
         for field_name in required_fields:
             if record.get(field_name) is None:
                 errors.append(f"Missing required field: {field_name}")
@@ -804,10 +864,10 @@ class DataParser:
 
         # Handle validation mode
         if not is_valid:
-            if self.validation_mode == 'strict':
+            if self.validation_mode == "strict":
                 # Strict mode: reject record
                 return False, errors
-            elif self.validation_mode == 'warn':
+            elif self.validation_mode == "warn":
                 # Warn mode: log but continue
                 for error in errors:
                     logging.warning(f"Validation warning: {error}")
@@ -822,6 +882,7 @@ class DataParser:
 # =============================================================================
 # INGESTION ORCHESTRATOR
 # =============================================================================
+
 
 class SpotifyIngestor:
     """Main ingestion orchestrator"""
@@ -841,13 +902,18 @@ class SpotifyIngestor:
         self.parser = DataParser(self.config)
         self.metrics = IngestionMetrics()
 
-        # Initialize GCP clients
-        self.project_id = os.getenv('GCP_PROJECT_ID')
-        if not self.project_id:
-            raise ValueError("GCP_PROJECT_ID environment variable is required")
+        # Initialize GCP clients (auto-detect project if not set)
+        self.project_id = os.getenv("GCP_PROJECT_ID")
 
-        self.bq_client = bigquery.Client(project=self.project_id)
-        self.storage_client = storage.Client(project=self.project_id)
+        if self.project_id:
+            self.bq_client = bigquery.Client(project=self.project_id)
+            self.storage_client = storage.Client(project=self.project_id)
+        else:
+            # Auto-detect project from GCP environment (Cloud Run, GCE, etc.)
+            self.bq_client = bigquery.Client()
+            self.storage_client = storage.Client()
+            self.project_id = self.bq_client.project
+            logging.info(f"Auto-detected GCP project: {self.project_id}")
 
         self.bucket_name = self.config.get_bucket_name(env)
         self.table_id = self.config.get_table_id(self.project_id, env)
@@ -873,17 +939,17 @@ class SpotifyIngestor:
             return [specific_file]
 
         # List files from GCS
-        landing_path = self.config.source['landing_path']
-        file_pattern = self.config.source['file_pattern']
+        landing_path = self.config.source["landing_path"]
+        file_pattern = self.config.source["file_pattern"]
 
         prefix = f"{landing_path}/"
         blobs = self.storage_client.list_blobs(self.bucket_name, prefix=prefix)
 
         files = []
-        pattern_suffix = file_pattern.replace('*', '')
+        pattern_suffix = file_pattern.replace("*", "")
 
         for blob in blobs:
-            if blob.name.endswith('.jsonl') and pattern_suffix in blob.name:
+            if blob.name.endswith(".jsonl") and pattern_suffix in blob.name:
                 gcs_uri = f"gs://{self.bucket_name}/{blob.name}"
                 files.append(gcs_uri)
 
@@ -903,16 +969,16 @@ class SpotifyIngestor:
             Tuple of (list of lines, filename)
         """
         # Parse URI
-        parts = gcs_uri.replace('gs://', '').split('/')
+        parts = gcs_uri.replace("gs://", "").split("/")
         bucket_name = parts[0]
-        blob_path = '/'.join(parts[1:])
+        blob_path = "/".join(parts[1:])
         filename = parts[-1]
 
         # Download
         bucket = self.storage_client.bucket(bucket_name)
         blob = bucket.blob(blob_path)
 
-        timeout = self.config.performance.get('gcs_download_timeout', 300)
+        timeout = self.config.performance.get("gcs_download_timeout", 300)
         content = blob.download_as_text(timeout=timeout)
         lines = content.splitlines()
 
@@ -961,8 +1027,10 @@ class SpotifyIngestor:
                         else:
                             rejected_count += 1
                             self.metrics.records_rejected += 1
-                            if self.config.logging_config.get('log_rejected_records'):
-                                logging.warning(f"Rejected record from line {line_num}: {errors}")
+                            if self.config.logging_config.get("log_rejected_records"):
+                                logging.warning(
+                                    f"Rejected record from line {line_num}: {errors}"
+                                )
 
                 except json.JSONDecodeError as e:
                     logging.error(f"Invalid JSON on line {line_num}: {e}")
@@ -975,12 +1043,12 @@ class SpotifyIngestor:
                     self.metrics.records_rejected += 1
 
             # Log sample records
-            if self.config.logging_config.get('include_sample_records'):
-                max_samples = self.config.logging_config.get('max_sample_records', 3)
+            if self.config.logging_config.get("include_sample_records"):
+                max_samples = self.config.logging_config.get("max_sample_records", 3)
                 logging.info(f"\nSample records (showing first {max_samples}):")
                 for i, record in enumerate(parsed_records[:max_samples], 1):
                     # Log without raw_data (too verbose)
-                    sample = {k: v for k, v in record.items() if k != 'raw_data'}
+                    sample = {k: v for k, v in record.items() if k != "raw_data"}
                     logging.info(f"  Record {i}: {sample}")
 
             logging.info(f"\n✅ File parsed successfully:")
@@ -1056,62 +1124,72 @@ class SpotifyIngestor:
         # Configure load job
         job_config = bigquery.LoadJobConfig(
             schema=schema,
-            write_disposition='WRITE_APPEND',
-            create_disposition='CREATE_IF_NEEDED',
+            write_disposition="WRITE_APPEND",
+            create_disposition="CREATE_IF_NEEDED",
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-            autodetect=False
+            autodetect=False,
         )
 
         # Configure partitioning if enabled
-        partition_config = self.config.destination.get('partition', {})
-        if partition_config.get('enabled', False):
-            partition_field = partition_config.get('field')
-            partition_type = partition_config.get('type', 'DAY')
-            expiration_days = partition_config.get('expiration_days')
+        partition_config = self.config.destination.get("partition", {})
+        if partition_config.get("enabled", False):
+            partition_field = partition_config.get("field")
+            partition_type = partition_config.get("type", "DAY")
+            expiration_days = partition_config.get("expiration_days")
 
             if partition_field:
                 # Time-based partitioning
-                if partition_type == 'DAY':
+                if partition_type == "DAY":
                     job_config.time_partitioning = bigquery.TimePartitioning(
                         type_=bigquery.TimePartitioningType.DAY,
                         field=partition_field,
-                        expiration_ms=expiration_days * 86400000 if expiration_days else None
+                        expiration_ms=(
+                            expiration_days * 86400000 if expiration_days else None
+                        ),
                     )
-                elif partition_type == 'MONTH':
+                elif partition_type == "MONTH":
                     job_config.time_partitioning = bigquery.TimePartitioning(
                         type_=bigquery.TimePartitioningType.MONTH,
                         field=partition_field,
-                        expiration_ms=expiration_days * 86400000 if expiration_days else None
+                        expiration_ms=(
+                            expiration_days * 86400000 if expiration_days else None
+                        ),
                     )
-                elif partition_type == 'YEAR':
+                elif partition_type == "YEAR":
                     job_config.time_partitioning = bigquery.TimePartitioning(
                         type_=bigquery.TimePartitioningType.YEAR,
                         field=partition_field,
-                        expiration_ms=expiration_days * 86400000 if expiration_days else None
+                        expiration_ms=(
+                            expiration_days * 86400000 if expiration_days else None
+                        ),
                     )
 
-                logging.info(f"Partitioning configured: {partition_type} on {partition_field}")
+                logging.info(
+                    f"Partitioning configured: {partition_type} on {partition_field}"
+                )
 
         # Configure clustering if enabled
-        clustering_config = self.config.destination.get('clustering', {})
-        if clustering_config.get('enabled', False):
-            clustering_fields = clustering_config.get('fields', [])
+        clustering_config = self.config.destination.get("clustering", {})
+        if clustering_config.get("enabled", False):
+            clustering_fields = clustering_config.get("fields", [])
             if clustering_fields:
                 job_config.clustering_fields = clustering_fields
-                logging.info(f"Clustering configured on: {', '.join(clustering_fields)}")
+                logging.info(
+                    f"Clustering configured on: {', '.join(clustering_fields)}"
+                )
 
         # Single insert for all records
-        timeout = self.config.performance.get('bq_job_timeout_seconds', 600)
+        timeout = self.config.performance.get("bq_job_timeout_seconds", 600)
 
         try:
             job = self.bq_client.load_table_from_json(
-                serialized_records,
-                self.table_id,
-                job_config=job_config
+                serialized_records, self.table_id, job_config=job_config
             )
 
             job.result(timeout=timeout)
-            logging.info(f"  Inserted {len(serialized_records)} records in single batch")
+            logging.info(
+                f"  Inserted {len(serialized_records)} records in single batch"
+            )
 
         except GoogleCloudError as e:
             logging.error(f"BigQuery insert failed: {e}")
@@ -1126,16 +1204,16 @@ class SpotifyIngestor:
             destination: 'archive' or 'rejected'
         """
         # Parse URI
-        parts = gcs_uri.replace('gs://', '').split('/')
+        parts = gcs_uri.replace("gs://", "").split("/")
         bucket_name = parts[0]
-        source_path = '/'.join(parts[1:])
+        source_path = "/".join(parts[1:])
         filename = parts[-1]
 
         # Determine destination path
-        if destination == 'archive':
-            dest_path = self.config.source['archive_path']
+        if destination == "archive":
+            dest_path = self.config.source["archive_path"]
         else:
-            dest_path = self.config.source['rejected_path']
+            dest_path = self.config.source["rejected_path"]
 
         dest_blob_path = f"{dest_path}/{filename}"
 
@@ -1200,42 +1278,54 @@ class SpotifyIngestor:
             # Phase 2: Insert all records to BigQuery in one batch
             if all_parsed_records:
                 logging.info(f"\n{'='*80}")
-                logging.info(f"PHASE 2: INSERTING {len(all_parsed_records)} RECORDS TO BIGQUERY")
+                logging.info(
+                    f"PHASE 2: INSERTING {len(all_parsed_records)} RECORDS TO BIGQUERY"
+                )
                 logging.info(f"{'='*80}\n")
 
                 if not self.dry_run:
                     try:
                         self.insert_to_bigquery(all_parsed_records)
                         self.metrics.records_inserted += len(all_parsed_records)
-                        logging.info(f"✅ Successfully inserted {len(all_parsed_records)} records")
+                        logging.info(
+                            f"✅ Successfully inserted {len(all_parsed_records)} records"
+                        )
                     except Exception as e:
                         logging.error(f"❌ BigQuery insertion failed: {e}")
-                        logging.error("Files will NOT be archived due to insertion failure")
+                        logging.error(
+                            "Files will NOT be archived due to insertion failure"
+                        )
                         return 1
                 else:
-                    logging.info(f"DRY RUN: Would insert {len(all_parsed_records)} records")
+                    logging.info(
+                        f"DRY RUN: Would insert {len(all_parsed_records)} records"
+                    )
 
             # Phase 3: Archive successfully processed files
             if successfully_parsed_files and not self.dry_run:
                 logging.info(f"\n{'='*80}")
-                logging.info(f"PHASE 3: ARCHIVING {len(successfully_parsed_files)} FILES")
+                logging.info(
+                    f"PHASE 3: ARCHIVING {len(successfully_parsed_files)} FILES"
+                )
                 logging.info(f"{'='*80}\n")
 
                 for gcs_uri in successfully_parsed_files:
                     try:
-                        self.move_file(gcs_uri, 'archive')
+                        self.move_file(gcs_uri, "archive")
                     except Exception as e:
                         logging.error(f"Failed to archive {gcs_uri}: {e}")
 
             # Phase 4: Move failed files to rejected
             if failed_files and not self.dry_run:
                 logging.info(f"\n{'='*80}")
-                logging.info(f"PHASE 4: MOVING {len(failed_files)} FAILED FILES TO REJECTED")
+                logging.info(
+                    f"PHASE 4: MOVING {len(failed_files)} FAILED FILES TO REJECTED"
+                )
                 logging.info(f"{'='*80}\n")
 
                 for gcs_uri in failed_files:
                     try:
-                        self.move_file(gcs_uri, 'rejected')
+                        self.move_file(gcs_uri, "rejected")
                     except Exception as e:
                         logging.error(f"Failed to move {gcs_uri} to rejected: {e}")
 
@@ -1281,68 +1371,65 @@ class SpotifyIngestor:
 # MAIN ENTRY POINT
 # =============================================================================
 
+
 def setup_logging(level: str) -> None:
     """Configure logging"""
     numeric_level = getattr(logging, level.upper(), logging.INFO)
 
     logging.basicConfig(
         level=numeric_level,
-        format='%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
 def main() -> int:
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='Generic Spotify data ingestion with YAML configuration',
+        description="Generic Spotify data ingestion with YAML configuration",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Ingest recently_played to dev
-  python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev
+  python -m src.connectors.spotify.spotify_ingest --config recently_played --env dev
 
   # Ingest to prod with debug logging
-  python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env prd --log-level DEBUG
+  python -m src.connectors.spotify.spotify_ingest --config recently_played --env prd --log-level DEBUG
 
   # Dry run (validate only)
-  python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev --dry-run
+  python -m src.connectors.spotify.spotify_ingest --config recently_played --env dev --dry-run
 
   # Process specific file
-  python -m src.connectors.spotify.spotify_ingest_v2 --config recently_played --env dev \\
+  python -m src.connectors.spotify.spotify_ingest --config recently_played --env dev \\
       --file gs://ela-dp-dev/spotify/landing/2025_11_01_recently_played.jsonl
-        """
+        """,
     )
 
     parser.add_argument(
-        '--config',
+        "--config",
         required=True,
-        help='Configuration name (e.g., recently_played, saved_tracks)'
+        help="Configuration name (e.g., recently_played, saved_tracks)",
     )
 
     parser.add_argument(
-        '--env',
-        choices=['dev', 'prd'],
-        required=True,
-        help='Environment'
+        "--env", choices=["dev", "prd"], required=True, help="Environment"
     )
 
     parser.add_argument(
-        '--log-level',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        default='INFO',
-        help='Logging level'
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Logging level",
     )
 
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Validate configuration and parse data without writing to BigQuery'
+        "--dry-run",
+        action="store_true",
+        help="Validate configuration and parse data without writing to BigQuery",
     )
 
     parser.add_argument(
-        '--file',
-        help='Process specific GCS file (gs://bucket/path/file.jsonl)'
+        "--file", help="Process specific GCS file (gs://bucket/path/file.jsonl)"
     )
 
     args = parser.parse_args()
@@ -1351,7 +1438,7 @@ Examples:
     setup_logging(args.log_level)
 
     # Load configuration
-    config_path = Path(__file__).parent / 'configs' / f'{args.config}.yaml'
+    config_path = Path(__file__).parent / "configs" / f"{args.config}.yaml"
 
     if not config_path.exists():
         logging.error(f"❌ Configuration not found: {config_path}")
@@ -1376,5 +1463,5 @@ Examples:
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

@@ -33,20 +33,20 @@ from google.api_core import exceptions as gcp_exceptions
 
 # Mapping: filename pattern → config name
 FILE_PATTERNS = {
-    r'.*_artist_enrichment\.jsonl$': 'artist_enrichment',
-    r'.*_album_enrichment\.jsonl$': 'album_enrichment',
-    r'.*_recently_played\.jsonl$': 'recently_played',
-    r'.*_saved_tracks\.jsonl$': 'saved_tracks',
-    r'.*_saved_albums\.jsonl$': 'saved_albums',
+    r".*_artist_enrichment\.jsonl$": "artist_enrichment",
+    r".*_album_enrichment\.jsonl$": "album_enrichment",
+    r".*_recently_played\.jsonl$": "recently_played",
+    r".*_saved_tracks\.jsonl$": "saved_tracks",
+    r".*_saved_albums\.jsonl$": "saved_albums",
 }
 
 # Configs that are ready for ingest_v2
 SUPPORTED_CONFIGS = {
-    'artist_enrichment',
-    'album_enrichment',
-    'recently_played',
-    'saved_tracks',
-    'saved_albums',
+    "artist_enrichment",
+    "album_enrichment",
+    "recently_played",
+    "saved_tracks",
+    "saved_albums",
 }
 
 
@@ -75,6 +75,7 @@ def is_supported(data_type: str) -> bool:
 # GCS FILE SCANNING
 # =============================================================================
 
+
 def scan_landing_folder(bucket_name: str, landing_path: str) -> Dict[str, List[str]]:
     """
     Scan GCS landing folder and group files by data type.
@@ -96,7 +97,7 @@ def scan_landing_folder(bucket_name: str, landing_path: str) -> Dict[str, List[s
     unsupported_files = []
 
     for blob in blobs:
-        if not blob.name.endswith('.jsonl'):
+        if not blob.name.endswith(".jsonl"):
             continue
 
         filename = Path(blob.name).name
@@ -138,9 +139,10 @@ def scan_landing_folder(bucket_name: str, landing_path: str) -> Dict[str, List[s
 # INGESTION ORCHESTRATION
 # =============================================================================
 
+
 def run_ingestion(data_type: str, env: str, dry_run: bool = False) -> Tuple[bool, str]:
     """
-    Run ingest_v2 for a specific data type.
+    Run ingest_v2 for a specific data type (direct Python call, no subprocess).
 
     Args:
         data_type: Data type config name (e.g., "recently_played")
@@ -150,52 +152,39 @@ def run_ingestion(data_type: str, env: str, dry_run: bool = False) -> Tuple[bool
     Returns:
         Tuple of (success, error_message)
     """
-    import subprocess
-
-    cmd = [
-        sys.executable,
-        "-m", "src.connectors.spotify.spotify_ingest_v2",
-        "--config", data_type,
-        "--env", env
-    ]
-
-    if dry_run:
-        cmd.append("--dry-run")
+    from src.connectors.spotify.spotify_ingest_v2 import SpotifyIngestor
 
     logging.info(f"\n{'='*80}")
     logging.info(f"INGESTING: {data_type.upper()}")
-    logging.info(f"{'='*80}")
-    logging.info(f"Command: {' '.join(cmd)}\n")
+    logging.info(f"{'='*80}\n")
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=600  # 10 minutes timeout
-        )
+        # Build config path
+        config_path = Path(__file__).parent / "configs" / f"{data_type}.yaml"
 
-        # Forward stdout/stderr
-        if result.stdout:
-            print(result.stdout)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
+        if not config_path.exists():
+            error_msg = f"Config not found: {config_path}"
+            logging.error(f"❌ {error_msg}")
+            return False, error_msg
 
-        if result.returncode == 0:
+        # Run ingestion directly
+        ingestor = SpotifyIngestor(config_path, env, dry_run)
+        exit_code = ingestor.run()
+
+        if exit_code == 0:
             logging.info(f"✅ Successfully ingested {data_type}\n")
             return True, ""
         else:
-            error_msg = f"Failed with exit code {result.returncode}"
+            error_msg = f"Ingestion failed with exit code {exit_code}"
             logging.error(f"❌ {error_msg}\n")
             return False, error_msg
 
-    except subprocess.TimeoutExpired:
-        error_msg = "Ingestion timed out after 10 minutes"
-        logging.error(f"❌ {error_msg}\n")
-        return False, error_msg
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         logging.error(f"❌ {error_msg}\n")
+        import traceback
+
+        logging.debug(traceback.format_exc())
         return False, error_msg
 
 
@@ -269,6 +258,7 @@ def run_auto_ingestion(env: str, dry_run: bool = False) -> int:
     except Exception as e:
         logging.error(f"❌ Fatal error: {e}")
         import traceback
+
         logging.debug(traceback.format_exc())
         return 1
 
@@ -276,6 +266,7 @@ def run_auto_ingestion(env: str, dry_run: bool = False) -> int:
 # =============================================================================
 # ENVIRONMENT SETUP
 # =============================================================================
+
 
 def load_env_and_setup_credentials() -> None:
     """Load .env file and setup GCP credentials with absolute path."""
@@ -295,7 +286,9 @@ def load_env_and_setup_credentials() -> None:
                 # Convert relative path to absolute
                 abs_credentials_path = env_path.parent / credentials_path
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(abs_credentials_path)
-                logging.debug(f"Set GOOGLE_APPLICATION_CREDENTIALS to: {abs_credentials_path}")
+                logging.debug(
+                    f"Set GOOGLE_APPLICATION_CREDENTIALS to: {abs_credentials_path}"
+                )
         else:
             logging.warning(f".env file not found at {env_path}")
     except ImportError:
@@ -306,10 +299,11 @@ def load_env_and_setup_credentials() -> None:
 # CLI
 # =============================================================================
 
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description='Spotify Auto-Ingestion: Automatically detect and ingest all data types',
+        description="Spotify Auto-Ingestion: Automatically detect and ingest all data types",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -321,27 +315,27 @@ Examples:
 
   # With verbose logging
   python -m src.connectors.spotify.spotify_ingest_auto --env dev --log-level DEBUG
-        """
+        """,
     )
 
     parser.add_argument(
-        '--env',
+        "--env",
         required=True,
-        choices=['dev', 'prd'],
-        help='Target environment (dev or prd)'
+        choices=["dev", "prd"],
+        help="Target environment (dev or prd)",
     )
 
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Dry run mode: parse and validate without inserting or moving files'
+        "--dry-run",
+        action="store_true",
+        help="Dry run mode: parse and validate without inserting or moving files",
     )
 
     parser.add_argument(
-        '--log-level',
-        default='INFO',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Logging level (default: INFO)'
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO)",
     )
 
     args = parser.parse_args()
@@ -349,8 +343,8 @@ Examples:
     # Setup logging
     logging.basicConfig(
         level=getattr(logging, args.log_level),
-        format='%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     # Load .env and setup credentials
@@ -361,5 +355,5 @@ Examples:
     sys.exit(exit_code)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

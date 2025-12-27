@@ -6,9 +6,21 @@ Ce dossier contient les anciennes versions de scripts qui ont été remplacées 
 
 ### `spotify_ingest_old.py` (anciennement `spotify_ingest.py`)
 - **Date d'archivage** : 2025-12-27
-- **Raison** : Remplacé par `spotify_ingest_v2.py` + `spotify_ingest_auto.py`
+- **Raison** : Remplacé par `spotify_ingest.py`
 - **Problème** : Utilisait un schéma universel et chargeait tout dans `lake_spotify__stg_spotify_raw`
-- **Solution actuelle** : `spotify_ingest_v2.py` parse le JSON et charge dans les tables `lake_spotify__normalized_*` attendues par dbt
+
+### `spotify_ingest_auto_old.py` (anciennement `spotify_ingest_auto.py`)
+- **Date d'archivage** : 2025-12-27
+- **Raison** : Logique fusionnée dans l'adaptateur `src/connectors/ingestor/adapters/spotify.py`
+- **Problème** : Couche intermédiaire inutile avec subprocess
+
+## Architecture actuelle
+
+```
+Adaptateur (spotify.py) → SpotifyIngestor (spotify_ingest.py)
+```
+
+Un seul appel Python direct, sans subprocess.
 
 ## Notes
 

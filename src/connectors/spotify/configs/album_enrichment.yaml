@@ -347,10 +347,10 @@ examples:
     command: "python src/connectors/spotify/spotify_album_enrichment.py --mode incremental --env prd"
 
   - name: "Ingest enrichment data to dev"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config album_enrichment --env dev"
+    command: "python -m src.connectors.spotify.spotify_ingest --config album_enrichment --env dev"
 
   - name: "Ingest enrichment data to prod"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config album_enrichment --env prd"
+    command: "python -m src.connectors.spotify.spotify_ingest --config album_enrichment --env prd"
 
   - name: "Dry run (query only)"
     command: "python src/connectors/spotify/spotify_album_enrichment.py --mode backfill --dry-run"

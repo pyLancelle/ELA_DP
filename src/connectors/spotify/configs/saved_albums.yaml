@@ -613,16 +613,16 @@ alerting:
 # =============================================================================
 examples:
   - name: "Ingest saved_albums to dev"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_albums --env dev"
+    command: "python -m src.connectors.spotify.spotify_ingest --config saved_albums --env dev"
 
   - name: "Ingest saved_albums to prod"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_albums --env prd"
+    command: "python -m src.connectors.spotify.spotify_ingest --config saved_albums --env prd"
 
   - name: "Dry run"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_albums --env dev --dry-run"
+    command: "python -m src.connectors.spotify.spotify_ingest --config saved_albums --env dev --dry-run"
 
   - name: "Verbose logging"
-    command: "python -m src.connectors.spotify.spotify_ingest_v2 --config saved_albums --env dev --log-level DEBUG"
+    command: "python -m src.connectors.spotify.spotify_ingest --config saved_albums --env dev --log-level DEBUG"
 
 # =============================================================================
 # NOTES

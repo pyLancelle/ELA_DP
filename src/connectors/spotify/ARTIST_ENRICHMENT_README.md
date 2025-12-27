@@ -24,7 +24,7 @@ The Spotify Artist Enrichment system fetches detailed metadata for artists from 
    └─> gs://ela-dp-{env}/spotify/landing/
 
 4. Ingest to BigQuery
-   └─> spotify_ingest_v2.py (or spotify_ingest_auto.py)
+   └─> spotify_ingest.py (or spotify_ingest_auto.py)
        └─> Table: lake_spotify__normalized_artist_enrichment
 
 5. Transform via dbt
@@ -77,7 +77,7 @@ python src/connectors/spotify/spotify_artist_enrichment.py \
 gsutil cp ./output/*_artist_enrichment.jsonl gs://ela-dp-dev/spotify/landing/
 
 # Step 3: Ingest to BigQuery
-python -m src.connectors.spotify.spotify_ingest_v2 \
+python -m src.connectors.spotify.spotify_ingest \
   --config artist_enrichment \
   --env dev
 
@@ -187,7 +187,7 @@ This will:
 ### Test ingestion without inserting
 
 ```bash
-python -m src.connectors.spotify.spotify_ingest_v2 \
+python -m src.connectors.spotify.spotify_ingest \
   --config artist_enrichment \
   --env dev \
   --dry-run
