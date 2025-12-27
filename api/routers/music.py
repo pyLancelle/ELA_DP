@@ -1,8 +1,20 @@
 # api/routers/music.py
 from fastapi import APIRouter, Query, HTTPException
-from typing import List
+from typing import List, Optional
+import math
 import asyncio
-from api.models.music import TopArtist, TopTrack, TopAlbum, MusicClassement
+from api.models.music import (
+    TopArtist,
+    TopTrack,
+    TopAlbum,
+    MusicClassement,
+    RecentlyPlayedResponse,
+    RecentlyPlayedItem,
+    RecentlyPlayedTrack,
+    RecentlyPlayedArtist,
+    RecentlyPlayedAlbum,
+    Pagination,
+)
 from api.database import get_bq_client
 from api.config import VALID_PERIODS, DEFAULT_LIMIT, MAX_LIMIT, PROJECT_ID, DATASET
 
@@ -195,6 +207,129 @@ async def get_music_classement(
 
         return MusicClassement(
             top_artists=artists, top_tracks=tracks, top_albums=albums
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
+@router.get("/recently-played", response_model=RecentlyPlayedResponse)
+async def get_recently_played(
+    page: int = Query(1, ge=1, description="Page number"),
+    pageSize: int = Query(50, ge=1, le=200, description="Items per page"),
+    dateFrom: Optional[str] = Query(None, description="Start date filter (YYYY-MM-DD)"),
+    dateTo: Optional[str] = Query(None, description="End date filter (YYYY-MM-DD)"),
+    timeFrom: Optional[str] = Query(None, description="Start time filter (HH:MM)"),
+    timeTo: Optional[str] = Query(None, description="End time filter (HH:MM)"),
+    artist: Optional[str] = Query(
+        None, description="Artist name filter (partial match)"
+    ),
+):
+    """Récupère les pistes récemment écoutées avec pagination et filtres"""
+
+    # Build WHERE clauses
+    where_clauses = []
+    if dateFrom:
+        where_clauses.append(f"played_date >= '{dateFrom}'")
+    if dateTo:
+        where_clauses.append(f"played_date <= '{dateTo}'")
+    if timeFrom:
+        where_clauses.append(f"played_time >= '{timeFrom}'")
+    if timeTo:
+        where_clauses.append(f"played_time <= '{timeTo}'")
+    if artist:
+        where_clauses.append(f"LOWER(artist_name) LIKE LOWER('%{artist}%')")
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    # Calculate offset
+    offset = (page - 1) * pageSize
+
+    async def fetch_tracks():
+        query = f"""
+            SELECT
+                played_at,
+                track_id,
+                track_uri,
+                track_name,
+                track_duration_ms,
+                track_external_url,
+                artist_id,
+                artist_name,
+                album_id,
+                album_name,
+                album_image_url
+            FROM `{PROJECT_ID}.{DATASET}.pct_music__recently_played`
+            {where_sql}
+            ORDER BY played_at DESC
+            LIMIT {pageSize}
+            OFFSET {offset}
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        return [dict(row) for row in results]
+
+    async def fetch_total_count():
+        query = f"""
+            SELECT COUNT(*) as total
+            FROM `{PROJECT_ID}.{DATASET}.pct_music__recently_played`
+            {where_sql}
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        return list(results)[0]["total"]
+
+    async def fetch_all_artists():
+        query = f"""
+            SELECT DISTINCT artist_name
+            FROM `{PROJECT_ID}.{DATASET}.pct_music__recently_played`
+            WHERE artist_name IS NOT NULL
+            ORDER BY artist_name
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        return [row["artist_name"] for row in results]
+
+    try:
+        tracks_data, total_count, all_artists = await asyncio.gather(
+            fetch_tracks(), fetch_total_count(), fetch_all_artists()
+        )
+
+        # Transform data to response format
+        tracks = []
+        for row in tracks_data:
+            played_at_str = row["played_at"].isoformat() if row["played_at"] else None
+            item = RecentlyPlayedItem(
+                id=f"{row['track_id']}_{played_at_str}",
+                played_at=played_at_str,
+                track=RecentlyPlayedTrack(
+                    id=row["track_uri"] or row["track_id"],
+                    name=row["track_name"],
+                    duration_ms=row["track_duration_ms"] or 0,
+                    external_url=row["track_external_url"],
+                ),
+                artist=RecentlyPlayedArtist(
+                    id=row["artist_id"] or "",
+                    name=row["artist_name"] or "",
+                ),
+                album=RecentlyPlayedAlbum(
+                    id=row["album_id"] or "",
+                    name=row["album_name"] or "",
+                    image_url=row["album_image_url"],
+                ),
+            )
+            tracks.append(item)
+
+        total_pages = math.ceil(total_count / pageSize) if total_count > 0 else 1
+
+        return RecentlyPlayedResponse(
+            tracks=tracks,
+            pagination=Pagination(
+                page=page,
+                pageSize=pageSize,
+                totalItems=total_count,
+                totalPages=total_pages,
+            ),
+            artists=all_artists,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")

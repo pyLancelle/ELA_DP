@@ -35,3 +35,6 @@ models:
       activites:
         +schema: product_{{ target.name }}
         +materialized: view
+      music:
+        +schema: product_{{ target.name }}
+        +materialized: view
