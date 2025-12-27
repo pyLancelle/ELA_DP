@@ -14,3 +14,5 @@ SELECT
     total_duration_ms,
     {{ ms_to_hms('total_duration_ms') }} AS total_duration,
 FROM ranking
+ORDER BY DATE DESC
+LIMIT 10
