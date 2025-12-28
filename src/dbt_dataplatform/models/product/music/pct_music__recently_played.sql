@@ -1,7 +1,7 @@
 {{
     config(
         materialized='table',
-        tags=['music', 'product']
+        tags=['spotify', 'product']
     )
 }}
 
