@@ -1,0 +1,6 @@
+Resolved 16 packages in 144ms
+Prepared 3 packages in 56ms
+Installed 3 packages in 4ms
+ + anthropic==0.75.0
+ + distro==1.9.0
+ + jiter==0.12.0

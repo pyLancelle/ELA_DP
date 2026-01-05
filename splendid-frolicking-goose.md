@@ -786,8 +786,12 @@ DATA INTERPRETATION:
      2. Check if today in `[start_date, end_date]` → exit if not
      3. Calculate week_number from cycle start
      4. Call `weekly_reviewer.generate_weekly_review()` (semaine écoulée)
-     5. Call `plan_generator.generate_weekly_plan()` (semaine suivante, adapté au review)
-     6. Return review_id + plan_id + GCS paths
+     5. **Rolling Window Regeneration** ⭐ : Régénère les 3 prochaines semaines
+        - Calculate weeks_remaining = total_weeks - current_week
+        - Generate min(3, weeks_remaining) weekly plans
+        - For each week: deactivate old plan (status='superseded') + insert new plan (status='active')
+        - Pass review context to adapt first week, then progressive adaptation
+     6. Return review_id + list of plan_ids + GCS paths
 
 **Livrable** : Orchestration complète testée localement
 
@@ -957,17 +961,31 @@ DATA INTERPRETATION:
 
 ## Décisions Techniques Critiques
 
-### 1. Approche Hybride Cycle + Hebdo
+### 1. Approche Hybride Cycle + Rolling Window Adaptatif ⭐
 
 **Implémentation** :
-- Générer cycle complet 8-12 semaines (stocké dans `ai_coach__training_cycles`)
-- Régénérer plan hebdo chaque semaine basé sur :
-  - Plan cycle (référence)
-  - Exécution semaine précédente
+- Générer cycle complet 8-12 semaines (stocké dans `ai_coach__training_cycles`) → **baseline immutable**
+- **Rolling Window de 3 semaines** : Chaque dimanche, régénérer les 3 prochaines semaines basé sur :
+  - Plan cycle (référence baseline)
+  - Weekly review (semaine écoulée)
   - Métriques santé actuelles
-  - Feedback utilisateur
+  - Contexte + philosophie d'entraînement
 
-**Bénéfice** : Structure long-terme + adaptation réaliste
+**Comportement** :
+- Semaine 1 → génère plans semaines 2, 3, 4
+- Semaine 2 → régénère plans semaines 3, 4, 5 (supersède anciennes versions)
+- Semaine N → génère min(3, weeks_remaining) semaines
+
+**Versioning Weekly Plans** :
+- Chaque plan a un `status` : `"active"` | `"completed"` | `"superseded"`
+- Quand une semaine est régénérée : ancien plan passe à `status="superseded"`, nouveau plan `status="active"`
+- Historique complet conservé pour audit
+
+**Bénéfices** :
+- ✅ **Auto-réparation** : Si semaine manquée/difficile, les 3 suivantes se recalibrent
+- ✅ **Coût maîtrisé** : ~$1.40/mois (vs $1/mois sans rolling, vs $4-5/mois full regeneration)
+- ✅ **Horizon adaptatif** : 3 semaines = suffisant pour adaptation progressive
+- ✅ **Audit trail** : Toutes les versions de plans conservées
 
 ### 2. Versioning Profils & Contextes
 
@@ -1111,8 +1129,8 @@ def validate_plan_safety(plan):
 - Génération profil : $0.40 (occasionnel, 1x par cycle)
 - Génération cycle : $0.50 (occasionnel, 1x par cycle)
 - **Weekly review** : $0.30/semaine × 4 = **$1.20/mois** ⭐
-- **Weekly plan** : $0.25/semaine × 4 = **$1.00/mois** ⭐
-- **Total hebdo** : ~$2.20/mois (orchestration automatique)
+- **Weekly plans (rolling window 3 semaines)** : $0.35/semaine × 4 = **$1.40/mois** ⭐
+- **Total hebdo** : ~$2.60/mois (orchestration automatique avec rolling window)
 
 **Complexité** : Moyenne-élevée
 - AI integration (nouveau)

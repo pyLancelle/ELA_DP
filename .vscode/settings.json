@@ -10,5 +10,8 @@
     "python.testing.unittestEnabled": true,
     "files.exclude": {
         "**/.git": false
-    }
+    },
+    "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor"
+}
 }

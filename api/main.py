@@ -1,7 +1,7 @@
 # api/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routers import music, homepage, activities
+from api.routers import music, homepage, activities, ai_coach
 
 app = FastAPI(
     title="ELA DataPlatform API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(music.router, prefix="/api/music", tags=["music"])
 app.include_router(homepage.router, prefix="/api/homepage", tags=["homepage"])
 app.include_router(activities.router, prefix="/api/activities", tags=["activities"])
+app.include_router(ai_coach.router, prefix="/api/ai-coach", tags=["ai-coach"])
 
 
 @app.get("/")
@@ -44,6 +45,7 @@ async def root():
             "homepage_top_artists": "/api/homepage/top-artists",
             "homepage_top_tracks": "/api/homepage/top-tracks",
             "activities_recent": "/api/activities/recent",
+            "ai_coach_profile": "/api/ai-coach/profile (POST)",
         },
     }
 
