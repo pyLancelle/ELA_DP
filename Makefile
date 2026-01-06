@@ -224,13 +224,37 @@ ingest-chess: ## Ingest Chess.com data to BigQuery
 api-local: ## Lance l'API en local (sans Docker)
 	uv run uvicorn api.main:app --reload --port 8080
 
-api-docker: ## Lance l'API avec Docker
+api-docker: ## Lance l'API avec Docker (avec AI Coach)
 	docker run --rm \
 		-e MODE=api \
 		-e PORT=8080 \
+		-e ANTHROPIC_API_KEY=$(shell grep ANTHROPIC_API_KEY .env | cut -d '=' -f2) \
 		-p 8080:8080 \
 		-v $(GCLOUD_CONFIG):/root/.config/gcloud:ro \
+		-v $(PWD)/.env:/app/.env:ro \
 		$(DOCKER_IMAGE)
+
+api-test-profile: ## Test AI Coach profile generation
+	curl -s -X POST http://localhost:8080/api/ai-coach/profile \
+		-H "Content-Type: application/json" \
+		-d '{"days": 90, "model": "claude-3-haiku-20240307"}' | python3 -m json.tool
+
+api-test-cycle: ## Test AI Coach cycle generation (12 weeks marathon)
+	curl -s -X POST http://localhost:8080/api/ai-coach/cycle \
+		-H "Content-Type: application/json" \
+		-d '{"goal": "marathon", "total_weeks": 12}' | python3 -m json.tool
+
+api-test-weekly-plan: ## Test AI Coach weekly plan (requires cycle_id, cycle_plan, runner_profile)
+	@echo "Usage: Requires saved cycle data. Use api-test-cycle first, then call manually."
+	@echo "Example:"
+	@echo '  curl -X POST http://localhost:8080/api/ai-coach/weekly-plan \'
+	@echo '    -H "Content-Type: application/json" \'
+	@echo '    -d '"'"'{"cycle_id": "cycle_2025_01_marathon", "week_number": 1, "cycle_plan": {...}, "runner_profile": {...}}'"'"
+
+api-test-weekly-review: ## Test AI Coach weekly review
+	curl -s -X POST http://localhost:8080/api/ai-coach/weekly-review \
+		-H "Content-Type: application/json" \
+		-d '{"cycle_id": "cycle_2025_01_test", "week_number": 1, "week_start": "2024-12-30", "week_end": "2025-01-05"}' | python3 -m json.tool
 
 # ============================================
 # Utilities

@@ -150,3 +150,108 @@ class ProfileSummaryResponse(BaseModel):
     primary_weaknesses: list[str]
     summary: str
     created_at: datetime
+
+
+# =============================================================================
+# Context Models
+# =============================================================================
+
+
+class TrainingObjective(BaseModel):
+    """Training objective details."""
+
+    type: str = Field(..., description="Objective type: 'race' or 'general_fitness'")
+    race_type: Optional[str] = Field(None, description="e.g., 'marathon', 'half_marathon', '10k'")
+    race_date: Optional[str] = Field(None, description="Target race date (YYYY-MM-DD)")
+    target_time: Optional[str] = Field(None, description="Target finish time (HH:MM:SS)")
+    current_level: str = Field(..., description="Current fitness level")
+    current_weekly_volume_km: Optional[float] = None
+
+
+class TrainingConstraints(BaseModel):
+    """Training constraints and limitations."""
+
+    weekly_sessions: int = Field(ge=2, le=7, description="Number of sessions per week")
+    max_weekly_volume_km: float = Field(ge=10, description="Maximum weekly volume in km")
+    unavailable_days: list[str] = Field(default_factory=list, description="Days/times unavailable")
+    injury_history: list[str] = Field(default_factory=list, description="Past injuries")
+    equipment: list[str] = Field(default_factory=list, description="Available equipment")
+
+
+class TrainingPreferences(BaseModel):
+    """Training preferences."""
+
+    training_style: str = Field(default="structured with flexibility")
+    terrain: str = Field(default="mixed road and trail")
+    preferred_workout_types: list[str] = Field(default_factory=list)
+    avoid: list[str] = Field(default_factory=list)
+    long_run_day: Optional[str] = Field(None, description="Preferred long run day")
+    hard_session_day: Optional[str] = Field(None, description="Preferred hard session day")
+
+
+class VolumeDistribution(BaseModel):
+    """Volume distribution across training zones."""
+
+    zone_2_pct: float = Field(default=80, ge=0, le=100)
+    zone_3_pct: float = Field(default=10, ge=0, le=100)
+    zone_4_5_pct: float = Field(default=10, ge=0, le=100)
+
+
+class WeeklyStructure(BaseModel):
+    """Weekly training structure rules."""
+
+    hard_sessions_max: int = Field(default=2, ge=1, le=4)
+    recovery_days_min: int = Field(default=1, ge=0, le=3)
+    long_run_pct_of_weekly_volume: float = Field(default=30, ge=20, le=40)
+
+
+class ProgressionRules(BaseModel):
+    """Progression and safety rules."""
+
+    weekly_volume_increase_max_pct: float = Field(default=10, ge=5, le=15)
+    long_run_increase_max_km: float = Field(default=3, ge=1, le=5)
+    consecutive_hard_days_max: int = Field(default=2, ge=1, le=3)
+
+
+class TrainingPhilosophy(BaseModel):
+    """Training philosophy and adaptation rules."""
+
+    volume_distribution: VolumeDistribution = Field(default_factory=VolumeDistribution)
+    weekly_structure: WeeklyStructure = Field(default_factory=WeeklyStructure)
+    progression_rules: ProgressionRules = Field(default_factory=ProgressionRules)
+    adaptation_priorities: list[str] = Field(
+        default_factory=lambda: [
+            "Sleep quality first - skip hard session if sleep <7h for 3 days",
+            "HRV baseline -10% = recovery week",
+            "Body Battery <25 at bedtime = reduce intensity next day",
+        ]
+    )
+
+
+class ContextUploadRequest(BaseModel):
+    """Request model for uploading a training context."""
+
+    context_type: str = Field(..., description="'race_goal' or 'general_training'")
+    objective: TrainingObjective
+    constraints: TrainingConstraints
+    preferences: TrainingPreferences
+    training_philosophy: TrainingPhilosophy = Field(default_factory=TrainingPhilosophy)
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+
+class ContextResponse(BaseModel):
+    """Response model for context upload."""
+
+    context_id: str
+    gcs_path: str
+    uploaded_at: str
+
+
+class ContextMetadata(BaseModel):
+    """Context metadata for listing."""
+
+    context_id: str
+    gcs_path: str
+    created_at: str
+    context_type: str
+    objective: Optional[str] = None
