@@ -325,7 +325,9 @@ async def get_homepage_data():
         """
         bq_client = get_bq_client()
         results = bq_client.query(query).result()
-        return [dict(row) for row in results]
+        rows = [dict(row) for row in results]
+        # Retourner un objet unique (la première ligne) au lieu d'un tableau
+        return rows[0] if rows else None
 
     try:
         # Exécuter toutes les requêtes en parallèle
