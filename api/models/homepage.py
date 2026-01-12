@@ -72,6 +72,13 @@ class TopTrackHomepage(BaseModel):
     trackid: str
 
 
+class Vo2MaxTrend(BaseModel):
+    current_date: date
+    current_vo2max: float
+    weekly_vo2max_array: List[float]
+    vo2max_delta_6_months: float
+
+
 class HomepageData(BaseModel):
     """Modèle qui regroupe toutes les données de la homepage"""
 
@@ -83,3 +90,4 @@ class HomepageData(BaseModel):
     sleep_stages: List[SleepStages]
     top_artists: List[TopArtistHomepage]
     top_tracks: List[TopTrackHomepage]
+    vo2max_trend: Optional[Vo2MaxTrend] = None
