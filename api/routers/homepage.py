@@ -11,6 +11,7 @@ from api.models.homepage import (
     SleepStages,
     TopArtistHomepage,
     TopTrackHomepage,
+    Vo2MaxTrend,
     HomepageData,
 )
 from api.database import get_bq_client
@@ -204,6 +205,26 @@ async def get_top_tracks():
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
 
+@router.get("/vo2max-trend", response_model=Vo2MaxTrend)
+async def get_vo2max_trend():
+    """Récupère les données de tendance VO2max"""
+    query = f"""
+        SELECT *
+        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__vo2max_trend`
+    """
+
+    try:
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No VO2max data found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
 @router.get("/", response_model=HomepageData)
 async def get_homepage_data():
     """Récupère toutes les données de la homepage en un seul appel"""
@@ -289,6 +310,16 @@ async def get_homepage_data():
         results = bq_client.query(query).result()
         return [dict(row) for row in results]
 
+    async def fetch_vo2max_trend():
+        query = f"""
+            SELECT current_date, current_vo2max, weekly_vo2max_array, vo2max_delta_6_months
+            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__vo2max_trend`
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
+
     try:
         # Exécuter toutes les requêtes en parallèle
         (
@@ -300,6 +331,7 @@ async def get_homepage_data():
             sleep_stages,
             top_artists,
             top_tracks,
+            vo2max_trend,
         ) = await asyncio.gather(
             fetch_music_time_daily(),
             fetch_race_predictions(),
@@ -309,6 +341,7 @@ async def get_homepage_data():
             fetch_sleep_stages(),
             fetch_top_artists(),
             fetch_top_tracks(),
+            fetch_vo2max_trend(),
         )
 
         return HomepageData(
@@ -320,6 +353,7 @@ async def get_homepage_data():
             sleep_stages=sleep_stages,
             top_artists=top_artists,
             top_tracks=top_tracks,
+            vo2max_trend=vo2max_trend,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
