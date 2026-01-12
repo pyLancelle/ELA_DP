@@ -320,7 +320,7 @@ async def get_homepage_data():
 
     async def fetch_vo2max_trend():
         query = f"""
-            SELECT current_date, current_vo2max, weekly_vo2max_array, vo2max_delta_6_months
+            SELECT `current_date`, current_vo2max, weekly_vo2max_array, vo2max_delta_6_months
             FROM `{PROJECT_ID}.{DATASET}.pct_homepage__vo2max_trend`
         """
         bq_client = get_bq_client()
