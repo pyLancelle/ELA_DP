@@ -209,7 +209,11 @@ async def get_top_tracks():
 async def get_vo2max_trend():
     """Récupère les données de tendance VO2max"""
     query = f"""
-        SELECT *
+        SELECT    
+            current_date,
+            current_vo2max,
+            weekly_vo2max_array,
+            vo2max_delta_6_months
         FROM `{PROJECT_ID}.{DATASET}.pct_homepage__vo2max_trend`
     """
 
