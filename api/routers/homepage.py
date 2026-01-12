@@ -209,8 +209,8 @@ async def get_top_tracks():
 async def get_vo2max_trend():
     """Récupère les données de tendance VO2max"""
     query = f"""
-        SELECT    
-            current_date,
+        SELECT
+            `current_date`,
             current_vo2max,
             weekly_vo2max_array,
             vo2max_delta_6_months
@@ -222,7 +222,11 @@ async def get_vo2max_trend():
         results = bq_client.query(query).result()
         rows = [dict(row) for row in results]
         if rows:
-            return rows[0]
+            data = rows[0]
+            # Fix pour le bug BigQuery qui retourne f0_ au lieu de current_date
+            # if 'f0_' in data and 'current_date' not in data:
+            #     data['current_date'] = data.pop('f0_')
+            return data
         else:
             raise HTTPException(status_code=404, detail="No VO2max data found")
     except Exception as e:
@@ -321,8 +325,7 @@ async def get_homepage_data():
         """
         bq_client = get_bq_client()
         results = bq_client.query(query).result()
-        rows = [dict(row) for row in results]
-        return rows[0] if rows else None
+        return [dict(row) for row in results]
 
     try:
         # Exécuter toutes les requêtes en parallèle

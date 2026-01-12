@@ -38,4 +38,4 @@ SELECT
 FROM current_vo2max
 CROSS JOIN weekly_averages
 LEFT JOIN six_months_ago_vo2max ON TRUE
-GROUP BY 1, 2, six_months_ago_vo2max.vo2max
+GROUP BY ALL
