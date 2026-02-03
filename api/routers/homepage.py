@@ -347,17 +347,6 @@ async def get_homepage_data():
         results = bq_client.query(query).result()
         return [dict(row) for row in results]
 
-    async def fetch_sleep_body_battery():
-        query = f"""
-            SELECT date, day_abbr_french, sleep_score, battery_at_bedtime, battery_at_waketime,
-                   battery_gain, avg_hrv, resting_hr
-            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__sleep_body_battery`
-            ORDER BY date ASC
-        """
-        bq_client = get_bq_client()
-        results = bq_client.query(query).result()
-        return [dict(row) for row in results]
-
     async def fetch_sleep_stages():
         query = f"""
             SELECT date, start_time, end_time, level_name
@@ -460,7 +449,6 @@ async def get_homepage_data():
             fetch_race_predictions(),
             fetch_running_weekly(),
             fetch_running_weekly_volume(),
-            fetch_sleep_body_battery(),
             fetch_sleep_stages(),
             fetch_top_artists(),
             fetch_top_tracks(),
@@ -476,7 +464,6 @@ async def get_homepage_data():
             race_predictions=race_predictions,
             running_weekly=running_weekly,
             running_weekly_volume=running_weekly_volume,
-            sleep_body_battery=sleep_body_battery,
             sleep_stages=sleep_stages,
             top_artists=top_artists,
             top_tracks=top_tracks,
