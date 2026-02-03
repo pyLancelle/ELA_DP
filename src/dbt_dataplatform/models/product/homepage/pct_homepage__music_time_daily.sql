@@ -1,6 +1,6 @@
 WITH date_spine AS (
     SELECT DATE_SUB(CURRENT_DATE(), INTERVAL offset DAY) as date
-    FROM UNNEST(GENERATE_ARRAY(0, 13)) AS offset
+    FROM UNNEST(GENERATE_ARRAY(0, 10)) AS offset
 ),
 ranking AS (
     SELECT
@@ -47,8 +47,7 @@ SELECT
             day_letter,
             duration_formatted
         )
-        ORDER BY date DESC
-        LIMIT 10
+        ORDER BY date ASC
     ) as data,
     CONCAT(
         CAST(FLOOR(ANY_VALUE(avg_duration_ms) / 3600000) AS STRING), 'h ',
