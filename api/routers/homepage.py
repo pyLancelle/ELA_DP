@@ -20,22 +20,24 @@ from api.config import PROJECT_ID, DATASET
 router = APIRouter()
 
 
-@router.get("/music-time-daily", response_model=List[MusicTimeDaily])
+@router.get("/music-time-daily", response_model=MusicTimeDaily)
 async def get_music_time_daily():
     """Récupère le temps d'écoute quotidien sur les 14 derniers jours"""
     query = f"""
         SELECT
-            date,
-            total_duration_ms,
-            total_duration
+            data,
+            avg_duration_formatted
         FROM `{PROJECT_ID}.{DATASET}.pct_homepage__music_time_daily`
-        ORDER BY date DESC
     """
 
     try:
         bq_client = get_bq_client()
         results = bq_client.query(query).result()
-        return [dict(row) for row in results]
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No music time data found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
@@ -239,13 +241,13 @@ async def get_homepage_data():
 
     async def fetch_music_time_daily():
         query = f"""
-            SELECT date, total_duration_ms, total_duration
+            SELECT data, avg_duration_formatted
             FROM `{PROJECT_ID}.{DATASET}.pct_homepage__music_time_daily`
-            ORDER BY date DESC
         """
         bq_client = get_bq_client()
         results = bq_client.query(query).result()
-        return [dict(row) for row in results]
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
 
     async def fetch_race_predictions():
         query = f"""

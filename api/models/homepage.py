@@ -4,10 +4,17 @@ from typing import Optional, List
 from datetime import date, datetime
 
 
-class MusicTimeDaily(BaseModel):
+class MusicTimeDailyItem(BaseModel):
     date: date
     total_duration_ms: int
-    total_duration: str
+    bar_height_percent: float
+    day_letter: str
+    duration_formatted: str
+
+
+class MusicTimeDaily(BaseModel):
+    data: List[MusicTimeDailyItem]
+    avg_duration_formatted: str
 
 
 class RacePrediction(BaseModel):
@@ -82,7 +89,7 @@ class Vo2MaxTrend(BaseModel):
 class HomepageData(BaseModel):
     """Modèle qui regroupe toutes les données de la homepage"""
 
-    music_time_daily: List[MusicTimeDaily]
+    music_time_daily: Optional[MusicTimeDaily] = None
     race_predictions: List[RacePrediction]
     running_weekly: List[RunningWeekly]
     running_weekly_volume: List[RunningWeeklyVolume]
