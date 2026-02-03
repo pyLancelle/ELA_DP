@@ -116,31 +116,6 @@ async def get_running_weekly_volume():
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
 
-@router.get("/sleep-body-battery", response_model=List[SleepBodyBattery])
-async def get_sleep_body_battery():
-    """Récupère les données de sommeil et body battery des 7 derniers jours"""
-    query = f"""
-        SELECT
-            date,
-            day_abbr_french,
-            sleep_score,
-            battery_at_bedtime,
-            battery_at_waketime,
-            battery_gain,
-            avg_hrv,
-            resting_hr
-        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__sleep_body_battery`
-        ORDER BY date ASC
-    """
-
-    try:
-        bq_client = get_bq_client()
-        results = bq_client.query(query).result()
-        return [dict(row) for row in results]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
-
-
 @router.get("/sleep-stages", response_model=List[SleepStages])
 async def get_sleep_stages():
     """Récupère les phases de sommeil détaillées de la dernière nuit"""
