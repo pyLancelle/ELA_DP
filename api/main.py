@@ -39,7 +39,6 @@ async def root():
             "homepage_race_prediction": "/api/homepage/race-prediction",
             "homepage_running_weekly": "/api/homepage/running-weekly",
             "homepage_running_weekly_volume": "/api/homepage/running-weekly-volume",
-            "homepage_sleep_body_battery": "/api/homepage/sleep-body-battery",
             "homepage_sleep_stages": "/api/homepage/sleep-stages",
             "homepage_top_artists": "/api/homepage/top-artists",
             "homepage_top_tracks": "/api/homepage/top-tracks",

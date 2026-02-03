@@ -40,17 +40,6 @@ class RunningWeeklyVolume(BaseModel):
     total_distance_km: int
 
 
-class SleepBodyBattery(BaseModel):
-    date: date
-    day_abbr_french: str
-    sleep_score: Optional[int] = None
-    battery_at_bedtime: Optional[int] = None
-    battery_at_waketime: Optional[int] = None
-    battery_gain: Optional[int] = None
-    avg_hrv: Optional[int] = None
-    resting_hr: Optional[int] = None
-
-
 class SleepStages(BaseModel):
     date: date
     start_time: datetime
@@ -143,7 +132,6 @@ class HomepageData(BaseModel):
     race_predictions: List[RacePrediction]
     running_weekly: List[RunningWeekly]
     running_weekly_volume: List[RunningWeeklyVolume]
-    sleep_body_battery: List[SleepBodyBattery]
     sleep_stages: List[SleepStages]
     top_artists: List[TopArtistHomepage]
     top_tracks: List[TopTrackHomepage]

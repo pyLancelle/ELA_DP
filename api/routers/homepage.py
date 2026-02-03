@@ -7,7 +7,6 @@ from api.models.homepage import (
     RacePrediction,
     RunningWeekly,
     RunningWeeklyVolume,
-    SleepBodyBattery,
     SleepStages,
     TopArtistHomepage,
     TopTrackHomepage,
