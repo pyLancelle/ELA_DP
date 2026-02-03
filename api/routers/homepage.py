@@ -12,6 +12,10 @@ from api.models.homepage import (
     TopArtistHomepage,
     TopTrackHomepage,
     Vo2MaxTrend,
+    SleepScores,
+    BodyBattery,
+    Hrv,
+    RestingHr,
     HomepageData,
 )
 from api.database import get_bq_client
@@ -235,6 +239,95 @@ async def get_vo2max_trend():
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
 
+@router.get("/sleep-scores", response_model=SleepScores)
+async def get_sleep_scores():
+    """Récupère les scores de sommeil des 7 derniers jours avec moyenne"""
+    query = f"""
+        SELECT
+            average,
+            daily
+        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__sleep_scores`
+    """
+
+    try:
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No sleep scores data found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
+@router.get("/body-battery", response_model=BodyBattery)
+async def get_body_battery():
+    """Récupère les données de body battery des 7 derniers jours avec gain moyen"""
+    query = f"""
+        SELECT
+            average_gain,
+            daily
+        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__body_battery`
+    """
+
+    try:
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No body battery data found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
+@router.get("/hrv", response_model=Hrv)
+async def get_hrv():
+    """Récupère les données de HRV des 7 derniers jours avec moyenne et baseline"""
+    query = f"""
+        SELECT
+            average,
+            baseline,
+            daily
+        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__hrv`
+    """
+
+    try:
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No HRV data found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
+@router.get("/resting-hr", response_model=RestingHr)
+async def get_resting_hr():
+    """Récupère les données de fréquence cardiaque au repos des 7 derniers jours avec moyenne"""
+    query = f"""
+        SELECT
+            average,
+            daily
+        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__resting_hr`
+    """
+
+    try:
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No resting HR data found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
 @router.get("/", response_model=HomepageData)
 async def get_homepage_data():
     """Récupère toutes les données de la homepage en un seul appel"""
@@ -331,6 +424,46 @@ async def get_homepage_data():
         # Retourner un objet unique (la première ligne) au lieu d'un tableau
         return rows[0] if rows else None
 
+    async def fetch_sleep_scores():
+        query = f"""
+            SELECT average, daily
+            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__sleep_scores`
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
+
+    async def fetch_body_battery():
+        query = f"""
+            SELECT average_gain, daily
+            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__body_battery`
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
+
+    async def fetch_hrv():
+        query = f"""
+            SELECT average, baseline, daily
+            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__hrv`
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
+
+    async def fetch_resting_hr():
+        query = f"""
+            SELECT average, daily
+            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__resting_hr`
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
+
     try:
         # Exécuter toutes les requêtes en parallèle
         (
@@ -343,6 +476,10 @@ async def get_homepage_data():
             top_artists,
             top_tracks,
             vo2max_trend,
+            sleep_scores,
+            body_battery,
+            hrv,
+            resting_hr,
         ) = await asyncio.gather(
             fetch_music_time_daily(),
             fetch_race_predictions(),
@@ -353,6 +490,10 @@ async def get_homepage_data():
             fetch_top_artists(),
             fetch_top_tracks(),
             fetch_vo2max_trend(),
+            fetch_sleep_scores(),
+            fetch_body_battery(),
+            fetch_hrv(),
+            fetch_resting_hr(),
         )
 
         return HomepageData(
@@ -365,6 +506,10 @@ async def get_homepage_data():
             top_artists=top_artists,
             top_tracks=top_tracks,
             vo2max_trend=vo2max_trend,
+            sleep_scores=sleep_scores,
+            body_battery=body_battery,
+            hrv=hrv,
+            resting_hr=resting_hr,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
