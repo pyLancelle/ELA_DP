@@ -46,7 +46,7 @@ SELECT
       daily_data.value > stats.baseline as is_above_baseline,
       ROUND(SAFE_DIVIDE(daily_data.value * 100, stats.max_value), 1) as display_height_percent
     )
-    ORDER BY daily_data.date DESC
+    ORDER BY daily_data.date ASC
     LIMIT 7
   ) as daily
 FROM daily_data

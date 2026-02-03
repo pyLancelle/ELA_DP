@@ -40,7 +40,7 @@ SELECT
       value,
       ROUND(SAFE_DIVIDE(value * 100, (SELECT max_value FROM stats)), 1) as display_height_percent
     )
-    ORDER BY date DESC
+    ORDER BY date ASC
     LIMIT 7
   ) as daily
 FROM daily_data

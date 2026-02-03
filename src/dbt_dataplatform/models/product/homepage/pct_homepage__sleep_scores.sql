@@ -36,6 +36,6 @@ SELECT
       day,
       score
     )
-    ORDER BY date DESC
+    ORDER BY date ASC
   ) as daily
 FROM daily_data

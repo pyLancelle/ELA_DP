@@ -43,6 +43,6 @@ SELECT
       waketime,
       gain
     )
-    ORDER BY date DESC
+    ORDER BY date ASC
   ) as daily
 FROM daily_data
