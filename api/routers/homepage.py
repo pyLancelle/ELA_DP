@@ -435,7 +435,6 @@ async def get_homepage_data():
             race_predictions,
             running_weekly,
             running_weekly_volume,
-            sleep_body_battery,
             sleep_stages,
             top_artists,
             top_tracks,
