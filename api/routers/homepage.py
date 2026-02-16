@@ -15,6 +15,8 @@ from api.models.homepage import (
     BodyBattery,
     Hrv,
     RestingHr,
+    Steps,
+    StressDaily,
     HomepageData,
 )
 from api.database import get_bq_client
@@ -302,6 +304,51 @@ async def get_resting_hr():
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
 
+@router.get("/steps", response_model=Steps)
+async def get_steps():
+    """Récupère les données de steps (nombre de pas) des 7 derniers jours avec moyenne et objectif"""
+    query = f"""
+        SELECT
+            average,
+            goal,
+            daily
+        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__steps`
+    """
+
+    try:
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No steps data found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
+@router.get("/stress-daily", response_model=StressDaily)
+async def get_stress_daily():
+    """Récupère les données de stress quotidien des 7 derniers jours avec moyenne"""
+    query = f"""
+        SELECT
+            average_stress,
+            daily
+        FROM `{PROJECT_ID}.{DATASET}.pct_homepage__stress_daily`
+    """
+
+    try:
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        if rows:
+            return rows[0]
+        else:
+            raise HTTPException(status_code=404, detail="No stress daily data found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
+
+
 @router.get("/", response_model=HomepageData)
 async def get_homepage_data():
     """Récupère toutes les données de la homepage en un seul appel"""
@@ -427,6 +474,26 @@ async def get_homepage_data():
         rows = [dict(row) for row in results]
         return rows[0] if rows else None
 
+    async def fetch_steps():
+        query = f"""
+            SELECT average, goal, daily
+            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__steps`
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
+
+    async def fetch_stress_daily():
+        query = f"""
+            SELECT average_stress, daily
+            FROM `{PROJECT_ID}.{DATASET}.pct_homepage__stress_daily`
+        """
+        bq_client = get_bq_client()
+        results = bq_client.query(query).result()
+        rows = [dict(row) for row in results]
+        return rows[0] if rows else None
+
     try:
         # Exécuter toutes les requêtes en parallèle
         (
@@ -442,6 +509,8 @@ async def get_homepage_data():
             body_battery,
             hrv,
             resting_hr,
+            steps,
+            stress_daily,
         ) = await asyncio.gather(
             fetch_music_time_daily(),
             fetch_race_predictions(),
@@ -455,6 +524,8 @@ async def get_homepage_data():
             fetch_body_battery(),
             fetch_hrv(),
             fetch_resting_hr(),
+            fetch_steps(),
+            fetch_stress_daily(),
         )
 
         return HomepageData(
@@ -470,6 +541,8 @@ async def get_homepage_data():
             body_battery=body_battery,
             hrv=hrv,
             resting_hr=resting_hr,
+            steps=steps,
+            stress_daily=stress_daily,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")

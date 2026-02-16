@@ -125,6 +125,30 @@ class RestingHr(BaseModel):
     daily: List[RestingHrDaily]
 
 
+class StepsDaily(BaseModel):
+    date: str
+    day: str
+    steps: int
+
+
+class Steps(BaseModel):
+    average: int
+    goal: int
+    daily: List[StepsDaily]
+
+
+class StressDailyItem(BaseModel):
+    date: str
+    day: str
+    avg_stress: int
+    max_stress: int
+
+
+class StressDaily(BaseModel):
+    average_stress: int
+    daily: List[StressDailyItem]
+
+
 class HomepageData(BaseModel):
     """Modèle qui regroupe toutes les données de la homepage"""
 
@@ -140,3 +164,5 @@ class HomepageData(BaseModel):
     body_battery: Optional[BodyBattery] = None
     hrv: Optional[Hrv] = None
     resting_hr: Optional[RestingHr] = None
+    steps: Optional[Steps] = None
+    stress_daily: Optional[StressDaily] = None
