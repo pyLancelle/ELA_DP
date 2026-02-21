@@ -43,6 +43,7 @@ async def root():
             "homepage_top_artists": "/api/homepage/top-artists",
             "homepage_top_tracks": "/api/homepage/top-tracks",
             "activities_recent": "/api/activities/recent",
+            "activities_list": "/api/activities/list",
         },
     }
 
