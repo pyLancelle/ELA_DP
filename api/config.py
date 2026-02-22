@@ -2,6 +2,7 @@ import os
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "polar-scene-465223-f7")
 DATASET = "dp_product_dev"
+DATASET_HUB = "dp_hub_dev"
 
 VALID_PERIODS = [
     "yesterday",

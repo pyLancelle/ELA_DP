@@ -1,6 +1,6 @@
 WITH
 activities AS (
-    SELECT * EXCEPT(polyline, timeseries)
+    SELECT * EXCEPT(polyline)
     FROM {{ ref('hub_health__svc_activities') }}
     ORDER BY activityid DESC
     LIMIT 100
