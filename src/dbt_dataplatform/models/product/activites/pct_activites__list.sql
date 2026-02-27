@@ -8,7 +8,7 @@ Matérialisée en table pour éviter les calculs à la volée.
 {{
   config(
       tags=['product', 'activites'],
-      materialized='table'
+      materialized='view'
   )
 }}
 

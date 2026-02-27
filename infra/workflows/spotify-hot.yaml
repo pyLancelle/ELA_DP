@@ -44,7 +44,19 @@ main:
         args:
           text: ${"✅ dbt completed - " + dbt_result.name}
           severity: INFO
-    
+
+    - export_spotify:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: projects/polar-scene-465223-f7/locations/europe-west1/jobs/export-spotify
+        result: export_result
+
+    - log_export_complete:
+        call: sys.log
+        args:
+          text: ${"📤 Export completed - " + export_result.name}
+          severity: INFO
+
     # Success
     - return_success:
         return:
@@ -55,3 +67,4 @@ main:
             fetch: ${fetch_result.name}
             ingest: ${ingest_result.name}
             dbt: ${dbt_result.name}
+            export: ${export_result.name}
