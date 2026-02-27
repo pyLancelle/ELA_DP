@@ -218,6 +218,45 @@ ingest-chess: ## Ingest Chess.com data to BigQuery
 		$(DOCKER_IMAGE)
 
 # ============================================
+# Export - GCS Static Files
+# ============================================
+
+export-homepage: ## Export homepage data to GCS en local (usage: make export-homepage BUCKET=my-bucket)
+	uv run python -m src.connectors.exporter.homepage $(if $(BUCKET),--bucket $(BUCKET),)
+
+export-homepage-dry: ## Preview homepage JSON export (dry-run)
+	uv run python -m src.connectors.exporter.homepage --dry-run
+
+export-homepage-docker: ## Export homepage via Docker (usage: make export-homepage-docker BUCKET=my-bucket)
+	docker run --rm \
+		-e MODE=export \
+		-e EXPORT_TYPE=homepage \
+		-e BUCKET=$(BUCKET) \
+		-v $(GCLOUD_CONFIG):/root/.config/gcloud:ro \
+		$(DOCKER_IMAGE)
+
+export-music: ## Export music classement to GCS (usage: make export-music BUCKET=my-bucket)
+	uv run python -m src.connectors.exporter.music $(if $(BUCKET),--bucket $(BUCKET),) $(if $(PERIODS),--periods $(PERIODS),)
+
+export-music-dry: ## Preview music classement JSON export (dry-run)
+	uv run python -m src.connectors.exporter.music --dry-run
+
+export-activities: ## Export activities to GCS (usage: make export-activities BUCKET=my-bucket LIMIT=5)
+	uv run python -m src.connectors.exporter.activities $(if $(BUCKET),--bucket $(BUCKET),) $(if $(LIMIT),--limit $(LIMIT),)
+
+export-activities-dry: ## Preview activities JSON export (dry-run)
+	uv run python -m src.connectors.exporter.activities --dry-run $(if $(LIMIT),--limit $(LIMIT),)
+
+export-activities-list: ## Export activities list only (no details)
+	uv run python -m src.connectors.exporter.activities $(if $(BUCKET),--bucket $(BUCKET),) --skip-details
+
+export-garmin: ## Export Garmin data (activities) - 1x/day
+	uv run python -m src.connectors.exporter.all --scope garmin $(if $(BUCKET),--bucket $(BUCKET),)
+
+export-spotify: ## Export Spotify data (homepage + music) - 6x/day
+	uv run python -m src.connectors.exporter.all --scope spotify $(if $(BUCKET),--bucket $(BUCKET),)
+
+# ============================================
 # API
 # ============================================
 

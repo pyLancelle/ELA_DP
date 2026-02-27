@@ -157,7 +157,70 @@ elif [ "$MODE" = "dbt" ]; then
         exec dbt "${CMD_ARGS[@]}"
     fi
 
+elif [ "$MODE" = "export" ]; then
+    # ========================================
+    # EXPORT MODE (GCS Static Files)
+    # ========================================
+    echo "📤 Export Mode"
+    echo "  Type: ${EXPORT_TYPE:-homepage}"
+    echo "  Bucket: ${BUCKET:-}"
+    echo ""
+
+    CMD_ARGS=()
+
+    # Add bucket if specified
+    if [ -n "$BUCKET" ]; then
+        CMD_ARGS+=(--bucket "$BUCKET")
+    fi
+
+    # Add dry-run if specified
+    if [ -n "$DRY_RUN" ] && [ "$DRY_RUN" = "true" ]; then
+        CMD_ARGS+=(--dry-run)
+    fi
+
+    # Route to appropriate exporter based on EXPORT_TYPE
+    EXPORT_TYPE="${EXPORT_TYPE:-homepage}"
+
+    # Add periods if specified (for music export)
+    if [ -n "$PERIODS" ]; then
+        CMD_ARGS+=(--periods "$PERIODS")
+    fi
+
+    # Add skip-details if specified (for activities export)
+    if [ -n "$SKIP_DETAILS" ] && [ "$SKIP_DETAILS" = "true" ]; then
+        CMD_ARGS+=(--skip-details)
+    fi
+
+    # Add limit if specified (for activities export)
+    if [ -n "$LIMIT" ]; then
+        CMD_ARGS+=(--limit "$LIMIT")
+    fi
+
+    # Add scope if specified (for all export)
+    if [ -n "$SCOPE" ]; then
+        CMD_ARGS+=(--scope "$SCOPE")
+    fi
+
+    case "$EXPORT_TYPE" in
+        homepage)
+            exec uv run python -m src.connectors.exporter.homepage "${CMD_ARGS[@]}"
+            ;;
+        music)
+            exec uv run python -m src.connectors.exporter.music "${CMD_ARGS[@]}"
+            ;;
+        activities)
+            exec uv run python -m src.connectors.exporter.activities "${CMD_ARGS[@]}"
+            ;;
+        all)
+            exec uv run python -m src.connectors.exporter.all "${CMD_ARGS[@]}"
+            ;;
+        *)
+            echo "Error: Unknown EXPORT_TYPE='$EXPORT_TYPE'. Valid values: 'homepage', 'music', 'activities', 'all'"
+            exit 1
+            ;;
+    esac
+
 else
-    echo "Error: Unknown MODE='$MODE'. Valid values: 'fetch' or 'ingest'"
+    echo "Error: Unknown MODE='$MODE'. Valid values: 'fetch', 'ingest', 'dbt', 'api', 'export'"
     exit 1
 fi
