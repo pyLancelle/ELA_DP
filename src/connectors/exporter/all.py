@@ -66,8 +66,8 @@ def export_spotify(bucket: str, dry_run: bool = False) -> list[str]:
     uris.extend(music_uris)
 
     # Artist focus profiles
-    print("\n[3/3] Exporting artist focus profiles (top 50 + active last 24h)...")
-    artist_uris = export_artist_focus(bucket_name=bucket, dry_run=dry_run, top_n=50)
+    print("\n[3/3] Exporting artist focus profiles...")
+    artist_uris = export_artist_focus(bucket_name=bucket, dry_run=dry_run)
     uris.extend(artist_uris)
 
     return uris
