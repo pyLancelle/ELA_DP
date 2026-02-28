@@ -36,7 +36,7 @@ ranked AS (
     SELECT
         ts.artistid                                                                 AS artist_id,
         ROW_NUMBER() OVER (
-            PARTITION BY ts.artistid ORDER BY ts.play_count DESC
+            PARTITION BY ts.artistid ORDER BY ts.total_listen_ms DESC
         )                                                                           AS track_rank,
         ts.trackid                                                                  AS track_id,
         ts.trackname                                                                AS track_name,

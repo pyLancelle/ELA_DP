@@ -23,6 +23,7 @@ class ArtistFocusOverview(BaseModel):
     days_since_discovery: int
     consistency_score: float
     avg_plays_per_active_day: float
+    current_streak: int
 
 
 class ArtistFocusTrack(BaseModel):

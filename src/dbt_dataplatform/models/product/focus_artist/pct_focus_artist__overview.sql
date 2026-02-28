@@ -1,6 +1,33 @@
 {{ config(materialized='table', tags=['spotify', 'product']) }}
 
-WITH listening_stats AS (
+WITH streak_dates AS (
+    SELECT DISTINCT
+        bridge.artistid,
+        DATE(fact.playedat) AS listen_date
+    FROM {{ ref('hub_music__svc_fact_played') }} AS fact
+    INNER JOIN {{ ref('hub_music__svc_bridge_tracks_artists') }} AS bridge
+        ON fact.trackid = bridge.trackid
+    WHERE bridge.artist_role = 'primary'
+      AND bridge.artistid IS NOT NULL
+),
+
+numbered AS (
+    SELECT
+        artistid,
+        DATE_DIFF(CURRENT_DATE(), listen_date, DAY) AS days_ago,
+        ROW_NUMBER() OVER (PARTITION BY artistid ORDER BY listen_date DESC) AS rn
+    FROM streak_dates
+    WHERE listen_date <= CURRENT_DATE()
+),
+
+streaks AS (
+    SELECT artistid, COUNT(*) AS current_streak
+    FROM numbered
+    WHERE days_ago = rn - 1   -- jours consécutifs jusqu'à aujourd'hui
+    GROUP BY artistid
+),
+
+listening_stats AS (
     SELECT
         bridge.artistid,
         COUNT(DISTINCT fact.playedat)           AS total_play_count,
@@ -43,6 +70,8 @@ SELECT
         / NULLIF(DATE_DIFF(CURRENT_DATE(), s.first_played_date, DAY), 0),
         1
     )                                                                               AS consistency_score,
-    ROUND(s.total_play_count / NULLIF(s.days_with_listens, 0), 1)                 AS avg_plays_per_active_day
+    ROUND(s.total_play_count / NULLIF(s.days_with_listens, 0), 1)                 AS avg_plays_per_active_day,
+    COALESCE(str.current_streak, 0)                                                AS current_streak
 FROM {{ ref('hub_music__svc_dim_artists') }} AS a
 INNER JOIN listening_stats AS s ON a.artistid = s.artistid
+LEFT JOIN streaks AS str ON a.artistid = str.artistid
