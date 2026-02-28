@@ -13,6 +13,7 @@ import os
 from src.connectors.exporter.homepage import export_homepage
 from src.connectors.exporter.music import export_music_classement
 from src.connectors.exporter.activities import export_activities
+from src.connectors.exporter.artist_focus import export_artist_focus
 
 GCS_BUCKET = os.getenv("GCS_EXPORT_BUCKET", "ela-dp-export")
 ACTIVITIES_LIMIT = int(os.getenv("ACTIVITIES_LIMIT", "5"))
@@ -45,6 +46,7 @@ def export_spotify(bucket: str, dry_run: bool = False) -> list[str]:
     Export Spotify-related data.
     - homepage.json
     - music_classement_{period}.json (all periods)
+    - artist_focus_index.json + artist_focus_{id}.json (all artists)
     """
     print("=" * 50)
     print("SPOTIFY EXPORT")
@@ -53,15 +55,20 @@ def export_spotify(bucket: str, dry_run: bool = False) -> list[str]:
     uris = []
 
     # Homepage
-    print("\n[1/2] Exporting homepage...")
+    print("\n[1/3] Exporting homepage...")
     uri = export_homepage(bucket_name=bucket, dry_run=dry_run)
     if uri != "dry-run":
         uris.append(uri)
 
     # Music classement
-    print("\n[2/2] Exporting music classement...")
+    print("\n[2/3] Exporting music classement...")
     music_uris = export_music_classement(bucket_name=bucket, dry_run=dry_run)
     uris.extend(music_uris)
+
+    # Artist focus profiles
+    print("\n[3/3] Exporting artist focus profiles...")
+    artist_uris = export_artist_focus(bucket_name=bucket, dry_run=dry_run)
+    uris.extend(artist_uris)
 
     return uris
 

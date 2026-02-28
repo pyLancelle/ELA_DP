@@ -211,11 +211,14 @@ elif [ "$MODE" = "export" ]; then
         activities)
             exec uv run python -m src.connectors.exporter.activities "${CMD_ARGS[@]}"
             ;;
+        artist_focus)
+            exec uv run python -m src.connectors.exporter.artist_focus "${CMD_ARGS[@]}"
+            ;;
         all)
             exec uv run python -m src.connectors.exporter.all "${CMD_ARGS[@]}"
             ;;
         *)
-            echo "Error: Unknown EXPORT_TYPE='$EXPORT_TYPE'. Valid values: 'homepage', 'music', 'activities', 'all'"
+            echo "Error: Unknown EXPORT_TYPE='$EXPORT_TYPE'. Valid values: 'homepage', 'music', 'activities', 'artist_focus', 'all'"
             exit 1
             ;;
     esac
