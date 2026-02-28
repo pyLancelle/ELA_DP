@@ -175,7 +175,7 @@ def export_artist_focus(
                 calendar_by_artist, heatmap_by_artist,
                 evolution_by_artist, generated_at,
             )
-            print(f"\n--- DRY RUN: artist_focus_{sample_id}.json ---")
+            print(f"\n--- DRY RUN: artist_focus/{sample_id}.json ---")
             print(json.dumps(sample, default=json_serializer, ensure_ascii=False, indent=2)[:1000])
             print("... (truncated)")
         return []
@@ -183,7 +183,7 @@ def export_artist_focus(
     uris = []
 
     # Upload index
-    blob_name = "artist_focus_index.json"
+    blob_name = "artist_focus/index.json"
     print(f"\n  Uploading {blob_name}...")
     uris.append(upload_to_gcs(index, bucket, blob_name))
 
@@ -197,12 +197,12 @@ def export_artist_focus(
             calendar_by_artist, heatmap_by_artist,
             evolution_by_artist, generated_at,
         )
-        blob_name = f"artist_focus_{artist_id}.json"
+        blob_name = f"artist_focus/{artist_id}.json"
         uri = upload_to_gcs(payload, bucket, blob_name)
         uris.append(uri)
         print(f"    {artist_name} → {uri}")
 
-    print(f"\n  Exported {len(uris)} files to gs://{bucket}/")
+    print(f"\n  Exported {len(uris)} files to gs://{bucket}/artist_focus/")
     return uris
 
 
