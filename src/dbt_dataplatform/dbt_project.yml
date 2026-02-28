@@ -38,3 +38,6 @@ models:
       music:
         +schema: product_{{ target.name }}
         +materialized: view
+      focus_artist:
+        +schema: product_{{ target.name }}
+        +materialized: view
