@@ -35,10 +35,20 @@ def query_to_list(client: bigquery.Client, query: str) -> list[dict]:
     return [dict(row) for row in client.query(query).result()]
 
 
-def fetch_overview(client: bigquery.Client) -> list[dict]:
+def fetch_overview(client: bigquery.Client, top_n: int = 50) -> list[dict]:
     return query_to_list(
         client,
-        f"SELECT * FROM `{PROJECT_ID}.{DATASET}.pct_focus_artist__overview` ORDER BY total_plays DESC",
+        f"""
+        WITH ranked AS (
+            SELECT *, ROW_NUMBER() OVER (ORDER BY total_plays DESC) AS rn
+            FROM `{PROJECT_ID}.{DATASET}.pct_focus_artist__overview`
+        )
+        SELECT * EXCEPT(rn)
+        FROM ranked
+        WHERE rn <= {top_n}
+           OR CAST(last_heard AS DATE) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+        ORDER BY total_plays DESC
+        """,
     )
 
 
@@ -98,6 +108,7 @@ def upload_to_gcs(data: dict, bucket_name: str, blob_name: str) -> str:
 def export_artist_focus(
     bucket_name: str | None = None,
     dry_run: bool = False,
+    top_n: int = 50,
 ) -> list[str]:
     """
     Export focus-artist data to GCS.
@@ -115,8 +126,8 @@ def export_artist_focus(
     bucket = bucket_name or GCS_BUCKET
     client = get_bq_client()
 
-    print("  Fetching overview...")
-    overview_rows = fetch_overview(client)
+    print(f"  Fetching overview (top {top_n} + active last 24h)...")
+    overview_rows = fetch_overview(client, top_n=top_n)
     print(f"    → {len(overview_rows)} artists")
 
     print("  Fetching top_tracks...")
@@ -221,9 +232,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Export artist focus data to GCS")
     parser.add_argument("--bucket", help="GCS bucket name", default=None)
+    parser.add_argument("--top-n", type=int, default=50, help="Top N artists by total plays (default: 50)")
     parser.add_argument(
         "--dry-run", action="store_true", help="Print JSON instead of uploading"
     )
 
     args = parser.parse_args()
-    export_artist_focus(bucket_name=args.bucket, dry_run=args.dry_run)
+    export_artist_focus(bucket_name=args.bucket, dry_run=args.dry_run, top_n=args.top_n)
