@@ -48,9 +48,9 @@ ranked AS (
         ts.total_listen_ms                                                          AS total_duration_ms,
         CAST(ts.first_played_at AS STRING)                                          AS first_played_at,
         CAST(ts.last_played_at AS STRING)                                           AS last_played_at,
-        ROUND(100.0 * ts.total_listen_ms / NULLIF(at.artist_total_ms, 0), 1)      AS pct_of_artist_time
+        ROUND(100.0 * ts.total_listen_ms / NULLIF(atot.artist_total_ms, 0), 1)    AS pct_of_artist_time
     FROM track_stats AS ts
-    LEFT JOIN artist_totals AS at ON ts.artistid = at.artistid
+    LEFT JOIN artist_totals AS atot ON ts.artistid = atot.artistid
 )
 
 SELECT *
