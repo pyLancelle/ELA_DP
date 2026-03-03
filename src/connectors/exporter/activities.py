@@ -195,10 +195,10 @@ def export_activities(
 
     if dry_run:
         print(
-            f"    Would export activities_list.json ({len(activities_list)} activities)"
+            f"    Would export garmin/activities_list.json ({len(activities_list)} activities)"
         )
     else:
-        uri = upload_to_gcs(list_data, bucket, "activities_list.json")
+        uri = upload_to_gcs(list_data, bucket, "garmin/activities_list.json")
         uris.append(uri)
         print(f"    Done: {uri}")
 
@@ -212,10 +212,10 @@ def export_activities(
 
     if dry_run:
         print(
-            f"    Would export activities_recent.json ({len(activities_recent)} activities)"
+            f"    Would export garmin/activities_recent.json ({len(activities_recent)} activities)"
         )
     else:
-        uri = upload_to_gcs(recent_data, bucket, "activities_recent.json")
+        uri = upload_to_gcs(recent_data, bucket, "garmin/activities_recent.json")
         uris.append(uri)
         print(f"    Done: {uri}")
 
@@ -232,17 +232,17 @@ def export_activities(
             print(f"  [{i}/{len(activity_ids)}] Exporting activity {activity_id}...")
 
             if dry_run:
-                print(f"    Would export activity_{activity_id}.json")
+                print(f"    Would export garmin/activity_{activity_id}.json")
                 continue
 
             detail = fetch_activity_detail(client, activity_id)
             if detail:
                 detail["_generated_at"] = datetime.now(timezone.utc).isoformat()
-                uri = upload_to_gcs(detail, bucket, f"activity_{activity_id}.json")
+                uri = upload_to_gcs(detail, bucket, f"garmin/activity_{activity_id}.json")
                 uris.append(uri)
 
     if not dry_run:
-        print(f"\nExported {len(uris)} files to gs://{bucket}/")
+        print(f"\nExported {len(uris)} files to gs://{bucket}/garmin/")
 
     return uris
 

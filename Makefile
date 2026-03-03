@@ -253,8 +253,14 @@ export-activities-list: ## Export activities list only (no details)
 export-garmin: ## Export Garmin data (activities) - 1x/day
 	uv run python -m src.connectors.exporter.all --scope garmin $(if $(BUCKET),--bucket $(BUCKET),)
 
-export-spotify: ## Export Spotify data (homepage + music) - 6x/day
+export-spotify: ## Export Spotify data (homepage + music + artist focus) - 6x/day
 	uv run python -m src.connectors.exporter.all --scope spotify $(if $(BUCKET),--bucket $(BUCKET),)
+
+export-artist-focus: ## Export artist focus profiles to GCS (usage: make export-artist-focus BUCKET=my-bucket)
+	uv run python -m src.connectors.exporter.artist_focus $(if $(BUCKET),--bucket $(BUCKET),)
+
+export-artist-focus-dry: ## Preview artist focus JSON export (dry-run)
+	uv run python -m src.connectors.exporter.artist_focus --dry-run
 
 # ============================================
 # API

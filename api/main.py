@@ -1,7 +1,7 @@
 # api/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routers import music, homepage, activities
+from api.routers import music, homepage, activities, artist_focus
 
 app = FastAPI(
     title="ELA DataPlatform API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(music.router, prefix="/api/music", tags=["music"])
 app.include_router(homepage.router, prefix="/api/homepage", tags=["homepage"])
 app.include_router(activities.router, prefix="/api/activities", tags=["activities"])
+app.include_router(artist_focus.router, prefix="/api/artist-focus", tags=["artist-focus"])
 
 
 @app.get("/")
@@ -44,6 +45,14 @@ async def root():
             "homepage_top_tracks": "/api/homepage/top-tracks",
             "activities_recent": "/api/activities/recent",
             "activities_list": "/api/activities/list",
+            "artist_focus_list": "/api/artist-focus/artists",
+            "artist_focus_profile": "/api/artist-focus/{artist_id}",
+            "artist_focus_overview": "/api/artist-focus/{artist_id}/overview",
+            "artist_focus_tracks": "/api/artist-focus/{artist_id}/tracks",
+            "artist_focus_albums": "/api/artist-focus/{artist_id}/albums",
+            "artist_focus_calendar": "/api/artist-focus/{artist_id}/calendar",
+            "artist_focus_heatmap": "/api/artist-focus/{artist_id}/heatmap",
+            "artist_focus_evolution": "/api/artist-focus/{artist_id}/evolution",
         },
     }
 
