@@ -117,6 +117,14 @@ WITH all_periods_raw AS (
         dim_albums.albumimageurl
 ),
 
+artist_ids AS (
+    SELECT
+        albumId,
+        ARRAY_AGG(artistId) AS artist_ids
+    FROM {{ ref('hub_music__svc_bridge_tracks_albums') }}
+    GROUP BY albumId
+),
+
 ranked_periods AS (
     SELECT
         albumid,
@@ -140,8 +148,10 @@ SELECT
     play_count,
     albumexternalurl,
     albumimageurl,
-    albumid
+    ranked_periods.albumid,
+    artist_ids.artist_ids
 FROM ranked_periods
+LEFT JOIN artist_ids ON ranked_periods.albumid = artist_ids.albumId
 WHERE period_rank <= IF(period = 'yesterday', 10, 20)
 ORDER BY
     CASE period

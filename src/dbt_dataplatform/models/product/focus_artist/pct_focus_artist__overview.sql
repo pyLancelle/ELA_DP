@@ -1,4 +1,4 @@
-{{ config(materialized='table', tags=['spotify', 'product']) }}
+{{ config(materialized='view', tags=['spotify', 'product']) }}
 
 WITH streak_dates AS (
     SELECT DISTINCT

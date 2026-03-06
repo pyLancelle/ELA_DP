@@ -72,7 +72,7 @@ def fetch_homepage_data(client: bigquery.Client) -> dict:
             ORDER BY rank
         """,
         "top_tracks": f"""
-            SELECT rank, trackname, all_artist_names, total_duration, play_count, trackExternalUrl, albumimageurl, trackid
+            SELECT rank, trackname, all_artist_names, total_duration, play_count, trackExternalUrl, albumimageurl, trackid, artist_ids
             FROM `{PROJECT_ID}.{DATASET}.pct_homepage__top_track`
             ORDER BY rank
         """,

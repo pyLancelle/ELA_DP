@@ -19,6 +19,14 @@ WITH ranking AS (
         dim_tracks.all_artist_names,
         dim_tracks.trackExternalUrl,
         dim_albums.albumimageurl
+),
+
+artist_ids AS (
+    SELECT
+        trackId,
+        ARRAY_AGG(artistId ORDER BY ARTIST_POSITION) AS artist_ids
+    FROM {{ ref('hub_music__svc_bridge_tracks_artists') }}
+    GROUP BY trackId
 )
 
 SELECT
@@ -35,7 +43,9 @@ SELECT
     play_count,
     trackExternalUrl,
     albumimageurl,
-    trackid
+    ranking.trackid,
+    artist_ids.artist_ids
 FROM ranking
+LEFT JOIN artist_ids ON ranking.trackid = artist_ids.trackId
 ORDER BY rank
 LIMIT 10

@@ -1,4 +1,4 @@
-{{ config(materialized='table', tags=['spotify', 'product']) }}
+{{ config(materialized='view', tags=['spotify', 'product']) }}
 
 WITH track_stats AS (
     SELECT

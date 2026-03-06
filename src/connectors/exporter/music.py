@@ -53,7 +53,8 @@ def fetch_top_artists(
             play_count,
             total_duration,
             albumimageurl as image_url,
-            artistexternalurl as external_url
+            artistexternalurl as external_url,
+            artistid
         FROM `{PROJECT_ID}.{DATASET}.pct_classement__top_artist_by_period`
         WHERE period = '{period}'
         ORDER BY rank ASC
@@ -74,7 +75,9 @@ def fetch_top_tracks(
             play_count,
             total_duration,
             albumimageurl as image_url,
-            trackexternalurl as external_url
+            trackexternalurl as external_url,
+            trackid,
+            artist_ids
         FROM `{PROJECT_ID}.{DATASET}.pct_classement__top_track_by_period`
         WHERE period = '{period}'
         ORDER BY rank ASC
@@ -95,7 +98,9 @@ def fetch_top_albums(
             play_count,
             total_duration,
             albumimageurl as image_url,
-            albumexternalurl as external_url
+            albumexternalurl as external_url,
+            albumid,
+            artist_ids
         FROM `{PROJECT_ID}.{DATASET}.pct_classement__top_album_by_period`
         WHERE period = '{period}'
         ORDER BY rank ASC

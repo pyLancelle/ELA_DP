@@ -1,4 +1,4 @@
-{{ config(materialized='table', tags=['spotify', 'product']) }}
+{{ config(materialized='view', tags=['spotify', 'product']) }}
 
 WITH album_plays AS (
     SELECT
